@@ -194,6 +194,9 @@
         </div>
         <div style="text-align:center;color:var(--muted);font-size:13px;">正确率 <b id="resRate">0%</b> · 用时 <b id="resTime">0分0秒</b></div>
         <div class="btn-row">
+          <button class="btn secondary" id="backToQuizBtn">返回本次练习（继续查看/作答）</button>
+        </div>
+        <div class="btn-row">
           <button class="btn" id="retryAllBtn">重新练习（同范围）</button>
           <button class="btn secondary" id="retryWrongBtn">只练本次错题</button>
         </div>
@@ -365,7 +368,9 @@ function isCorrect(userInput, acceptStr){
   for(const opt of options){
     const o = normalize(opt);
     if(u===o) return true;
-    if(o.length>=2 && (u.includes(o) || o.includes(u))) return true;
+    // 只允许"用户答案包含完整正确答案"（容忍多写了无关字），
+    // 不允许反向（正确答案包含用户答案）——否则用户答了不完整/截断的内容也会被判对
+    if(o.length>=2 && u.includes(o)) return true;
   }
   return false;
 }
@@ -480,8 +485,7 @@ function renderQuestion(){
     });
     showAnswerBox(q, saved.allCorrect);
     document.getElementById("checkBtn").style.display="none";
-    document.getElementById("nextBtn").style.display="inline-block";
-    document.getElementById("nextBtn").textContent = session.idx===session.queue.length-1 ? "查看结果" : "下一题";
+    updateNextBtn();
   } else {
     inputs.forEach((inp,i)=>{
       inp.addEventListener("keydown",(e)=>{
@@ -492,10 +496,17 @@ function renderQuestion(){
       });
     });
     document.getElementById("checkBtn").style.display="inline-block";
-    document.getElementById("nextBtn").style.display="inline-block";
-    document.getElementById("nextBtn").textContent = session.idx===session.queue.length-1 ? "查看结果" : "下一题";
+    updateNextBtn();
     if(inputs[0]) inputs[0].focus();
   }
+}
+
+function updateNextBtn(){
+  const nextBtnEl = document.getElementById("nextBtn");
+  const isLast = session.idx === session.queue.length-1;
+  nextBtnEl.style.display = "inline-block";
+  nextBtnEl.textContent = isLast ? "已是最后一题" : "下一题";
+  nextBtnEl.disabled = isLast;
 }
 
 function showAnswerBox(q, allCorrect){
@@ -531,8 +542,7 @@ document.getElementById("checkBtn").onclick=()=>{
   saveJSON(LS_WRONGBOOK, wrongbook);
 
   document.getElementById("checkBtn").style.display="none";
-  document.getElementById("nextBtn").style.display="inline-block";
-  document.getElementById("nextBtn").textContent = session.idx===session.queue.length-1 ? "查看结果" : "下一题";
+  updateNextBtn();
   const stats = sessionStats();
   document.getElementById("quizScoreText").textContent = `对${stats.correct} 错${stats.wrong}`;
 };
@@ -544,8 +554,6 @@ document.getElementById("nextBtn").onclick=()=>{
   if(session.idx < session.queue.length-1){
     session.idx++;
     renderQuestion();
-  } else {
-    finishQuiz();
   }
 };
 
@@ -602,6 +610,10 @@ function finishQuiz(){
   showScreen("result");
 }
 
+document.getElementById("backToQuizBtn").onclick=()=>{
+  showScreen("quiz");
+  renderQuestion();
+};
 document.getElementById("retryAllBtn").onclick=()=>{
   startQuiz(session.queue, session.scopeLabel);
 };
