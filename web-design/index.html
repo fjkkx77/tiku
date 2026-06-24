@@ -56,9 +56,13 @@
   .answer-box .my-ans{font-weight:bold;}
   .answer-box .my-ans.wrong-color{color:var(--red);}
   .answer-box .correct-ans{color:var(--green);font-weight:bold;}
-  .blank-input{border:none;border-bottom:2px solid var(--primary);background:#f8fafc;padding:3px 6px;font-size:14.5px;min-width:90px;text-align:center;border-radius:4px;margin:2px;font-family:Consolas,monospace;}
+  .blank-input{-webkit-appearance:none;appearance:none;border:none;border-bottom:2px solid var(--primary);background:#f8fafc;padding:3px 6px;font-size:14.5px;min-width:90px;text-align:center;border-radius:4px;margin:2px;font-family:Consolas,monospace;color:var(--text);}
   .blank-input.correct{border-bottom-color:var(--green);background:#ecfdf3;color:var(--green);}
   .blank-input.wrong{border-bottom-color:var(--red);background:#fef2f2;color:var(--red);}
+  /* iOS Safari会强制改变disabled输入框的颜色和透明度，必须用-webkit-text-fill-color覆盖，否则手机上看不出方框和颜色 */
+  .blank-input:disabled{opacity:1;-webkit-text-fill-color:var(--text);background:#f8fafc;}
+  .blank-input.correct:disabled{-webkit-text-fill-color:var(--green);background:#ecfdf3;border-bottom-color:var(--green);}
+  .blank-input.wrong:disabled{-webkit-text-fill-color:var(--red);background:#fef2f2;border-bottom-color:var(--red);}
   .blank-row{margin:6px 0;font-size:13px;color:var(--muted);}
   .blank-row b{color:var(--text);font-weight:normal;}
   .answer-box{margin-top:10px;font-size:14px;padding:10px;border-radius:8px;display:none;}
