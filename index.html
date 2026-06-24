@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>刷题合集</title>
+<style>
+  :root{ --primary:#3b82f6; --primary-dark:#2563eb; --bg:#f3f4f6; --text:#1f2937; --muted:#6b7280; --border:#e5e7eb; }
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:"Microsoft YaHei",Segoe UI,Arial,sans-serif;background:var(--bg);color:var(--text);}
+  .app{max-width:760px;margin:0 auto;min-height:100vh;padding:0 14px;}
+  header{background:linear-gradient(135deg,var(--primary),var(--primary-dark));color:#fff;padding:28px 16px;text-align:center;margin:0 -14px 16px;border-radius:0 0 16px 16px;}
+  header h1{margin:0;font-size:22px;}
+  header p{margin:6px 0 0;font-size:13px;opacity:.85;}
+  .list{display:flex;flex-direction:column;gap:12px;}
+  .item{display:block;background:#fff;border-radius:10px;padding:16px;box-shadow:0 1px 3px rgba(0,0,0,.08);text-decoration:none;color:var(--text);}
+  .item .name{font-size:17px;font-weight:bold;margin-bottom:4px;}
+  .item .desc{font-size:13px;color:var(--muted);}
+  .empty-note{font-size:12px;color:var(--muted);text-align:center;margin-top:24px;}
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <h1>刷题合集</h1>
+    <p>各科目练习题网站入口 · 持续更新</p>
+  </header>
+  <div class="list">
+    <a class="item" href="./web-design/">
+      <div class="name">WEB程序设计</div>
+      <div class="desc">单选+填空混合，90题 · 错题本 / 练习记录 / 题目总览</div>
+    </a>
+    <a class="item" href="./os/">
+      <div class="name">操作系统</div>
+      <div class="desc">填空题，85题 · 错题本 / 练习记录 / 题目总览</div>
+    </a>
+  </div>
+  <div class="empty-note">以后新增科目会持续加在这里</div>
+</div>
+</body>
+</html>

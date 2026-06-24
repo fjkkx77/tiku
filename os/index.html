@@ -1,0 +1,703 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>操作系统填空题练习</title>
+<style>
+  :root{
+    --primary:#3b82f6; --primary-dark:#2563eb; --green:#16a34a; --red:#dc2626;
+    --bg:#f3f4f6; --card:#ffffff; --text:#1f2937; --muted:#6b7280; --border:#e5e7eb;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:"Microsoft YaHei",Segoe UI,Arial,sans-serif;background:var(--bg);color:var(--text);}
+  .app{max-width:760px;margin:0 auto;min-height:100vh;background:var(--bg);display:flex;flex-direction:column;}
+  .topbar{position:sticky;top:0;z-index:10;}
+  header{background:linear-gradient(135deg,var(--primary),var(--primary-dark));color:#fff;padding:18px 16px;text-align:center;}
+  header h1{margin:0;font-size:19px;word-break:break-word;}
+  header p{margin:4px 0 0;font-size:12px;opacity:.85;}
+  nav{display:flex;background:#fff;border-bottom:1px solid var(--border);}
+  nav button{flex:1;border:none;background:none;padding:11px 4px;font-size:14px;color:var(--muted);cursor:pointer;border-bottom:3px solid transparent;}
+  nav button.active{color:var(--primary-dark);font-weight:bold;border-bottom-color:var(--primary);}
+  main{flex:1;padding:14px;}
+  .screen{display:none;}
+  .screen.active{display:block;}
+  .card{background:var(--card);border-radius:10px;padding:16px;margin-bottom:12px;box-shadow:0 1px 3px rgba(0,0,0,.08);}
+  .cat-list label{display:flex;align-items:center;gap:8px;padding:9px 4px;border-bottom:1px solid var(--border);font-size:14px;}
+  .cat-list label:last-child{border-bottom:none;}
+  .cat-count{color:var(--muted);font-size:12px;margin-left:auto;}
+  .btn{display:inline-block;border:none;border-radius:8px;padding:11px 18px;font-size:15px;cursor:pointer;background:var(--primary);color:#fff;text-align:center;}
+  .btn:active{transform:scale(.98);}
+  .btn.secondary{background:#fff;color:var(--primary-dark);border:1px solid var(--primary);}
+  .btn.green{background:var(--green);}
+  .btn.gray{background:#9ca3af;}
+  .btn:disabled{opacity:.4;cursor:not-allowed;}
+  .btn-row{display:flex;gap:10px;margin-top:14px;flex-wrap:wrap;}
+  .btn-row .btn{flex:1;}
+  .mode-row{display:flex;gap:10px;margin:10px 0;}
+  .mode-row label{flex:1;border:1px solid var(--border);border-radius:8px;padding:8px;text-align:center;font-size:13px;cursor:pointer;}
+  .mode-row input{margin-right:4px;}
+  select-all{display:flex;justify-content:space-between;margin-bottom:8px;font-size:13px;color:var(--primary-dark);}
+  .toplinks{display:flex;justify-content:space-between;margin-bottom:8px;font-size:13px;}
+  .toplinks span{color:var(--primary-dark);cursor:pointer;}
+  .progress-wrap{display:flex;align-items:center;gap:10px;margin-bottom:10px;font-size:13px;color:var(--muted);}
+  .progress-bar{flex:1;height:7px;background:var(--border);border-radius:4px;overflow:hidden;}
+  .progress-bar-fill{height:100%;background:var(--primary);transition:width .25s;}
+  .q-tag{display:inline-block;background:#eef2ff;color:var(--primary-dark);font-size:12px;padding:2px 8px;border-radius:10px;margin-bottom:8px;}
+  .q-text{font-size:16px;line-height:1.8;margin-bottom:14px;overflow-x:auto;word-break:break-word;}
+  .blank-input{border:none;border-bottom:2px solid var(--primary);background:#f8fafc;padding:3px 6px;font-size:15px;min-width:80px;text-align:center;border-radius:4px;margin:0 2px;}
+  .blank-input.correct{border-bottom-color:var(--green);background:#ecfdf3;color:var(--green);}
+  .blank-input.wrong{border-bottom-color:var(--red);background:#fef2f2;color:var(--red);}
+  .answer-box{margin-top:10px;font-size:14px;padding:10px;border-radius:8px;display:none;}
+  .answer-box.show{display:block;}
+  .answer-box.right{background:#ecfdf3;color:#15803d;}
+  .answer-box.wrong{background:#fef2f2;color:#b91c1c;}
+  .answer-box .real{font-weight:bold;}
+  footer.qfoot{display:flex;gap:10px;margin-top:14px;}
+  footer.qfoot .btn{flex:1;}
+  .stat-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;text-align:center;margin:10px 0;}
+  .stat-grid div b{display:block;font-size:22px;}
+  .stat-grid div span{font-size:12px;color:var(--muted);}
+  .stat-click{cursor:pointer;border-radius:8px;padding:6px 2px;transition:background .15s;}
+  .stat-click:hover{background:#f3f4f6;}
+  .review-item{border-bottom:1px solid var(--border);padding:12px 0;font-size:14px;}
+  .review-item:last-child{border-bottom:none;}
+  .review-item .qtext{margin-bottom:6px;line-height:1.6;}
+  .review-item .your-ans{font-size:13px;margin-bottom:2px;}
+  .review-item .correct-ans-line{font-size:13px;color:var(--green);}
+  .history-item, .wrong-item{border-bottom:1px solid var(--border);padding:10px 0;font-size:14px;}
+  .history-item:last-child, .wrong-item:last-child{border-bottom:none;}
+  .history-item .top, .wrong-item .top{display:flex;justify-content:space-between;color:var(--muted);font-size:12px;margin-bottom:4px;}
+  .empty{text-align:center;color:var(--muted);padding:40px 0;font-size:14px;}
+  .wrong-item .qtext{margin-bottom:4px;}
+  .wrong-item .ans{color:var(--green);font-size:13px;}
+  .badge-cnt{background:#fee2e2;color:#b91c1c;border-radius:10px;font-size:11px;padding:1px 7px;}
+  .ov-link{font-size:13px;color:var(--primary-dark);cursor:pointer;white-space:nowrap;}
+  .ov-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;}
+  .ov-item{position:relative;aspect-ratio:1;border-radius:8px;border:1.5px solid var(--primary);display:flex;align-items:center;justify-content:center;font-size:14px;cursor:pointer;color:var(--primary-dark);background:#fff;}
+  .ov-item.cur{background:var(--primary);color:#fff;border-color:var(--primary);}
+  .ov-item.right{background:#ecfdf3;border-color:var(--green);color:#15803d;}
+  .ov-item.wrong{background:#fef2f2;border-color:var(--red);color:#b91c1c;}
+  .ov-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:49;display:none;}
+  .ov-backdrop.show{display:block;}
+  #screen-overview.active{
+    display:block;position:fixed;top:0;right:0;height:100vh;width:320px;max-width:88vw;
+    background:#fff;z-index:50;overflow-y:auto;box-shadow:-6px 0 20px rgba(0,0,0,.18);
+    padding:16px;animation:ovSlideIn .18s ease;
+  }
+  @keyframes ovSlideIn{from{transform:translateX(100%);}to{transform:translateX(0);}}
+  .ov-header-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;}
+  .ov-header-row .ov-close{cursor:pointer;color:var(--muted);font-size:20px;line-height:1;padding:0 4px;}
+  .ov-legend{display:flex;gap:14px;font-size:12px;color:var(--muted);margin-bottom:12px;flex-wrap:wrap;}
+  .ov-legend span{display:inline-flex;align-items:center;gap:5px;}
+  .ov-dot{width:11px;height:11px;border-radius:3px;display:inline-block;border:1.5px solid var(--primary);}
+  .ov-dot.right{background:#ecfdf3;border-color:var(--green);}
+  .ov-dot.wrong{background:#fef2f2;border-color:var(--red);}
+  .ov-dot.cur{background:var(--primary);border-color:var(--primary);}
+  @media (max-width:380px){
+    .ov-grid{grid-template-columns:repeat(4,1fr);}
+    .blank-input{min-width:64px;font-size:14px;}
+    header h1{font-size:17px;}
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="topbar">
+  <header>
+    <h1>操作系统填空题练习</h1>
+    <p>仿考试宝 · 错题本 · 练习记录</p>
+  </header>
+  <nav>
+    <button data-screen="home" class="active">开始练习</button>
+    <button data-screen="wrongbook">错题本</button>
+    <button data-screen="history">练习记录</button>
+  </nav>
+  </div>
+  <main>
+
+    <!-- 首页：选择章节与模式 -->
+    <section class="screen active" id="screen-home">
+      <div class="card">
+        <div class="toplinks">
+          <span id="selAll">全选</span>
+          <span id="selNone">清空</span>
+          <span id="selWrongOnly">仅选有错题章节</span>
+        </div>
+        <div class="cat-list" id="catList"></div>
+      </div>
+      <div class="card">
+        <div style="font-size:14px;font-weight:bold;margin-bottom:6px;">出题方式</div>
+        <div class="mode-row">
+          <label><input type="radio" name="order" value="random" checked>随机顺序</label>
+          <label><input type="radio" name="order" value="seq">原始顺序</label>
+        </div>
+        <div class="btn-row">
+          <button class="btn" id="startBtn">开始练习</button>
+        </div>
+      </div>
+      <div class="card" style="font-size:12px;color:var(--muted);text-align:center;">
+        题库共 <b id="totalQCount">0</b> 题（已合并两份资料并去重）
+      </div>
+    </section>
+
+    <!-- 答题页 -->
+    <section class="screen" id="screen-quiz">
+      <div class="progress-wrap">
+        <span id="quizProgressText">1/10</span>
+        <div class="progress-bar"><div class="progress-bar-fill" id="quizProgressFill"></div></div>
+        <span id="quizScoreText">对0 错0</span>
+        <span class="ov-link" id="overviewLink">题目总览</span>
+      </div>
+      <div class="card">
+        <div class="q-tag" id="qTag"></div>
+        <div class="q-text" id="qText"></div>
+        <div class="answer-box" id="answerBox"></div>
+        <footer class="qfoot">
+          <button class="btn secondary" id="prevBtn">上一题</button>
+          <button class="btn secondary" id="checkBtn">提交答案</button>
+          <button class="btn" id="nextBtn" style="display:none;">下一题</button>
+        </footer>
+      </div>
+      <div class="btn-row">
+        <button class="btn gray" id="quitQuizBtn">结束并查看结果</button>
+      </div>
+    </section>
+
+    <!-- 题目总览 -->
+    <div class="ov-backdrop" id="ovBackdrop"></div>
+    <section class="screen" id="screen-overview">
+      <div class="ov-header-row">
+        <div style="font-size:16px;font-weight:bold;">题目总览</div>
+        <span class="ov-close" id="ovCloseBtn">&times;</span>
+      </div>
+      <div class="ov-legend">
+        <span><span class="ov-dot cur"></span>当前</span>
+        <span><span class="ov-dot right"></span>已答对</span>
+        <span><span class="ov-dot wrong"></span>已答错</span>
+        <span><span class="ov-dot"></span>未作答</span>
+      </div>
+      <div class="ov-grid" id="ovGrid"></div>
+      <div class="btn-row">
+        <button class="btn gray" id="ovBackBtn">返回答题</button>
+      </div>
+    </section>
+
+    <!-- 结果页 -->
+    <section class="screen" id="screen-result">
+      <div class="card">
+        <div style="text-align:center;font-size:16px;font-weight:bold;">本次练习结果</div>
+        <div class="stat-grid">
+          <div><b id="resTotal">0</b><span>总题数</span></div>
+          <div class="stat-click" id="resCorrectBox"><b id="resCorrect" style="color:var(--green)">0</b><span>答对（点击查看）</span></div>
+          <div class="stat-click" id="resWrongBox"><b id="resWrong" style="color:var(--red)">0</b><span>答错（点击查看）</span></div>
+        </div>
+        <div style="text-align:center;color:var(--muted);font-size:13px;">正确率 <b id="resRate">0%</b> · 用时 <b id="resTime">0分0秒</b></div>
+        <div class="btn-row">
+          <button class="btn" id="retryAllBtn">重新练习（同范围）</button>
+          <button class="btn secondary" id="retryWrongBtn">只练本次错题</button>
+        </div>
+        <div class="btn-row">
+          <button class="btn gray" id="backHomeBtn">返回首页</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- 答对/答错题目明细 -->
+    <section class="screen" id="screen-resultlist">
+      <div class="card">
+        <div style="font-size:16px;font-weight:bold;margin-bottom:10px;" id="resultListTitle"></div>
+        <div id="resultListBody"></div>
+      </div>
+      <div class="btn-row">
+        <button class="btn gray" id="resultListBackBtn">返回结果</button>
+      </div>
+    </section>
+
+    <!-- 错题本 -->
+    <section class="screen" id="screen-wrongbook">
+      <div class="card" id="wrongbookSummary"></div>
+      <div class="card" id="wrongbookList"></div>
+    </section>
+
+    <!-- 历史记录 -->
+    <section class="screen" id="screen-history">
+      <div class="card" id="historyList"></div>
+      <div class="card" style="text-align:center;">
+        <button class="btn gray" id="clearHistoryBtn">清空历史记录</button>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<script>
+/* ===================== 题库数据 ===================== */
+// 每题：id, cat(章节), text(用 {{}} 标记空), ans(数组，每个空可有多个可接受答案，用|分隔)
+const QUESTIONS = [
+// 一、操作系统引论
+{cat:"操作系统引论", text:"操作系统的特征是：{{}}、{{}}、{{}}和{{}}。", ans:["并发性|并发","共享性|共享","异步性|异步","虚拟性|虚拟"]},
+{cat:"操作系统引论", text:"操作系统是一种管理计算机软硬件资源的{{}}。", ans:["系统软件"]},
+{cat:"操作系统引论", text:"计算机系统资源是由{{}}和{{}}两部分组成。", ans:["硬件资源","软件资源"]},
+{cat:"操作系统引论", text:"{{}}是指用户在一个事务处理过程中要求计算机系统所做工作的集合。", ans:["作业"]},
+{cat:"操作系统引论", text:"{{}}是操作系统内核和用户程序之间的接口。", ans:["系统调用"]},
+{cat:"操作系统引论", text:"用户程序使用{{}}请求操作系统服务。", ans:["系统调用"]},
+{cat:"操作系统引论", text:"传统操作系统提供的第一代用户界面接口是{{}}和系统调用。", ans:["命令"]},
+{cat:"操作系统引论", text:"从人机交互的角度看，操作系统是用户与计算机之间的{{}}。", ans:["接口"]},
+{cat:"操作系统引论", text:"如果一个能够在已有系统上运行的程序也可以在新系统上运行，则说明新系统与已有系统具有{{}}。", ans:["兼容性"]},
+{cat:"操作系统引论", text:"当一个进程独占处理器顺序执行时，只要初始条件相同，那么不管重复执行多少次都必定获得同样的结果，则称该进程具有{{}}性。", ans:["可再现"]},
+{cat:"操作系统引论", text:"操作系统的五大功能是：进程管理、{{}}、文件管理、设备管理和{{}}。", ans:["存储管理","作业管理"]},
+
+// 二、中断与系统调用
+{cat:"中断与系统调用", text:"发现中断源并产生中断的硬件称{{}}，这些硬件包括中断逻辑线路和中断寄存器。", ans:["中断装置"]},
+{cat:"中断与系统调用", text:"能引起中断产生的事件被称为{{}}。", ans:["中断源"]},
+{cat:"中断与系统调用", text:"一个存放中断处理程序入口地址和程序运行所需处理机状态字的内存单元称为{{}}。", ans:["中断向量"]},
+{cat:"中断与系统调用", text:"操作系统的五大功能之中，与硬件关系最为密切的是{{}}管理。", ans:["设备"]},
+{cat:"中断与系统调用", text:"中断处理的一般过程是：{{}}现场→分析中断原因→转相应处理程序→{{}}现场→中断返回。", ans:["保护","恢复"]},
+
+// 三、进程管理
+{cat:"进程管理", text:"程序的并发执行是现代操作系统的基本特征之一，为了更好地描述这一特征而引入了{{}}这一概念。", ans:["进程"]},
+{cat:"进程管理", text:"{{}}是进程的执行体。", ans:["线程"]},
+{cat:"进程管理", text:"进程是可并发执行的程序在一个数据集合上的{{}}。", ans:["运行过程"]},
+{cat:"进程管理", text:"在单CPU系统中有n（n>1）个进程，在任一时刻处于就绪状态的进程最多是{{}}个。", ans:["n-1"]},
+{cat:"进程管理", text:"在单CPU系统中有n（n>1）个进程，在任一时刻处于等待的进程最少是{{}}个，最多是{{}}个。", ans:["0","n"]},
+{cat:"进程管理", text:"一作业8:00到达系统，估计运行时间为1小时，若10:00开始执行该作业，其响应比是{{}}。", ans:["3"]},
+{cat:"进程管理", text:"为了防止进程对系统资源的无序竞争，所有设备必须由{{}}统一分配。", ans:["系统"]},
+{cat:"进程管理", text:"在响应比最高者优先的作业调度算法中，当各个作业要求运行的时间相同时，{{}}的作业得到优先调度。", ans:["等待时间长"]},
+{cat:"进程管理", text:"进程控制块PCB是进程的{{}}标识。", ans:["唯一"]},
+{cat:"进程管理", text:"进程的基本状态有运行、{{}}和阻塞（等待）三种。", ans:["就绪"]},
+
+// 四、进程同步与死锁
+{cat:"进程同步与死锁", text:"两个进程合作完成一个任务，在并发执行中，一个进程要等待其合作伙伴发来消息，或者建立某个条件后再向前执行，这种方式称为{{}}。", ans:["同步"]},
+{cat:"进程同步与死锁", text:"进程同步的概念来源于多个进程的{{}}。", ans:["合作"]},
+{cat:"进程同步与死锁", text:"进程互斥的概念来自于诸进程对独占使用资源的{{}}。", ans:["竞争"]},
+{cat:"进程同步与死锁", text:"{{}}是指多个进程因竞争资源而造成的一种僵持不前的状态。", ans:["死锁"]},
+{cat:"进程同步与死锁", text:"对信号量S的V操作实质就是对S执行{{}}操作。", ans:["加1"]},
+{cat:"进程同步与死锁", text:"对信号量S的P操作实质就是对S执行减1操作；使进程进入相应等待队列等待的条件是{{}}。", ans:["S<0"]},
+{cat:"进程同步与死锁", text:"对信号量S的V操作后，能唤醒进程使用资源的条件是{{}}。", ans:["S<=0"]},
+{cat:"进程同步与死锁", text:"并发进程执行时可能会出现结果不唯一的现象，把这种现象称为{{}}。", ans:["与时间有关错误"]},
+{cat:"进程同步与死锁", text:"就整个计算机系统的全部资源来讲，死锁的处理要采用综合的方法。对于辅存资源采用的方法是{{}}。", ans:["预分配法"]},
+{cat:"进程同步与死锁", text:"死锁产生的四个必要条件是：互斥条件、{{}}条件、不剥夺条件和{{}}条件。", ans:["请求和保持","循环等待"]},
+{cat:"进程同步与死锁", text:"一次只允许一个进程使用的资源叫{{}}资源，访问该资源的那段代码叫{{}}区。", ans:["临界","临界"]},
+
+// 五、存储管理
+{cat:"存储管理", text:"单用户连续存储管理方式下，也可利用{{}}技术让多个用户的作业轮流进入主存储器执行。", ans:["对换"]},
+{cat:"存储管理", text:"MS-DOS的存贮管理采用了{{}}方式。", ans:["单连续存储管理|单连续存储"]},
+{cat:"存储管理", text:"单连续存储管理系统是采用{{}}方式进行地址转换的。", ans:["静态重定位"]},
+{cat:"存储管理", text:"虚拟存储器的最大容量取决于{{}}。", ans:["主存与辅存的容量之和"]},
+{cat:"存储管理", text:"把逻辑地址转换为绝对地址的过程称为{{}}。", ans:["重定位"]},
+{cat:"存储管理", text:"系统“抖动”现象的发生是由{{}}引起的。", ans:["置换算法选择不当"]},
+{cat:"存储管理", text:"不能实现多道程序设计的存储管理方式是{{}}方式。", ans:["单连续存储管理|单连续存储"]},
+{cat:"存储管理", text:"可变分区存储管理的主存分配算法中，分配的空闲块与装入作业尺寸最接近的是{{}}算法。", ans:["最佳适应|最优分配"]},
+{cat:"存储管理", text:"页式存储管理和段式存储管理系统中，每执行一条指令，则需要访问{{}}次主存。段页式存储管理系统中，每执行一条指令，则需要访问{{}}次主存。", ans:["2","3"]},
+{cat:"存储管理", text:"分页虚拟存储管理常用的页面置换算法有OPT（最佳）、{{}}（先进先出）和{{}}（最近最少使用）。", ans:["FIFO","LRU"]},
+
+// 六、设备管理
+{cat:"设备管理", text:"I/O设备的控制方式有多种，而在实时系统中必须采用的I/O控制方式为{{}}方式。", ans:["直接控制|直接（程序）控制|程序直接控制"]},
+{cat:"设备管理", text:"作业执行中，不必直接启动独占设备输出数据，而只需将作业输出数据写入磁盘或磁鼓(输出井)，在作业执行完毕后，由操作系统来组织信息输出，称为{{}}。", ans:["缓输出"]},
+{cat:"设备管理", text:"在磁盘上确定分块所在的位置必须给出的参数依次是{{}}、{{}}、{{}}。", ans:["柱面号","扇区号","磁头号"]},
+{cat:"设备管理", text:"按资源分配分，设备类型分为以下三类：{{}}、共享设备和{{}}。", ans:["独占设备","虚拟设备"]},
+{cat:"设备管理", text:"在主存中开辟的一个暂时存放数据的单元称为{{}}。", ans:["缓冲区"]},
+{cat:"设备管理", text:"引入了SPOOLING技术后，低速的{{}}就改变成了一种可共享的设备。", ans:["独占设备"]},
+{cat:"设备管理", text:"磁盘是典型的{{}}设备。", ans:["直接存储|直接存取"]},
+{cat:"设备管理", text:"虚拟设备是通过{{}}技术把独占设备变成能为若干用户共享的设备。", ans:["SPOOLING"]},
+{cat:"设备管理", text:"I/O设备通常包含一个机械部件和一个{{}}部件。", ans:["电子"]},
+{cat:"设备管理", text:"实现SPOOL系统时必须在磁盘上辟出称为{{}}和{{}}的专门区域，以存放作业信息和作业执行结果。", ans:["输入井","输出井"]},
+{cat:"设备管理", text:"主存储器与外围设备之间的信息传送操作称为{{}}。", ans:["输入输出操作"]},
+{cat:"设备管理", text:"系统与设备间的协调主要是速度的协调，在操作系统中采用{{}}技术来缓解快速CPU与慢速I/O设备的矛盾。", ans:["缓冲"]},
+{cat:"设备管理", text:"通道又称{{}}，是一个独立于CPU的专门负责I/O的处理器。", ans:["输入输出处理器"]},
+
+// 七、文件管理
+{cat:"文件管理", text:"文件系统通过文件名对文件进行访问，对文件的管理是通过{{}}功能实现的。", ans:["文件目录"]},
+{cat:"文件管理", text:"{{}}实现的是用户级线程，不能实现线程调度。", ans:["多线库|多线库法"]},
+{cat:"文件管理", text:"{{}}，至今它仍然是使用最为广泛的加密方法。", ans:["单密钥加密|对称加密|单钥加密"]},
+{cat:"文件管理", text:"按照文件的按存放时限分时，可以将文件分为：{{}}、永久文件和档案文件。", ans:["临时文件"]},
+{cat:"文件管理", text:"存放在磁盘上的文件通常是现阶段需要不断进行修改完善的文件，因此存储在磁盘上的文件一般不采用{{}}结构。", ans:["顺序存储"]},
+{cat:"文件管理", text:"两种典型实现多线程的方法为{{}}和{{}}。", ans:["多线库方法|多线库法","核心方法|核心法"]},
+{cat:"文件管理", text:"从文件的逻辑结构来看，文件可分为{{}}文件和记录式文件两类。", ans:["流式"]},
+{cat:"文件管理", text:"{{}}是线程的唯一标识。", ans:["TCB|线程控制块"]},
+{cat:"文件管理", text:"{{}}是指一组互联的计算机，它们作为统一的一个计算资源一起发挥作用，给客户是一台机器的感觉。", ans:["集群系统"]},
+{cat:"文件管理", text:"计算机由多个中央处理机组成，它们共享主存，并且每个处理机都可以响应中断，具有完全的对称结构，称为{{}}。", ans:["对称多处理系统|对称多处理机"]},
+{cat:"文件管理", text:"一个文件的绝对路径名是从{{}}开始，逐步沿着每一级子目录向下追溯，最后到指定文件的整个通路上所有子目录名组成的一个字符串。", ans:["根目录"]},
+{cat:"文件管理", text:"按照文件的用途对文件进行分类时，可以将文件分为：{{}}、库文件和用户文件。", ans:["系统文件"]},
+{cat:"文件管理", text:"用户调用{{}}和{{}}文件操作来申请对文件的使用权。", ans:["建立","打开"]},
+{cat:"文件管理", text:"文件的物理结构可分为顺序文件、{{}}文件和索引文件。", ans:["链接|连接"]},
+
+// 八、多处理机与系统安全
+{cat:"多处理机与系统安全", text:"系统的安全问题主要来源于入侵与{{}}两种方式。", ans:["病毒"]},
+{cat:"多处理机与系统安全", text:"数据安全的底层基础技术是{{}}。", ans:["加解密技术|加密解密技术"]},
+{cat:"多处理机与系统安全", text:"Flynn分类法将计算机分为SISD、SIMD、MISD和{{}}四类。", ans:["MIMD"]},
+{cat:"多处理机与系统安全", text:"入侵检测的方法主要有统计异常检测和{{}}的检测。", ans:["基于规则"]},
+
+// 九、计算题精选
+{cat:"计算题精选", text:"现有一段式存储管理系统，段表存放在内存中，对内存的一次存取需2.5毫秒。设一快表，平均命中率为85%，快表查找时间为0.5毫秒，则一次等效访问时间为{{}}毫秒。", ans:["3.375"]},
+{cat:"计算题精选", text:"一个使用CPU较多的进程需要执行50s，第一队列时间片为5，较低一级时间片是上一级的2倍，则该作业会被中断{{}}次，终止时处于第{{}}级队列。", ans:["3","4"]},
+{cat:"计算题精选", text:"假设某机器指令地址部分为24位，其中8位表示段号，16位表示段内相对地址，则最多允许{{}}个段，最大的段为{{}}。", ans:["256","64KB"]},
+{cat:"计算题精选", text:"某进程的页号访问序列为2、3、2、1、5、2、4、5、3、2、5、2，物理块数为3，采用FIFO算法置换时缺页{{}}次；采用LRU算法置换时缺页{{}}次。", ans:["9","7"]},
+{cat:"计算题精选", text:"某页(段)式管理系统访问主存时间为750ns，搜索快表时间为50ns，命中率为85%，则一次等效访问时间为{{}}ns。", ans:["912.5"]},
+{cat:"计算题精选", text:"系统有三个进程P、Q、R，共享一类资源共10个，已占用P=4、Q=2、R=2，还需要P=4、Q=2、R=7。按银行家算法可得到的安全序列是{{}}。", ans:["Q→P→R|QPR|Q,P,R"]},
+{cat:"计算题精选", text:"设有一分页管理系统，逻辑地址空间最大为16页，每页2048字节，内存共8个块，则逻辑地址至少应为{{}}位，绝对地址应为{{}}位，内存空间共有{{}}。", ans:["15","14","16K"]},
+];
+
+QUESTIONS.forEach((q,i)=>q.id="q"+i);
+const CATS = [...new Set(QUESTIONS.map(q=>q.cat))];
+
+/* ===================== 本地存储 ===================== */
+const LS_HISTORY="osquiz_history", LS_WRONGBOOK="osquiz_wrongbook";
+function loadJSON(key,def){ try{ return JSON.parse(localStorage.getItem(key)) || def; }catch(e){ return def; } }
+function saveJSON(key,val){ localStorage.setItem(key, JSON.stringify(val)); }
+let history = loadJSON(LS_HISTORY, []);
+let wrongbook = loadJSON(LS_WRONGBOOK, {}); // id -> {cat,text,ans,wrongCount,lastWrongAt}
+
+/* ===================== 工具函数 ===================== */
+function normalize(s){
+  return (s||"").trim().toLowerCase()
+    .replace(/[\s，,。.；;：:、]/g,"")
+    .replace(/性$/,"")
+    .replace(/方式$/,"")
+    .replace(/技术$/,"")
+    .replace(/管理$/,"");
+}
+function isCorrect(userInput, acceptStr){
+  const options = acceptStr.split("|");
+  const u = normalize(userInput);
+  if(!u) return false;
+  for(const opt of options){
+    const o = normalize(opt);
+    if(u===o) return true;
+    if(o.length>=2 && (u.includes(o) || o.includes(u))) return true;
+  }
+  return false;
+}
+// 多空时不限定顺序：只要整体答案集合对应得上即可
+function gradeBlanksSet(userInputs, expectedList){
+  const n = expectedList.length;
+  const used = new Array(n).fill(false);
+  const assignment = new Array(n).fill(-1);
+  for(let i=0;i<userInputs.length;i++){
+    for(let j=0;j<n;j++){
+      if(!used[j] && isCorrect(userInputs[i], expectedList[j])){ used[j]=true; assignment[i]=j; break; }
+    }
+  }
+  const allCorrect = assignment.every(a=>a!==-1);
+  return {allCorrect, assignment};
+}
+function fmtTime(sec){
+  const m=Math.floor(sec/60), s=sec%60;
+  return m+"分"+s+"秒";
+}
+function fmtDate(ts){
+  const d=new Date(ts);
+  return `${d.getMonth()+1}/${d.getDate()} ${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`;
+}
+
+/* ===================== 屏幕切换 ===================== */
+function showScreen(name){
+  document.querySelectorAll(".screen").forEach(s=>s.classList.remove("active"));
+  document.getElementById("ovBackdrop").classList.remove("show");
+  document.getElementById("screen-"+name).classList.add("active");
+  document.querySelectorAll("nav button").forEach(b=>b.classList.remove("active"));
+  const navBtn = document.querySelector(`nav button[data-screen="${name}"]`);
+  if(navBtn) navBtn.classList.add("active");
+  if(name==="wrongbook") renderWrongbook();
+  if(name==="history") renderHistory();
+}
+document.querySelectorAll("nav button").forEach(b=>{
+  b.addEventListener("click", ()=>showScreen(b.dataset.screen));
+});
+
+/* ===================== 首页：章节选择 ===================== */
+function renderCatList(){
+  const wb = wrongbook;
+  const wrongCatSet = new Set(Object.values(wb).map(w=>w.cat));
+  const list = document.getElementById("catList");
+  list.innerHTML = CATS.map(cat=>{
+    const cnt = QUESTIONS.filter(q=>q.cat===cat).length;
+    const wcnt = Object.values(wb).filter(w=>w.cat===cat).length;
+    return `<label>
+      <input type="checkbox" class="catChk" value="${cat}" checked>
+      ${cat}
+      <span class="cat-count">${cnt}题${wcnt?` · <span class="badge-cnt">${wcnt}错</span>`:""}</span>
+    </label>`;
+  }).join("");
+  document.getElementById("totalQCount").textContent = QUESTIONS.length;
+}
+document.getElementById("selAll").onclick=()=>document.querySelectorAll(".catChk").forEach(c=>c.checked=true);
+document.getElementById("selNone").onclick=()=>document.querySelectorAll(".catChk").forEach(c=>c.checked=false);
+document.getElementById("selWrongOnly").onclick=()=>{
+  const wrongCats = new Set(Object.values(wrongbook).map(w=>w.cat));
+  document.querySelectorAll(".catChk").forEach(c=>c.checked=wrongCats.has(c.value));
+};
+
+/* ===================== 答题逻辑 ===================== */
+let session = null; // {queue, idx, answers[], startTime, scopeLabel}
+
+function startQuiz(questionPool, scopeLabel){
+  const order = document.querySelector('input[name="order"]:checked').value;
+  let pool = questionPool.slice();
+  if(order==="random"){
+    for(let i=pool.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [pool[i],pool[j]]=[pool[j],pool[i]]; }
+  }
+  session = { queue:pool, idx:0, answers:new Array(pool.length).fill(null), startTime:Date.now(), scopeLabel };
+  showScreen("quiz");
+  renderQuestion();
+}
+
+function currentQ(){ return session.queue[session.idx]; }
+function sessionStats(){
+  let correct=0, wrong=0;
+  session.answers.forEach(a=>{ if(a){ a.allCorrect? correct++ : wrong++; } });
+  return {correct, wrong};
+}
+
+function renderQuestion(){
+  const q = currentQ();
+  const saved = session.answers[session.idx];
+  const stats = sessionStats();
+  document.getElementById("qTag").textContent = q.cat;
+  document.getElementById("quizProgressText").textContent = `${session.idx+1}/${session.queue.length}`;
+  document.getElementById("quizProgressFill").style.width = `${(session.idx/session.queue.length)*100}%`;
+  document.getElementById("quizScoreText").textContent = `对${stats.correct} 错${stats.wrong}`;
+
+  let blankN=0;
+  const html = q.text.replace(/\{\{\}\}/g, ()=>{
+    const n=blankN++;
+    return `<input type="text" class="blank-input" data-idx="${n}" autocomplete="off">`;
+  });
+  document.getElementById("qText").innerHTML = html;
+  const box=document.getElementById("answerBox");
+  box.className="answer-box"; box.innerHTML="";
+
+  const inputs = document.querySelectorAll("#qText .blank-input");
+  document.getElementById("prevBtn").disabled = session.idx===0;
+
+  if(saved){
+    // 已作答：回顾模式，展示当时填写的内容、正误与参考答案
+    inputs.forEach((inp,i)=>{
+      inp.value = saved.userInputs[i] || "";
+      inp.classList.add(saved.assignment[i]!==-1 ? "correct" : "wrong");
+      inp.disabled = true;
+    });
+    showAnswerBox(q, saved.allCorrect);
+    document.getElementById("checkBtn").style.display="none";
+    document.getElementById("nextBtn").style.display="inline-block";
+    document.getElementById("nextBtn").textContent = session.idx===session.queue.length-1 ? "查看结果" : "下一题";
+  } else {
+    inputs.forEach((inp,i)=>{
+      inp.addEventListener("keydown",(e)=>{
+        if(e.key==="Enter"){
+          if(i<inputs.length-1) inputs[i+1].focus();
+          else document.getElementById("checkBtn").click();
+        }
+      });
+    });
+    document.getElementById("checkBtn").style.display="inline-block";
+    document.getElementById("nextBtn").style.display="inline-block";
+    document.getElementById("nextBtn").textContent = session.idx===session.queue.length-1 ? "查看结果" : "下一题";
+    if(inputs[0]) inputs[0].focus();
+  }
+}
+
+function showAnswerBox(q, allCorrect){
+  const box=document.getElementById("answerBox");
+  box.classList.add("show", allCorrect?"right":"wrong");
+  const correctAnsText = q.ans.map(a=>a.split("|")[0]).join("、");
+  box.innerHTML = (allCorrect ? `✔ 回答正确！` : `✘ 回答有误。`) + ` 参考答案：<span class="real">${correctAnsText}</span>`;
+}
+
+document.getElementById("checkBtn").onclick=()=>{
+  const q = currentQ();
+  const inputs = [...document.querySelectorAll("#qText .blank-input")];
+  const userInputs = inputs.map(inp=>inp.value);
+  const {allCorrect, assignment} = gradeBlanksSet(userInputs, q.ans);
+
+  inputs.forEach((inp,i)=>{
+    inp.classList.add(assignment[i]!==-1 ? "correct" : "wrong");
+    inp.disabled = true;
+  });
+  showAnswerBox(q, allCorrect);
+
+  session.answers[session.idx] = { allCorrect, userInputs, assignment };
+
+  const MASTER_STREAK = 3;
+  if(allCorrect){
+    if(wrongbook[q.id]){
+      wrongbook[q.id].correctStreak = (wrongbook[q.id].correctStreak||0) + 1;
+      if(wrongbook[q.id].correctStreak >= MASTER_STREAK){ delete wrongbook[q.id]; }
+    }
+  } else {
+    wrongbook[q.id] = { cat:q.cat, text:q.text, ans:q.ans, wrongCount:(wrongbook[q.id]?.wrongCount||0)+1, correctStreak:0, lastWrongAt:Date.now() };
+  }
+  saveJSON(LS_WRONGBOOK, wrongbook);
+
+  document.getElementById("checkBtn").style.display="none";
+  document.getElementById("nextBtn").style.display="inline-block";
+  document.getElementById("nextBtn").textContent = session.idx===session.queue.length-1 ? "查看结果" : "下一题";
+  const stats = sessionStats();
+  document.getElementById("quizScoreText").textContent = `对${stats.correct} 错${stats.wrong}`;
+};
+
+document.getElementById("prevBtn").onclick=()=>{
+  if(session.idx>0){ session.idx--; renderQuestion(); }
+};
+document.getElementById("nextBtn").onclick=()=>{
+  if(session.idx < session.queue.length-1){
+    session.idx++;
+    renderQuestion();
+  } else {
+    finishQuiz();
+  }
+};
+
+document.getElementById("quitQuizBtn").onclick=()=>{
+  if(confirm("确定结束本次练习并查看结果吗？")) finishQuiz();
+};
+
+function openOverview(){ renderOverview(); document.getElementById("screen-overview").classList.add("active"); document.getElementById("ovBackdrop").classList.add("show"); }
+function closeOverview(){ document.getElementById("screen-overview").classList.remove("active"); document.getElementById("ovBackdrop").classList.remove("show"); }
+document.getElementById("overviewLink").onclick=openOverview;
+document.getElementById("ovBackBtn").onclick=closeOverview;
+document.getElementById("ovCloseBtn").onclick=closeOverview;
+document.getElementById("ovBackdrop").onclick=closeOverview;
+
+function renderOverview(){
+  const grid = document.getElementById("ovGrid");
+  grid.innerHTML = session.queue.map((q,i)=>{
+    const a = session.answers[i];
+    let cls = "";
+    if(i===session.idx) cls += " cur";
+    if(a) cls += a.allCorrect ? " right" : " wrong";
+    return `<div class="ov-item${cls}" data-idx="${i}">${i+1}</div>`;
+  }).join("");
+  grid.querySelectorAll(".ov-item").forEach(el=>{
+    el.addEventListener("click", ()=>{
+      session.idx = parseInt(el.dataset.idx, 10);
+      closeOverview();
+      showScreen("quiz");
+      renderQuestion();
+    });
+  });
+}
+
+function finishQuiz(){
+  const stats = sessionStats();
+  const total = session.queue.length;
+  const durationSec = Math.round((Date.now()-session.startTime)/1000);
+  const rate = total? Math.round(stats.correct/total*100):0;
+
+  history.unshift({
+    date: Date.now(),
+    scope: session.scopeLabel,
+    total, correct: stats.correct, wrong: stats.wrong,
+    rate, durationSec
+  });
+  if(history.length>100) history = history.slice(0,100);
+  saveJSON(LS_HISTORY, history);
+
+  document.getElementById("resTotal").textContent = total;
+  document.getElementById("resCorrect").textContent = stats.correct;
+  document.getElementById("resWrong").textContent = stats.wrong;
+  document.getElementById("resRate").textContent = rate+"%";
+  document.getElementById("resTime").textContent = fmtTime(durationSec);
+  showScreen("result");
+}
+
+document.getElementById("retryAllBtn").onclick=()=>{
+  startQuiz(session.queue, session.scopeLabel);
+};
+document.getElementById("retryWrongBtn").onclick=()=>{
+  const wrongList = session.queue.filter((q,i)=>session.answers[i] && !session.answers[i].allCorrect);
+  if(wrongList.length===0){ alert("本次没有错题，太棒了！"); return; }
+  startQuiz(wrongList, "本次错题重练");
+};
+document.getElementById("backHomeBtn").onclick=()=>{ renderCatList(); showScreen("home"); };
+
+function renderResultList(wantCorrect){
+  document.getElementById("resultListTitle").textContent = wantCorrect ? "答对的题目" : "答错的题目";
+  const body = document.getElementById("resultListBody");
+  const items = [];
+  session.queue.forEach((q,i)=>{
+    const a = session.answers[i];
+    if(a && a.allCorrect===wantCorrect) items.push({q,a});
+  });
+  if(items.length===0){ body.innerHTML = `<div class="empty">没有符合条件的题目</div>`; return; }
+  body.innerHTML = items.map(({q,a})=>{
+    const plain = q.text.replace(/\{\{\}\}/g,"____");
+    const yourAnsText = a.userInputs.join("、");
+    const correctAnsText = q.ans.map(x=>x.split("|")[0]).join("、");
+    return `<div class="review-item">
+      <div class="qtext">${plain}</div>
+      <div class="your-ans" style="color:${a.allCorrect?'var(--green)':'var(--red)'}">你的答案：${yourAnsText}</div>
+      <div class="correct-ans-line">正确答案：${correctAnsText}</div>
+    </div>`;
+  }).join("");
+}
+document.getElementById("resCorrectBox").onclick=()=>{ renderResultList(true); showScreen("resultlist"); };
+document.getElementById("resWrongBox").onclick=()=>{ renderResultList(false); showScreen("resultlist"); };
+document.getElementById("resultListBackBtn").onclick=()=>{ showScreen("result"); };
+
+document.getElementById("startBtn").onclick=()=>{
+  const checked = [...document.querySelectorAll(".catChk:checked")].map(c=>c.value);
+  if(checked.length===0){ alert("请至少选择一个章节"); return; }
+  const pool = QUESTIONS.filter(q=>checked.includes(q.cat));
+  startQuiz(pool, checked.length===CATS.length? "全部章节" : checked.join("、"));
+};
+
+/* ===================== 错题本 ===================== */
+function renderWrongbook(){
+  const items = Object.entries(wrongbook).map(([id,w])=>({id,...w}));
+  const summary = document.getElementById("wrongbookSummary");
+  const list = document.getElementById("wrongbookList");
+  if(items.length===0){
+    summary.innerHTML = `<div class="empty">暂无错题，继续保持！</div>`;
+    list.innerHTML="";
+    return;
+  }
+  summary.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;">
+      <div>共 <b>${items.length}</b> 道错题</div>
+      <button class="btn" id="practiceWrongBtn">练习全部错题</button>
+    </div>`;
+  document.getElementById("practiceWrongBtn").onclick=()=>{
+    const pool = items.map(it=>QUESTIONS.find(q=>q.id===it.id)).filter(Boolean);
+    startQuiz(pool, "错题本练习");
+  };
+  items.sort((a,b)=>b.lastWrongAt-a.lastWrongAt);
+  list.innerHTML = items.map(it=>{
+    const plain = it.text.replace(/\{\{\}\}/g,"____");
+    const ansText = it.ans.map(a=>a.split("|")[0]).join("、");
+    const streak = it.correctStreak||0;
+    return `<div class="wrong-item">
+      <div class="top"><span>${it.cat}</span><span>错${it.wrongCount}次 · ${fmtDate(it.lastWrongAt)}</span></div>
+      <div class="qtext">${plain}</div>
+      <div class="ans">答案：${ansText}</div>
+      <div style="font-size:12px;color:var(--muted);margin-top:4px;">已连续答对 ${streak}/3 次${streak>0?"，再连续答对"+(3-streak)+"次将自动从错题本移除":""}</div>
+    </div>`;
+  }).join("");
+}
+
+/* ===================== 历史记录 ===================== */
+function renderHistory(){
+  const list = document.getElementById("historyList");
+  if(history.length===0){
+    list.innerHTML = `<div class="empty">还没有练习记录，快去开始第一次练习吧～</div>`;
+    return;
+  }
+  list.innerHTML = history.map(h=>`
+    <div class="history-item">
+      <div class="top"><span>${fmtDate(h.date)}</span><span>用时 ${fmtTime(h.durationSec)}</span></div>
+      <div>${h.scope} · 共${h.total}题 · 对<b style="color:var(--green)">${h.correct}</b> 错<b style="color:var(--red)">${h.wrong}</b> · 正确率 <b>${h.rate}%</b></div>
+    </div>
+  `).join("");
+}
+document.getElementById("clearHistoryBtn").onclick=()=>{
+  if(confirm("确定清空所有练习记录吗？此操作不可恢复。")){
+    history=[]; saveJSON(LS_HISTORY, history); renderHistory();
+  }
+};
+
+/* ===================== 初始化 ===================== */
+renderCatList();
+</script>
+</body>
+</html>

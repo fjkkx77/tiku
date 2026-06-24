@@ -1,0 +1,758 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WEB程序设计模拟题练习</title>
+<style>
+  :root{
+    --primary:#3b82f6; --primary-dark:#2563eb; --green:#16a34a; --red:#dc2626;
+    --bg:#f3f4f6; --card:#ffffff; --text:#1f2937; --muted:#6b7280; --border:#e5e7eb;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:"Microsoft YaHei",Segoe UI,Arial,sans-serif;background:var(--bg);color:var(--text);}
+  .app{max-width:780px;margin:0 auto;min-height:100vh;background:var(--bg);display:flex;flex-direction:column;}
+  .topbar{position:sticky;top:0;z-index:10;}
+  header{background:linear-gradient(135deg,var(--primary),var(--primary-dark));color:#fff;padding:18px 16px;text-align:center;}
+  header h1{margin:0;font-size:19px;word-break:break-word;}
+  header p{margin:4px 0 0;font-size:12px;opacity:.85;}
+  nav{display:flex;background:#fff;border-bottom:1px solid var(--border);}
+  nav button{flex:1;border:none;background:none;padding:11px 4px;font-size:14px;color:var(--muted);cursor:pointer;border-bottom:3px solid transparent;}
+  nav button.active{color:var(--primary-dark);font-weight:bold;border-bottom-color:var(--primary);}
+  main{flex:1;padding:14px;}
+  .screen{display:none;}
+  .screen.active{display:block;}
+  .card{background:var(--card);border-radius:10px;padding:16px;margin-bottom:12px;box-shadow:0 1px 3px rgba(0,0,0,.08);}
+  .cat-list label{display:flex;align-items:center;gap:8px;padding:9px 4px;border-bottom:1px solid var(--border);font-size:14px;}
+  .cat-list label:last-child{border-bottom:none;}
+  .cat-count{color:var(--muted);font-size:12px;margin-left:auto;}
+  .btn{display:inline-block;border:none;border-radius:8px;padding:11px 18px;font-size:15px;cursor:pointer;background:var(--primary);color:#fff;text-align:center;}
+  .btn:active{transform:scale(.98);}
+  .btn.secondary{background:#fff;color:var(--primary-dark);border:1px solid var(--primary);}
+  .btn.green{background:var(--green);}
+  .btn.gray{background:#9ca3af;}
+  .btn:disabled{opacity:.4;cursor:not-allowed;}
+  .btn-row{display:flex;gap:10px;margin-top:14px;flex-wrap:wrap;}
+  .btn-row .btn{flex:1;}
+  .mode-row{display:flex;gap:10px;margin:10px 0;}
+  .mode-row label{flex:1;border:1px solid var(--border);border-radius:8px;padding:8px;text-align:center;font-size:13px;cursor:pointer;}
+  .mode-row input{margin-right:4px;}
+  .toplinks{display:flex;justify-content:space-between;margin-bottom:8px;font-size:13px;}
+  .toplinks span{color:var(--primary-dark);cursor:pointer;}
+  .progress-wrap{display:flex;align-items:center;gap:10px;margin-bottom:10px;font-size:13px;color:var(--muted);}
+  .progress-bar{flex:1;height:7px;background:var(--border);border-radius:4px;overflow:hidden;}
+  .progress-bar-fill{height:100%;background:var(--primary);transition:width .25s;}
+  .q-tag{display:inline-block;background:#eef2ff;color:var(--primary-dark);font-size:12px;padding:2px 8px;border-radius:10px;margin-bottom:8px;}
+  .q-text{font-size:16px;line-height:1.8;margin-bottom:10px;white-space:pre-wrap;overflow-x:auto;word-break:break-word;}
+  .q-code{font-family:Consolas,"Courier New",monospace;font-size:13.5px;background:#f8fafc;border:1px solid var(--border);border-radius:8px;padding:10px;margin:8px 0;line-height:1.7;white-space:pre-wrap;overflow-x:auto;}
+  .opt-list{display:flex;flex-direction:column;margin:10px 0;}
+  .opt-row{padding:13px 6px;border-bottom:1px solid var(--border);cursor:pointer;border-radius:6px;}
+  .opt-row:last-child{border-bottom:none;}
+  .opt-row .opt-label{font-size:13px;color:var(--muted);margin-bottom:3px;}
+  .opt-row .opt-text{font-size:14.5px;white-space:pre-wrap;font-family:Consolas,"Microsoft YaHei",monospace;line-height:1.6;}
+  .opt-row.selected{background:#eef2ff;}
+  .opt-row.selected .opt-label{color:var(--primary-dark);font-weight:bold;}
+  .opt-row.disabled{cursor:default;}
+  .answer-box .my-ans{font-weight:bold;}
+  .answer-box .my-ans.wrong-color{color:var(--red);}
+  .answer-box .correct-ans{color:var(--green);font-weight:bold;}
+  .blank-input{border:none;border-bottom:2px solid var(--primary);background:#f8fafc;padding:3px 6px;font-size:14.5px;min-width:90px;text-align:center;border-radius:4px;margin:2px;font-family:Consolas,monospace;}
+  .blank-input.correct{border-bottom-color:var(--green);background:#ecfdf3;color:var(--green);}
+  .blank-input.wrong{border-bottom-color:var(--red);background:#fef2f2;color:var(--red);}
+  .blank-row{margin:6px 0;font-size:13px;color:var(--muted);}
+  .blank-row b{color:var(--text);font-weight:normal;}
+  .answer-box{margin-top:10px;font-size:14px;padding:10px;border-radius:8px;display:none;}
+  .answer-box.show{display:block;}
+  .answer-box.right{background:#ecfdf3;color:#15803d;}
+  .answer-box.wrong{background:#fef2f2;color:#b91c1c;}
+  .answer-box .real{font-weight:bold;}
+  footer.qfoot{display:flex;gap:10px;margin-top:14px;}
+  footer.qfoot .btn{flex:1;}
+  .stat-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;text-align:center;margin:10px 0;}
+  .stat-grid div b{display:block;font-size:22px;}
+  .stat-grid div span{font-size:12px;color:var(--muted);}
+  .stat-click{cursor:pointer;border-radius:8px;padding:6px 2px;transition:background .15s;}
+  .stat-click:hover{background:#f3f4f6;}
+  .review-item{border-bottom:1px solid var(--border);padding:12px 0;font-size:14px;}
+  .review-item:last-child{border-bottom:none;}
+  .review-item .qtext{margin-bottom:6px;line-height:1.6;white-space:pre-wrap;}
+  .review-item .your-ans{font-size:13px;margin-bottom:2px;}
+  .review-item .correct-ans-line{font-size:13px;color:var(--green);}
+  .history-item, .wrong-item{border-bottom:1px solid var(--border);padding:10px 0;font-size:14px;}
+  .history-item:last-child, .wrong-item:last-child{border-bottom:none;}
+  .history-item .top, .wrong-item .top{display:flex;justify-content:space-between;color:var(--muted);font-size:12px;margin-bottom:4px;}
+  .empty{text-align:center;color:var(--muted);padding:40px 0;font-size:14px;}
+  .wrong-item .qtext{margin-bottom:4px;}
+  .wrong-item .ans{color:var(--green);font-size:13px;}
+  .badge-cnt{background:#fee2e2;color:#b91c1c;border-radius:10px;font-size:11px;padding:1px 7px;}
+  .note{font-size:12px;color:var(--muted);margin-top:6px;}
+  .ov-link{font-size:13px;color:var(--primary-dark);cursor:pointer;white-space:nowrap;}
+  .ov-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;}
+  .ov-item{position:relative;aspect-ratio:1;border-radius:8px;border:1.5px solid var(--primary);display:flex;align-items:center;justify-content:center;font-size:14px;cursor:pointer;color:var(--primary-dark);background:#fff;}
+  .ov-item.cur{background:var(--primary);color:#fff;border-color:var(--primary);}
+  .ov-item.right{background:#ecfdf3;border-color:var(--green);color:#15803d;}
+  .ov-item.wrong{background:#fef2f2;border-color:var(--red);color:#b91c1c;}
+  .ov-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:49;display:none;}
+  .ov-backdrop.show{display:block;}
+  #screen-overview.active{
+    display:block;position:fixed;top:0;right:0;height:100vh;width:320px;max-width:88vw;
+    background:#fff;z-index:50;overflow-y:auto;box-shadow:-6px 0 20px rgba(0,0,0,.18);
+    padding:16px;animation:ovSlideIn .18s ease;
+  }
+  @keyframes ovSlideIn{from{transform:translateX(100%);}to{transform:translateX(0);}}
+  .ov-section-title{font-size:14px;font-weight:bold;color:var(--text);margin:14px 0 10px;padding-bottom:6px;border-bottom:1px solid var(--border);}
+  .ov-section-title:first-child{margin-top:0;}
+  .ov-header-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;}
+  .ov-header-row .ov-close{cursor:pointer;color:var(--muted);font-size:20px;line-height:1;padding:0 4px;}
+  .ov-legend{display:flex;gap:14px;font-size:12px;color:var(--muted);margin-bottom:12px;flex-wrap:wrap;}
+  .ov-legend span{display:inline-flex;align-items:center;gap:5px;}
+  .ov-dot{width:11px;height:11px;border-radius:3px;display:inline-block;border:1.5px solid var(--primary);}
+  .ov-dot.right{background:#ecfdf3;border-color:var(--green);}
+  .ov-dot.wrong{background:#fef2f2;border-color:var(--red);}
+  .ov-dot.cur{background:var(--primary);border-color:var(--primary);}
+  @media (max-width:380px){
+    .ov-grid{grid-template-columns:repeat(4,1fr);}
+    .blank-input{min-width:64px;font-size:13.5px;}
+    header h1{font-size:17px;}
+    .opt-row .opt-text{font-size:13.5px;}
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="topbar">
+  <header>
+    <h1>WEB程序设计模拟题练习</h1>
+    <p>仿考试宝 · 错题本 · 练习记录</p>
+  </header>
+  <nav>
+    <button data-screen="home" class="active">开始练习</button>
+    <button data-screen="wrongbook">错题本</button>
+    <button data-screen="history">练习记录</button>
+  </nav>
+  </div>
+  <main>
+
+    <section class="screen active" id="screen-home">
+      <div class="card">
+        <div class="toplinks">
+          <span id="selAll">全选</span>
+          <span id="selNone">清空</span>
+          <span id="selWrongOnly">仅选有错题章节</span>
+        </div>
+        <div class="cat-list" id="catList"></div>
+      </div>
+      <div class="card">
+        <div style="font-size:14px;font-weight:bold;margin-bottom:6px;">出题方式</div>
+        <div class="mode-row">
+          <label><input type="radio" name="order" value="random" checked>随机顺序</label>
+          <label><input type="radio" name="order" value="seq">原始顺序</label>
+        </div>
+        <div class="btn-row">
+          <button class="btn" id="startBtn">开始练习</button>
+        </div>
+      </div>
+      <div class="card" style="font-size:12px;color:var(--muted);text-align:center;">
+        题库共 <b id="totalQCount">0</b> 题（单选题50题 + 填空题40题，已按原始模拟题整理）
+      </div>
+    </section>
+
+    <section class="screen" id="screen-quiz">
+      <div class="progress-wrap">
+        <span id="quizProgressText">1/10</span>
+        <div class="progress-bar"><div class="progress-bar-fill" id="quizProgressFill"></div></div>
+        <span id="quizScoreText">对0 错0</span>
+        <span class="ov-link" id="overviewLink">题目总览</span>
+      </div>
+      <div class="card">
+        <div class="q-tag" id="qTag"></div>
+        <div class="q-text" id="qText"></div>
+        <div id="qCode" class="q-code" style="display:none;"></div>
+        <div id="qBody"></div>
+        <div class="answer-box" id="answerBox"></div>
+        <footer class="qfoot">
+          <button class="btn secondary" id="prevBtn">上一题</button>
+          <button class="btn secondary" id="checkBtn">提交答案</button>
+          <button class="btn" id="nextBtn" style="display:none;">下一题</button>
+        </footer>
+      </div>
+      <div class="btn-row">
+        <button class="btn gray" id="quitQuizBtn">结束并查看结果</button>
+      </div>
+    </section>
+
+    <!-- 题目总览 -->
+    <div class="ov-backdrop" id="ovBackdrop"></div>
+    <section class="screen" id="screen-overview">
+      <div class="ov-header-row">
+        <div style="font-size:16px;font-weight:bold;">题目总览</div>
+        <span class="ov-close" id="ovCloseBtn">&times;</span>
+      </div>
+      <div class="ov-legend">
+        <span><span class="ov-dot cur"></span>当前</span>
+        <span><span class="ov-dot right"></span>已答对</span>
+        <span><span class="ov-dot wrong"></span>已答错</span>
+        <span><span class="ov-dot"></span>未作答</span>
+      </div>
+      <div id="ovContent"></div>
+      <div class="btn-row">
+        <button class="btn gray" id="ovBackBtn">返回答题</button>
+      </div>
+    </section>
+
+    <section class="screen" id="screen-result">
+      <div class="card">
+        <div style="text-align:center;font-size:16px;font-weight:bold;">本次练习结果</div>
+        <div class="stat-grid">
+          <div><b id="resTotal">0</b><span>总题数</span></div>
+          <div class="stat-click" id="resCorrectBox"><b id="resCorrect" style="color:var(--green)">0</b><span>答对（点击查看）</span></div>
+          <div class="stat-click" id="resWrongBox"><b id="resWrong" style="color:var(--red)">0</b><span>答错（点击查看）</span></div>
+        </div>
+        <div style="text-align:center;color:var(--muted);font-size:13px;">正确率 <b id="resRate">0%</b> · 用时 <b id="resTime">0分0秒</b></div>
+        <div class="btn-row">
+          <button class="btn" id="retryAllBtn">重新练习（同范围）</button>
+          <button class="btn secondary" id="retryWrongBtn">只练本次错题</button>
+        </div>
+        <div class="btn-row">
+          <button class="btn gray" id="backHomeBtn">返回首页</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- 答对/答错题目明细 -->
+    <section class="screen" id="screen-resultlist">
+      <div class="card">
+        <div style="font-size:16px;font-weight:bold;margin-bottom:10px;" id="resultListTitle"></div>
+        <div id="resultListBody"></div>
+      </div>
+      <div class="btn-row">
+        <button class="btn gray" id="resultListBackBtn">返回结果</button>
+      </div>
+    </section>
+
+    <section class="screen" id="screen-wrongbook">
+      <div class="card" id="wrongbookSummary"></div>
+      <div class="card" id="wrongbookList"></div>
+    </section>
+
+    <section class="screen" id="screen-history">
+      <div class="card" id="historyList"></div>
+      <div class="card" style="text-align:center;">
+        <button class="btn gray" id="clearHistoryBtn">清空历史记录</button>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<script>
+/* ===================== 题库数据 ===================== */
+// type: "mcq"（单选题，options+correct为字母） 或 "blank"（填空题，text含{{}}，ans为数组，每空可用|分隔多个可接受答案）
+// code: 可选，单独以代码块样式展示的代码片段
+const QUESTIONS = [
+// ====== 一、单选题 1-50 ======
+{type:"mcq", cat:"HTML/CSS基础", text:"1. B/S结构相比C/S结构也存在着一些劣势，体现在（ ）", options:{A:"维护和升级方式复杂",B:"可访问用户范围小",C:"程序开发复杂",D:"很难有丰富的界面效果"}, correct:"D"},
+{type:"mcq", cat:"HTML/CSS基础", text:"2. 下列（ ）选项，表示Web服务器控件。", options:{A:'<script><\/script>',B:'runat="server"',C:'<html></html>',D:'<body></body>'}, correct:"B"},
+{type:"mcq", cat:"HTML/CSS基础", text:"3. 以下标记是单标记的是（ ）", options:{A:"<img>",B:"<span>",C:"<p>",D:"<a>"}, correct:"A"},
+{type:"mcq", cat:"HTML/CSS基础", text:"4. 用于设定标题字体颜色的选项正确的是（ ）", options:{A:'<tilte color="red">显示红色文字</title>',B:'<h color="red">显示红色文字</h>',C:'<p color="red">显示红色文字</p>',D:'<h1 style="color:#FF0000;">显示红色文字</h1>'}, correct:"D"},
+{type:"mcq", cat:"HTML/CSS基础", text:"5. 下列（ ）选项是正确的？", options:{A:"<b><i><u>标记用于设定字体的倾斜、加粗和加下划线",B:'<a href="news1.html" target="_blank">浏览新闻</a> 在新窗口中打开news1.html页面',C:"<ul>是有序列表标记",D:'<img src="images/logo.jpg"></img>代表插入logo.jpg图片'}, correct:"B"},
+{type:"mcq", cat:"HTML/CSS基础", text:"6. 设定文字大小20px，字体隶书，居中对齐，正确的选项是（ ）", options:{A:'<p style="font-size:20px;font-family:隶书;text-align:center;">文字大小20px，字体隶书，居中对齐</p>',B:'<p style="font-size=20px;font-family=隶书;text-align=center;">文字大小20px，字体隶书，居中对齐</p>',C:'<p font-size:20px;font-family:隶书;text-align:center;>文字大小20px，字体隶书，居中对齐</p>',D:'<style="font-size:20px;font-family:隶书;text-align:center;">文字大小20px，字体隶书，居中对齐</style>'}, correct:"A"},
+{type:"mcq", cat:"HTML/CSS基础", text:"7. 下列选项中，设定div的背景颜色为蓝色，不正确的是（ ）", options:{A:'<div background="blue">div的背景颜色为蓝色</div>',B:'<style type="text/css">div{background-color:blue;}</style>\n......\n<div>div的背景颜色为蓝色</div>',C:'<div style="background-color:blue;">div的背景颜色为蓝色</div>',D:'<style type="text/css">.class1{background-color:blue;}</style>\n......\n<div class="class1">div的背景颜色为蓝色</div>'}, correct:"A"},
+{type:"mcq", cat:"HTML/CSS基础", text:"8. 用外部链接式引入CSS样式文件main.css，正确的写法是（ ）", options:{A:'<link src="main.css" rel="stylesheet" type="text/css"/>',B:'<link href="main.css" type="stylesheet" rel="text/css"/>',C:'<link href="main.css" rel="stylesheet" type="text/css"/>',D:'<link href="main.css" rel="stylesheet" type="text/css"></link>'}, correct:"C"},
+{type:"mcq", cat:"HTML/CSS基础", text:"9. 设置<div>标记中所有<a>子标记的字号为36px，字体为黑体的是（ ）", options:{A:'<style type="text/css">\ndiv {font-size:36px;font-family:黑体;}\na {font-size:36px;font-family:黑体;}\n</style>',B:'<style type="text/css">\ndiv a{font-size:36px;font-family:黑体;}\n</style>',C:'<style type="text/css">\ndiv,a{font-size:36px;font-family:黑体;}\n</style>',D:'<style type="text/css">\na div{font-size:36px;font-family:黑体;}\n</style>'}, correct:"B"},
+{type:"mcq", cat:"HTML/CSS基础", text:"10. 关于盒子模型，下列说法正确的是（ ）", options:{A:"盒子模型的宽度=内容宽+左右内边距+左右外边距",B:"边距属性为border",C:"外边距属性为padding",D:"div{margin:0 auto;}代表div水平居中"}, correct:"D"},
+{type:"mcq", cat:"HTML/CSS基础", text:"11. 页面中的元素按照从左到右、从上到下的顺序显示的是（ ）定位方式", options:{A:"流布局定位（static）",B:"坐标绝对定位（absolute）",C:"坐标相对定位（relative）"}, correct:"A"},
+{type:"mcq", cat:"HTML/CSS基础", text:"12. 绝对定位时，元素的位置以（ ）作为参照物的。", options:{A:"以父容器作为参照物",B:"以具有定位属性的父容器作为参照物",C:"以距元素最近的具有定位属性的父容器作为参照物",D:"总是以浏览器窗口作为参照物"}, correct:"C"},
+{type:"mcq", cat:"HTML/CSS基础", text:"13. 设定元素相对定位时，页面元素显示的位置由style中的（ ）属性决定。", options:{A:"width, height",B:"left, right, z-index",C:"x, y",D:"border"}, correct:"B"},
+{type:"mcq", cat:"ASP.NET基础", text:"14. 能够在浏览器输出原样HTML标记<span style='font-size:30px'>欢迎访问我的网站</span>的方法是（ ）", options:{A:"Response.Write(\"<span style='font-size:30px'>欢迎访问我的网站</span>\");",B:"Server.HtmlDecode(\"<span style='font-size:30px'>欢迎访问我的网站</span>\");",C:"Server.HtmlEncode(\"<span style='font-size:30px'>欢迎访问我的网站</span>\");",D:"<span style='font-size:30px'>欢迎访问我的网站</span>"}, correct:"C"},
+{type:"mcq", cat:"C#基础", text:"15. 在C#中，（ ）是合法的变量名", options:{A:"_a 1",B:"a_1",C:"int",D:"a%5"}, correct:"B"},
+{type:"mcq", cat:"C#基础", text:"16. 声明字符串型变量并赋值正确的是（ ）", options:{A:"char L='Hello';",B:"Char c1='H';",C:'string UserName="John";',D:"String UserName='John';"}, correct:"C"},
+{type:"mcq", cat:"C#基础", text:"17. 下列关于变量修饰符的选项中，（ ）表示变量为静态变量。", options:{A:"public",B:"protected",C:"private",D:"static"}, correct:"D"},
+{type:"mcq", cat:"C#基础", text:"18. 代码：\nstatic int x;\nprotected void Page_Load(object sender, EventArgs e)\n{\n    int y=0;\n    if(y>=1){\n        int i=2;\n    }\n}\n其中，变量x, y, i 的作用域分别是（ ）", options:{A:"静态变量 实例变量 局部变量",B:"实例变量 静态变量 局部变量",C:"实例变量 局部变量 静态变量",D:"静态变量 局部变量 实例变量"}, correct:"A"},
+{type:"mcq", cat:"C#基础", text:"19. 关于数据类型转换，（ ）是正确的", options:{A:"int a=65536;\nbyte b=a;",B:"int x=600;\nshort z=(short)x;",C:'int c=int.Parse("122.5");',D:"int i=5;\nLabel1.Text=i;"}, correct:"B"},
+{type:"mcq", cat:"C#基础", text:"20. int a1=3, a2=5, a3=-1, a4=7;\nbool R;\nR = a1 - a2 / a3 < a4 || a3 > a4 && !(a3 > 0) || a4 < a3;\nR=( )", options:{A:"True",B:"False"}, correct:"B"},
+{type:"mcq", cat:"ASP.NET基础", text:"21. 下面关于设置文本框为只读文本框的代码正确的是（ ）", options:{A:'Label1.Text="true";',B:"TextBox1.ReadOnly=true;",C:'TextBox1.ReadOnly="true";',D:'TextBox1.Text="ReadOnly";'}, correct:"B"},
+{type:"mcq", cat:"ASP.NET基础", text:"22. 下面关于设置文本框TxtNum1获得焦点的方法正确的是（ ）", options:{A:"TxtNum1.Text=Focus();",B:"TxtNum1.SetFocus;",C:"TxtNum1.Focus();",D:"TxtNum1_Focus();"}, correct:"C"},
+{type:"mcq", cat:"C#基础", text:'23. 将文本框中的内容转换成整型，正确的是（ ）\nint num1=__________(TextBox1.Text);', options:{A:"int.Parse",B:"float.Parse",C:"ToString()",D:"double.Parse()"}, correct:"A"},
+{type:"mcq", cat:"ASP.NET基础", text:"24. 为了满足读写文本文件的需要，应用（ ）命名空间。", options:{A:"using System.Data;",B:"using System.Web;",C:"using System.Web.UI.WebControls;",D:"using System.IO;\nusing System.Text;"}, correct:"D"},
+{type:"mcq", cat:"C#基础", text:"25. 下列数据类型转换，错误的是（ ）", options:{A:"int x=100;\nfloat f=(float)x;",B:'string s="100";\nint x=int.Parse(s);',C:'string s="100";\nint sx=(int)s;',D:"int x=100;\nstring s=x.ToString();"}, correct:"C"},
+{type:"mcq", cat:"C#基础", text:"26. 已知：\nint a=34, b=2, c;\nc=a*b/(32+b%3);\n则c的值为（ ）", options:{A:"2",B:"4",C:"34",D:"17"}, correct:"A"},
+{type:"mcq", cat:"ASP.NET内置对象", text:"27. 以下内置对象中，（ ）不存储用户信息。", options:{A:"Session",B:"Request",C:"Cookie",D:"Application"}, correct:"B"},
+{type:"mcq", cat:"ASP.NET内置对象", text:"28. Page对象由（ ）命名空间中的Page类来实现。", options:{A:"System.Web.UI",B:"System.IO",C:"System.Text",D:"System.Data"}, correct:"A"},
+{type:"mcq", cat:"ASP.NET内置对象", text:"29. Page对象的属性中，（ ）用于判断页面是否是回发的页面。", options:{A:"IsPostBack",B:"IsValid",C:"EnableViewState",D:"Controls"}, correct:"A"},
+{type:"mcq", cat:"ASP.NET内置对象", text:"30. Page对象中，（ ）是实现将数据源绑定的方法", options:{A:"ToString()",B:"DataBind()",C:"FindControl(id)",D:"RegisterClientScriptBlock"}, correct:"B"},
+{type:"mcq", cat:"ASP.NET内置对象", text:"31. Response对象用于（ ）", options:{A:"回应客户浏览器",B:"获取客户端浏览器的信息",C:"获取服务器的属性",D:"创建一个会话"}, correct:"A"},
+{type:"mcq", cat:"ASP.NET内置对象", text:"32. Response对象的常用属性中，（ ）说法是正确的。", options:{A:"Cache只能用于获取客户端的缓存策略",B:"Charset用于获取或设置输出流的HTTP字符集",C:"Cookies获取Cookie集合，将信息写入Web服务器",D:"Expires用于获取或设置浏览器上缓存的页过期的日期。"}, correct:"B"},
+{type:"mcq", cat:"ASP.NET内置对象", text:"33. 返回客户端浏览器是否支持Cookie，正确的做法是（ ）", options:{A:"Page.Browser.Cookie",B:"Request.Browser.Cookies",C:"Server.Browser.Cookies",D:"Response.Browser.Cookies"}, correct:"B"},
+{type:"mcq", cat:"ASP.NET内置对象", text:'34. 获取"用户登录"页面中用户名控件txtUser的值的方法正确的是：', options:{A:"string u =txtUser.Text.Trim();",B:"string u =user;",C:"Response.Write(user);",D:'Response.Redirect("Check.aspx");'}, correct:"A"},
+{type:"mcq", cat:"ASP.NET内置对象", text:"35. 设定Cookie的1天之后过期的正确方法是（ ）", options:{A:'Response.Cookies["MyCookie"].Expires = DateTime.Now.AddMinutes(1);',B:'Response.Cookies["MyCookie"].Expires = DateTime.Now.AddHours(1);',C:'Response.Cookies["MyCookie"].Expires = DateTime.Now.AddDays(1);',D:'Response.Cookies["MyCookie"].Expires = DateTime.Now.AddDates(1);'}, correct:"C"},
+{type:"mcq", cat:"ASP.NET内置对象", text:"36. 获取网页文件虚拟路径的方法选（ ）\n①Server.MapPath\n②Request.MapPath\n③Response.Redirect", options:{A:"①②",B:"①③",C:"②③",D:"①"}, correct:"A"},
+{type:"mcq", cat:"ASP.NET内置对象", text:"37. 当用户请求一个ASP.NET页面时，系统将自动创建一个会话（Session），（ ）情况下撤销", options:{A:"用户输入URL确认发送之后",B:"退出应用程序或关闭服务器",C:"5分钟之后",D:"永远不撤销"}, correct:"B"},
+{type:"mcq", cat:"ASP.NET内置对象", text:"38. Session对象的（ ）属性用于获取唯一标识", options:{A:"Count",B:"IsCookieless",C:"IsNewSession",D:"SessionID"}, correct:"D"},
+{type:"mcq", cat:"ADO.NET数据库", text:'39. ADO.NET可通过（ ）对象在"断开连接模式"下访问数据库。', options:{A:"Connection",B:"Command",C:"DataTable",D:"DataSet"}, correct:"D"},
+{type:"mcq", cat:"ADO.NET数据库", text:"40. ADO.NET的数据提供器Provider不包括（ ）", options:{A:"Connection",B:"Command",C:"DataSet",D:"DataAdapter"}, correct:"C"},
+{type:"mcq", cat:"ADO.NET数据库", text:"41. （ ）对象的功能用于建立与指定数据库的连接", options:{A:"Connection",B:"Command",C:"DataAdapter",D:"DataSet"}, correct:"A"},
+{type:"mcq", cat:"ADO.NET数据库", text:"42. Connection对象的连接字符串保存于ConnectionString属性中，其中用来定义数据库名称的属性是（ ）", options:{A:"Provider",B:"Data Source或Server",C:"Initial Catalog或Database",D:"Integrated Security或Trusted_Connection"}, correct:"C"},
+{type:"mcq", cat:"ADO.NET数据库", text:"43. （ ）对象用于设置数据源上执行的SQL语句或存储过程。", options:{A:"Connection",B:"Command",C:"DataTable",D:"DataReader"}, correct:"B"},
+{type:"mcq", cat:"ADO.NET数据库", text:"44. Command对象的常用方法中，（ ）能够用于查询，返回表中的数据。", options:{A:"ExecuteScalar()",B:"ExecuteNonQuery()",C:"ExecuteReader()",D:"CommandTimeOut"}, correct:"C"},
+{type:"mcq", cat:"ADO.NET数据库", text:'45. ADO.NET可通过（ ）对象在"断开连接模式"下访问数据库。', options:{A:"Connection",B:"Command",C:"DataTable",D:"DataSet"}, correct:"D"},
+{type:"mcq", cat:"ADO.NET数据库", text:"46. ADO.NET的数据提供器Provider不包括（ ）", options:{A:"Connection",B:"Command",C:"DataSet",D:"DataAdapter"}, correct:"C"},
+{type:"mcq", cat:"ADO.NET数据库", text:"47. （ ）对象的功能是创建与指定数据源的连接", options:{A:"Connection",B:"Command",C:"DataAdapter",D:"DataSet"}, correct:"A"},
+{type:"mcq", cat:"ADO.NET数据库", text:"48. Connection对象的连接字符串保存于ConnectionString属性中，其中用来定义数据库名称的属性是（ ）", options:{A:"Provider",B:"Data Source或Server",C:"Initial Catalog或Database",D:"Integrated Security或Trusted_Connection"}, correct:"C"},
+{type:"mcq", cat:"ADO.NET数据库", text:"49. （ ）对象用于设置数据源上执行的SQL语句或存储过程。", options:{A:"Connection",B:"Command",C:"DataTable",D:"DataReader"}, correct:"B"},
+{type:"mcq", cat:"ADO.NET数据库", text:"50. Command对象的常用方法中，（ ）能够用于查询，返回表中的数据。", options:{A:"ExecuteScalar()",B:"ExecuteNonQuery()",C:"ExecuteReader()",D:"CommandTimeOut"}, correct:"C"},
+
+// ====== 二、填空题 51-90 ======
+{type:"blank", cat:"ASP.NET基础", text:"51. ASP.NET网站的组成文件有三部分构成{{}}、HTTP方式、FTP方式。", ans:["文件系统方式|文件系统"]},
+{type:"blank", cat:"ASP.NET基础", text:"52. 一般来讲，将数据库文件存放在{{}}文件夹中。", ans:["App_Data"]},
+{type:"blank", cat:"ASP.NET基础", text:"53. 计算机应用程序一般分为C/S和{{}}架构", ans:["B/S"]},
+{type:"blank", cat:"ASP.NET基础", text:"54. App_Code是{{}}共享目录。", ans:["代码|源代码"]},
+{type:"blank", cat:"HTML/CSS基础", text:"55. CSS层叠式样式表有{{}}、{{}}、{{}}样式定义方式", ans:["内联式|行内式","嵌入式|内部样式","外部链接式|外部样式"]},
+{type:"blank", cat:"HTML/CSS基础（大题）", text:"56. 网页采用上中下三栏、中间左中右三栏布局（标题/导航/左/中/右/页脚），请补全 HTML 与对应 CSS（共19空）：",
+ code:'<!-- Default.aspx -->\n<body>\n  <div>\n    <div id="top">标题Logo栏</div>\n    <div id="{{}}">导航栏</div>\n    <div id="{{}}">左边</div>\n    <div id="{{}}">中间</div>\n    <div id="{{}}">右边</div>\n    <div id="{{}}">页脚</div>\n  </div>\n</body>\n\n/* StyleSheet.css */\ndiv{\n  box-sizing:border-box;\n  {{}}              /* 宽度100% */\n  {{}}              /* 文本居中对齐 */\n  {{}}              /* 边框绿色、1像素宽、实线 */\n}\n#top{\n  width:100%;    /* {{}} */\n  {{}}    /* 高度56像素 */\n  {{}}    /* 垂直居中 */\n  {{}}    /* 字体黑体 */\n  {{}}    /* 字号xx-large */\n}\n#navigation{\n  /* 设置宽度与#top相同，高(height)为24像素，文字垂直居中 */\n  {{}}\n  {{}}\n  {{}}\n}\n#left{ width:10%; height:104px; line-height:104px; {{}} }   /* 元素左浮动 */\n#mid{ width:80%; height:104px; line-height:104px; float:left; }\n#right{ width:10%; height:104px; line-height:104px; float:left; {{}} }   /* 不允许元素的右边有浮动元素 */\n#bottom{ width:100%; height:24px; line-height:24px; font-family:黑体; {{}} }   /* 不允许元素的左右两边有浮动元素 */',
+ ans:["navigation","left","mid","right","bottom","width:100%;","text-align:center;","border:green 1px solid;","宽度100%","height:56px;","line-height:56px;","font-family:黑体;","font-size:xx-large;","width:100%;","height:24px;","line-height:24px;","float:left;","clear:right;","clear:both;"]},
+{type:"blank", cat:"C#基础", text:"57. 设 int a=1, b=4, c=2; double d=10.5, n=4, k; k=(a+b)/c+n*1.2/c+d; 表达式运行后的k的值为{{}}", ans:["14.9"]},
+{type:"blank", cat:"C#基础", text:"58. 声明整型变量Num，并赋值为1（{{}}）", ans:["int Num = 1;|int Num=1;"]},
+{type:"blank", cat:"C#基础", text:"59. int a=1, b=4, c=2; double d=10.5, n=4, k; k=(a+b)/c+n*1.2/c+d; k={{}}", ans:["14.9"]},
+{type:"blank", cat:"C#基础", text:"60. double x=2.5, y=4.7; int z=7, u; u=Convert.ToInt32(x)+z%3+Convert.ToInt32(x+y)%2/4; u=（{{}}）", ans:["3"]},
+{type:"blank", cat:"C#基础（大题）", text:"61. for循环：求用户输入的整数范围内的奇数之和与偶数之和。请补全代码：",
+ code:'protected void Button1_Click(object sender, EventArgs e)\n{\n    //Num1,Num2是起止数\n    int Num1, Num2;\n    Num1 = int.Parse(txtNum1.Text);\n    Num2 = int.Parse(txtNum2.Text);\n    if (Num1 < Num2)\n    {\n        {{}}    //函数调用\n    }\n    else {\n        {{}}    //函数调用\n    }\n}\n\nvoid Cal(int x, int y) {\n    //sumodd是奇数之和，sumeven是偶数之和\n    int sumeven = 0, sumodd = 0;\n    for (int i = {{}})\n    {\n        if ({{}})\n        {\n            {{}}\n        }\n        else\n        {\n            {{}}\n        }\n    }\n    Label1.Text = x.ToString() + "至" + y.ToString() + "的奇数之和为" + sumodd.ToString();\n    Label2.Text = x.ToString() + "至" + y.ToString() + "的偶数之和为" + sumeven.ToString();\n}',
+ ans:["Cal(Num1, Num2);|Cal(Num1,Num2);","Cal(Num2, Num1);|Cal(Num2,Num1);","x; i <= y; i++|x;i<=y;i++","i % 2 == 0|i%2==0","sumeven += i;|sumeven+=i;|sumeven=sumeven+i;","sumodd += i;|sumodd+=i;|sumodd=sumodd+i;"]},
+{type:"blank", cat:"C#基础（大题）", text:"62. while循环：产生10以内的随机整数，如果随机整数是9的话就结束循环。代码如下：",
+ code:'int i = 0;\n{{}}    //Random类实例化，实例名字为r\nwhile (i {{}} 9) {\n    i = {{}};    //生成10以内的随机数\n    Response.Write(i.{{}}+"<br/>");\n}',
+ ans:["Random r = new Random();","!=","r.Next(10)","ToString()"]},
+{type:"blank", cat:"C#基础（大题）", text:"63. 演练4-4 for循环嵌套示例：九九乘法表，请补全代码：",
+ code:'protected void Page_Load(object sender, EventArgs e)\n{\n    this.Title = "for循环嵌套";\n    string expression, space;\n    int result;\n    for (int i = 1; i <= {{}}; i++)\n    {\n        for(int j = 1; j <= {{}}; j++)\n        {\n            result = {{}};\n            expression = i.ToString() + "×" + j.ToString() + "=" + result.ToString();\n            if (i * j < 10)\n            {\n                space = "&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;";\n            }\n            else\n            {\n                space = "&nbsp;&nbsp;&nbsp;";\n            }\n            Label1.Text = {{}}+ expression + space;\n        }\n        Label1.Text = Label1.Text + "{{}}"; //换行\n    }\n}',
+ ans:["9","i","i * j|i*j","Label1.Text","<br/>|<br>"]},
+{type:"blank", cat:"C#基础", text:"64. C#采用{{}}机制来组织程序流程，采用完全{{}}的程序设计方法。", ans:["事件驱动","面向对象"]},
+{type:"blank", cat:"C#基础", text:"65. 生成一个10以内的随机整数的方法是\n{{}} num={{}};\nint i={{}};", ans:["Random","new Random()","num.Next(10)"]},
+{type:"blank", cat:"C#基础", text:"66. 声明一个data类型的数组pro，存放100个数（{{}}）", ans:["data [] pro = new data[100];|data[] pro = new data[100];"]},
+{type:"blank", cat:"C#基础", text:"67. float f=-123.567F; int i=(int)f; i的值现在是{{}}", ans:["-123"]},
+{type:"blank", cat:"ASP.NET内置对象", text:"68. （{{}}）对象是在浏览者访问某些网站时，Web服务器在客户端所写入的一些小文件，这些小文件存放在客户端的内存或磁盘中。", ans:["Cookie"]},
+{type:"blank", cat:"ASP.NET内置对象（大题）", text:"69. Web窗体页面的生命周期的顺序是：{{}}、{{}}、{{}}、{{}}、{{}}、{{}}、{{}}、{{}}、{{}}\n（可选：A.加载视图状态　B.初始化　C.加载　D.处理回发数据　E.预呈现　F.处置　G.保存状态　H.呈现　I.卸载）",
+ ans:["初始化|B","加载视图状态|A","处理回发数据|D","加载|C","预呈现|E","保存状态|G","呈现|H","处置|F","卸载|I"]},
+{type:"blank", cat:"ASP.NET内置对象", text:"70. 用{{}}对象的写方法向客户端浏览器输出字符串\"我的网站\"：\n{{}}.Write(\"我的网站\");", ans:["Response","Response"]},
+{type:"blank", cat:"ASP.NET内置对象", text:"71. 用Response对象的写方法实现给\"百度\"加超链接http://www.baidu.com：",
+ code:'Response.{{}}("<a href=\'http://www.baidu.com\'>百度</a>");', ans:["Write"]},
+{type:"blank", cat:"ASP.NET内置对象", text:"72. 用Response对象的写方法向浏览器弹出消息框，提示\"操作成功！\"：",
+ code:'Response.Write("<script language=javascript>{{}}(\'操作成功！\');<\/script>");', ans:["alert"]},
+{type:"blank", cat:"ASP.NET内置对象", text:"73. 用Response对象的写方法实现单击页面上的\"关闭窗口\"按钮关闭当前窗口：",
+ code:'Response.Write("<a href=\'javascript:{{}}()\'>关闭窗口</a>");', ans:["window.close"]},
+{type:"blank", cat:"ASP.NET内置对象", text:"74. 用Response对象的{{}}方法实现将客户端重定向到新的URL，进行页面间的跳转。", ans:["Redirect"]},
+{type:"blank", cat:"ASP.NET内置对象", text:"75. 将变量MyName的值以Name为形参变量传送给目标页面welcome.aspx的实现方法为\nstring MyName=UserName.Text;\nResponse.{{}}(\"welcome.aspx?Name=\"+MyName);", ans:["Redirect"]},
+{type:"blank", cat:"ASP.NET内置对象", text:"76. 获取客户端浏览器的版本号：\n{{}}.Browser.Version", ans:["Request"]},
+{type:"blank", cat:"ASP.NET内置对象", text:'77. 获取HTTP查询字符串变量集合的方法是Request.{{}}["Name"];', ans:["QueryString"]},
+{type:"blank", cat:"ASP.NET内置对象", text:'78. 创建Cookie：\n{{}}["MyCookie"].Value = "OK";\n读取Cookie：\nstring GetCookie;\nGetCookie = {{}}["MyCookie"].Value;', ans:["Response.Cookies","Request.Cookies"]},
+{type:"blank", cat:"ASP.NET内置对象", text:'79. 判断访问未经登录页面时，跳回到登录页面的代码为\nif(Session["username"]=={{}})\n{\n    Response.Redirect("Login.aspx");\n}', ans:["null"]},
+{type:"blank", cat:"ASP.NET内置对象", text:"80. Page对象属于{{}}命名空间。", ans:["System.Web.UI"]},
+{type:"blank", cat:"ADO.NET数据库", text:"81. ADO.NET对象主要指包含在{{}}和数据提供器（Provider）中的对象。", ans:["数据集"]},
+{type:"blank", cat:"ADO.NET数据库", text:'82. 用SQL Server数据库实例化Connection对象的方法是\nstring Connstr = ConfigurationManager.ConnectionStrings["Student"].ToString();\n{{}} conn =new SqlConnection(Connstr);\nconn.Open();', ans:["SqlConnection"]},
+{type:"blank", cat:"ADO.NET数据库", text:'83. 用MySql数据库实例化Command对象的方法是（Connection对象的实例名字为Conn）\nstring sqlstr="select * from teacher";\n{{}} cmd=new {{}};', ans:["MySqlCommand","MySqlCommand(sqlstr,Conn)"]},
+{type:"blank", cat:"ADO.NET数据库", text:'84. 用SQL Server数据库实例化Command对象的方法是\nstring sqlstr="select * from teacher";\nSqlCommand cmd={{}} SqlCommand(sqlstr,Conn);', ans:["new"]},
+{type:"blank", cat:"ADO.NET数据库（大题）", text:"85. Command对象+DataReader对象进行查询的程序填空：",
+ code:'string sqlstr="select * from student";\nMySqlCommand cmd = new MySqlCommand(sqlstr, conn);   //MySql实例化Command对象\n\n{{}} dr = cmd.{{}};    //实例化MySql数据库的DataReader对象\n\nGridView1.{{}} = dr;\nGridView1.{{}}();        //GridView控件进行数据绑定',
+ ans:["MySqlDataReader","ExecuteReader()","DataSource","DataBind"]},
+{type:"blank", cat:"ADO.NET数据库", text:"86. ADO.NET对象主要指包含在{{}}和数据提供器（Provider）中的对象。", ans:["数据集"]},
+{type:"blank", cat:"ADO.NET数据库", text:'87. 用SQL Server数据库实例化Connection对象的方法是\nstring Connstr = ConfigurationManager.ConnectionStrings["Student"].ToString();\n{{}} conn =new SqlConnection(Connstr);\nconn.Open();', ans:["SqlConnection"]},
+{type:"blank", cat:"ADO.NET数据库", text:'88. 用MySql数据库实例化Command对象的方法是（Connection对象的实例名字为Conn）\nstring sqlstr="select * from teacher";\n{{}} cmd=new {{}};', ans:["MySqlCommand","MySqlCommand(sqlstr,Conn)"]},
+{type:"blank", cat:"ADO.NET数据库", text:'89. 用SQL Server数据库实例化Command对象的方法是\nstring sqlstr="select * from teacher";\nSqlCommand cmd={{}} SqlCommand(sqlstr,Conn);', ans:["new"]},
+{type:"blank", cat:"ADO.NET数据库（大题）", text:"90. Command对象+DataReader对象进行查询的程序填空：",
+ code:'string sqlstr="select * from student";\nMySqlCommand cmd = new MySqlCommand(sqlstr, conn);   //MySql实例化Command对象\n\n{{}} dr = cmd.{{}};    //实例化MySql数据库的DataReader对象\n\nGridView1.{{}} = dr;\nGridView1.{{}}();        //GridView控件进行数据绑定',
+ ans:["MySqlDataReader","ExecuteReader()","DataSource","DataBind"]},
+];
+
+QUESTIONS.forEach((q,i)=>q.id="q"+i);
+const CATS = [...new Set(QUESTIONS.map(q=>q.cat))];
+
+/* ===================== 本地存储 ===================== */
+const LS_HISTORY="webquiz_history", LS_WRONGBOOK="webquiz_wrongbook";
+function loadJSON(key,def){ try{ return JSON.parse(localStorage.getItem(key)) || def; }catch(e){ return def; } }
+function saveJSON(key,val){ localStorage.setItem(key, JSON.stringify(val)); }
+let history = loadJSON(LS_HISTORY, []);
+let wrongbook = loadJSON(LS_WRONGBOOK, {});
+
+/* ===================== 工具函数 ===================== */
+function normalize(s){
+  return (s||"").trim().toLowerCase().replace(/[\s;；]/g,"");
+}
+function isCorrect(userInput, acceptStr){
+  const options = acceptStr.split("|");
+  const u = normalize(userInput);
+  if(!u) return false;
+  for(const opt of options){
+    const o = normalize(opt);
+    if(u===o) return true;
+    if(o.length>=4 && (u.includes(o) || o.includes(u))) return true;
+  }
+  return false;
+}
+function gradeBlanksSet(userInputs, expectedList){
+  const n = expectedList.length;
+  const used = new Array(n).fill(false);
+  const assignment = new Array(n).fill(-1);
+  for(let i=0;i<userInputs.length;i++){
+    for(let j=0;j<n;j++){
+      if(!used[j] && isCorrect(userInputs[i], expectedList[j])){ used[j]=true; assignment[i]=j; break; }
+    }
+  }
+  const allCorrect = assignment.every(a=>a!==-1);
+  return {allCorrect, assignment};
+}
+function fmtTime(sec){ const m=Math.floor(sec/60), s=sec%60; return m+"分"+s+"秒"; }
+function fmtDate(ts){ const d=new Date(ts); return `${d.getMonth()+1}/${d.getDate()} ${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`; }
+function escapeHtml(s){ return (s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+
+/* ===================== 屏幕切换 ===================== */
+function showScreen(name){
+  document.querySelectorAll(".screen").forEach(s=>s.classList.remove("active"));
+  document.getElementById("ovBackdrop").classList.remove("show");
+  document.getElementById("screen-"+name).classList.add("active");
+  document.querySelectorAll("nav button").forEach(b=>b.classList.remove("active"));
+  const navBtn = document.querySelector(`nav button[data-screen="${name}"]`);
+  if(navBtn) navBtn.classList.add("active");
+  if(name==="wrongbook") renderWrongbook();
+  if(name==="history") renderHistory();
+}
+document.querySelectorAll("nav button").forEach(b=>b.addEventListener("click", ()=>showScreen(b.dataset.screen)));
+
+/* ===================== 首页：章节选择 ===================== */
+function renderCatList(){
+  const wb = wrongbook;
+  const list = document.getElementById("catList");
+  list.innerHTML = CATS.map(cat=>{
+    const cnt = QUESTIONS.filter(q=>q.cat===cat).length;
+    const wcnt = Object.values(wb).filter(w=>w.cat===cat).length;
+    return `<label>
+      <input type="checkbox" class="catChk" value="${cat}" checked>
+      ${cat}
+      <span class="cat-count">${cnt}题${wcnt?` · <span class="badge-cnt">${wcnt}错</span>`:""}</span>
+    </label>`;
+  }).join("");
+  document.getElementById("totalQCount").textContent = QUESTIONS.length;
+}
+document.getElementById("selAll").onclick=()=>document.querySelectorAll(".catChk").forEach(c=>c.checked=true);
+document.getElementById("selNone").onclick=()=>document.querySelectorAll(".catChk").forEach(c=>c.checked=false);
+document.getElementById("selWrongOnly").onclick=()=>{
+  const wrongCats = new Set(Object.values(wrongbook).map(w=>w.cat));
+  document.querySelectorAll(".catChk").forEach(c=>c.checked=wrongCats.has(c.value));
+};
+
+/* ===================== 答题逻辑 ===================== */
+let session = null; // {queue, idx, answers[], startTime, scopeLabel}
+let selectedOpt = null;
+
+function startQuiz(questionPool, scopeLabel){
+  const order = document.querySelector('input[name="order"]:checked').value;
+  let pool = questionPool.slice();
+  if(order==="random"){
+    for(let i=pool.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [pool[i],pool[j]]=[pool[j],pool[i]]; }
+  }
+  session = { queue:pool, idx:0, answers:new Array(pool.length).fill(null), startTime:Date.now(), scopeLabel };
+  showScreen("quiz");
+  renderQuestion();
+}
+function currentQ(){ return session.queue[session.idx]; }
+function sessionStats(){
+  let correct=0, wrong=0;
+  session.answers.forEach(a=>{ if(a){ a.allCorrect? correct++ : wrong++; } });
+  return {correct, wrong};
+}
+
+function renderQuestion(){
+  const q = currentQ();
+  const saved = session.answers[session.idx];
+  selectedOpt = saved && saved.selectedOpt ? saved.selectedOpt : null;
+  const stats = sessionStats();
+  document.getElementById("qTag").textContent = q.cat;
+  document.getElementById("quizProgressText").textContent = `${session.idx+1}/${session.queue.length}`;
+  document.getElementById("quizProgressFill").style.width = `${(session.idx/session.queue.length)*100}%`;
+  document.getElementById("quizScoreText").textContent = `对${stats.correct} 错${stats.wrong}`;
+  document.getElementById("qText").textContent = q.text;
+  document.getElementById("prevBtn").disabled = session.idx===0;
+
+  const codeEl = document.getElementById("qCode");
+  if(q.code){ codeEl.style.display="block"; codeEl.textContent = q.code.replace(/\{\{\}\}/g,"______"); }
+  else { codeEl.style.display="none"; codeEl.textContent=""; }
+
+  const body = document.getElementById("qBody");
+  const box=document.getElementById("answerBox");
+  box.className="answer-box"; box.innerHTML="";
+
+  if(q.type==="mcq"){
+    const letters = Object.keys(q.options);
+    body.innerHTML = `<div class="opt-list">` + letters.map(L=>
+      `<div class="opt-row" data-letter="${L}"><div class="opt-label">${L}.</div><div class="opt-text">${escapeHtml(q.options[L])}</div></div>`
+    ).join("") + `</div>`;
+    if(saved){
+      body.querySelectorAll(".opt-row").forEach(el=>{ el.classList.add("disabled"); });
+      showAnswerBoxMcq(q, saved.allCorrect, saved.selectedOpt);
+      document.getElementById("checkBtn").style.display="none";
+    } else {
+      body.querySelectorAll(".opt-row").forEach(el=>{
+        el.addEventListener("click", ()=>{
+          if(el.classList.contains("disabled")) return;
+          body.querySelectorAll(".opt-row").forEach(o=>o.classList.remove("selected"));
+          el.classList.add("selected");
+          selectedOpt = el.dataset.letter;
+        });
+      });
+      document.getElementById("checkBtn").style.display="inline-block";
+    }
+    document.getElementById("nextBtn").style.display="inline-block";
+    document.getElementById("nextBtn").textContent = session.idx===session.queue.length-1 ? "查看结果" : "下一题";
+  } else {
+    body.innerHTML = "";
+    let n=0;
+    if(q.text.includes("{{}}")){
+      document.getElementById("qText").innerHTML = q.text.replace(/\{\{\}\}/g, ()=>{
+        const idx=n++; return `<input type="text" class="blank-input" data-idx="${idx}" autocomplete="off">`;
+      });
+    }
+    if(q.code && q.code.includes("{{}}")){
+      codeEl.innerHTML = escapeHtml(q.code).replace(/\{\{\}\}/g, ()=>{
+        const idx=n++; return `<input type="text" class="blank-input" data-idx="${idx}" autocomplete="off">`;
+      });
+    }
+    const inputs = document.querySelectorAll("#qText .blank-input, #qCode .blank-input");
+    if(saved){
+      inputs.forEach((inp,i)=>{
+        inp.value = saved.userInputs[i] || "";
+        inp.classList.add(saved.assignment[i]!==-1 ? "correct" : "wrong");
+        inp.disabled = true;
+      });
+      showAnswerBoxBlank(q, saved.allCorrect);
+      document.getElementById("checkBtn").style.display="none";
+    } else {
+      inputs.forEach((inp,i)=>{
+        inp.addEventListener("keydown",(e)=>{
+          if(e.key==="Enter"){
+            if(i<inputs.length-1) inputs[i+1].focus();
+            else document.getElementById("checkBtn").click();
+          }
+        });
+      });
+      if(inputs[0]) inputs[0].focus();
+      document.getElementById("checkBtn").style.display="inline-block";
+    }
+    document.getElementById("nextBtn").style.display="inline-block";
+    document.getElementById("nextBtn").textContent = session.idx===session.queue.length-1 ? "查看结果" : "下一题";
+  }
+}
+
+function showAnswerBoxMcq(q, allCorrect, userOpt){
+  const box=document.getElementById("answerBox");
+  box.classList.add("show", allCorrect?"right":"wrong");
+  box.innerHTML = `<b>我的答案：</b><span class="my-ans${allCorrect?"":" wrong-color"}">${userOpt||"未作答"}</span>`
+    + `　　<b>正确答案：</b><span class="correct-ans">${q.correct}. ${escapeHtml(q.options[q.correct])}</span>`;
+}
+function showAnswerBoxBlank(q, allCorrect){
+  const box=document.getElementById("answerBox");
+  box.classList.add("show", allCorrect?"right":"wrong");
+  const correctAnsText = q.ans.map(a=>a.split("|")[0]).join("  /  ");
+  box.innerHTML = (allCorrect ? `✔ 回答正确！` : `✘ 回答有误。`) + ` 参考答案：<span class="real">${escapeHtml(correctAnsText)}</span>`;
+}
+
+document.getElementById("checkBtn").onclick=()=>{
+  const q = currentQ();
+  let allCorrect = true;
+  let answerRecord;
+
+  if(q.type==="mcq"){
+    if(!selectedOpt){ alert("请先选择一个选项"); return; }
+    allCorrect = selectedOpt===q.correct;
+    document.querySelectorAll("#qBody .opt-row").forEach(el=>{ el.classList.add("disabled"); });
+    showAnswerBoxMcq(q, allCorrect, selectedOpt);
+    answerRecord = { allCorrect, selectedOpt };
+  } else {
+    const inputs = [...document.querySelectorAll("#qText .blank-input, #qCode .blank-input")];
+    const userInputs = inputs.map(inp=>inp.value);
+    const graded = gradeBlanksSet(userInputs, q.ans);
+    allCorrect = graded.allCorrect;
+    inputs.forEach((inp,i)=>{
+      inp.classList.add(graded.assignment[i]!==-1 ? "correct" : "wrong");
+      inp.disabled = true;
+    });
+    showAnswerBoxBlank(q, allCorrect);
+    answerRecord = { allCorrect, userInputs, assignment: graded.assignment };
+  }
+
+  session.answers[session.idx] = answerRecord;
+
+  const MASTER_STREAK = 3;
+  if(allCorrect){
+    if(wrongbook[q.id]){
+      wrongbook[q.id].correctStreak = (wrongbook[q.id].correctStreak||0) + 1;
+      if(wrongbook[q.id].correctStreak >= MASTER_STREAK){ delete wrongbook[q.id]; }
+    }
+  } else {
+    wrongbook[q.id] = { cat:q.cat, type:q.type, text:q.text, code:q.code||"", options:q.options||null, correct:q.correct||null, ans:q.ans||null, wrongCount:(wrongbook[q.id]?.wrongCount||0)+1, correctStreak:0, lastWrongAt:Date.now() };
+  }
+  saveJSON(LS_WRONGBOOK, wrongbook);
+
+  document.getElementById("checkBtn").style.display="none";
+  document.getElementById("nextBtn").style.display="inline-block";
+  document.getElementById("nextBtn").textContent = session.idx===session.queue.length-1 ? "查看结果" : "下一题";
+  const stats = sessionStats();
+  document.getElementById("quizScoreText").textContent = `对${stats.correct} 错${stats.wrong}`;
+};
+
+document.getElementById("prevBtn").onclick=()=>{
+  if(session.idx>0){ session.idx--; renderQuestion(); }
+};
+document.getElementById("nextBtn").onclick=()=>{
+  if(session.idx < session.queue.length-1){ session.idx++; renderQuestion(); }
+  else { finishQuiz(); }
+};
+document.getElementById("quitQuizBtn").onclick=()=>{
+  if(confirm("确定结束本次练习并查看结果吗？")) finishQuiz();
+};
+
+function openOverview(){ renderOverview(); document.getElementById("screen-overview").classList.add("active"); document.getElementById("ovBackdrop").classList.add("show"); }
+function closeOverview(){ document.getElementById("screen-overview").classList.remove("active"); document.getElementById("ovBackdrop").classList.remove("show"); }
+document.getElementById("overviewLink").onclick=openOverview;
+document.getElementById("ovBackBtn").onclick=closeOverview;
+document.getElementById("ovCloseBtn").onclick=closeOverview;
+document.getElementById("ovBackdrop").onclick=closeOverview;
+
+function renderOverviewGrid(indices){
+  return `<div class="ov-grid">` + indices.map(i=>{
+    const a = session.answers[i];
+    let cls = "";
+    if(i===session.idx) cls += " cur";
+    if(a) cls += a.allCorrect ? " right" : " wrong";
+    return `<div class="ov-item${cls}" data-idx="${i}">${i+1}</div>`;
+  }).join("") + `</div>`;
+}
+function renderOverview(){
+  const content = document.getElementById("ovContent");
+  const mcqIdx = [], blankIdx = [];
+  session.queue.forEach((q,i)=> (q.type==="mcq" ? mcqIdx : blankIdx).push(i));
+  let html = "";
+  if(mcqIdx.length) html += `<div class="ov-section-title">一、单选题（${mcqIdx.length}题）</div>` + renderOverviewGrid(mcqIdx);
+  if(blankIdx.length) html += `<div class="ov-section-title">二、填空题（${blankIdx.length}题）</div>` + renderOverviewGrid(blankIdx);
+  content.innerHTML = html;
+  content.querySelectorAll(".ov-item").forEach(el=>{
+    el.addEventListener("click", ()=>{
+      session.idx = parseInt(el.dataset.idx, 10);
+      closeOverview();
+      showScreen("quiz");
+      renderQuestion();
+    });
+  });
+}
+
+function finishQuiz(){
+  const stats = sessionStats();
+  const total = session.queue.length;
+  const durationSec = Math.round((Date.now()-session.startTime)/1000);
+  const rate = total? Math.round(stats.correct/total*100):0;
+  history.unshift({ date: Date.now(), scope: session.scopeLabel, total, correct: stats.correct, wrong: stats.wrong, rate, durationSec });
+  if(history.length>100) history = history.slice(0,100);
+  saveJSON(LS_HISTORY, history);
+  document.getElementById("resTotal").textContent = total;
+  document.getElementById("resCorrect").textContent = stats.correct;
+  document.getElementById("resWrong").textContent = stats.wrong;
+  document.getElementById("resRate").textContent = rate+"%";
+  document.getElementById("resTime").textContent = fmtTime(durationSec);
+  showScreen("result");
+}
+
+document.getElementById("retryAllBtn").onclick=()=>{ startQuiz(session.queue, session.scopeLabel); };
+document.getElementById("retryWrongBtn").onclick=()=>{
+  const wrongList = session.queue.filter((q,i)=>session.answers[i] && !session.answers[i].allCorrect);
+  if(wrongList.length===0){ alert("本次没有错题，太棒了！"); return; }
+  startQuiz(wrongList, "本次错题重练");
+};
+document.getElementById("backHomeBtn").onclick=()=>{ renderCatList(); showScreen("home"); };
+
+function renderResultList(wantCorrect){
+  document.getElementById("resultListTitle").textContent = wantCorrect ? "答对的题目" : "答错的题目";
+  const body = document.getElementById("resultListBody");
+  const items = [];
+  session.queue.forEach((q,i)=>{
+    const a = session.answers[i];
+    if(a && a.allCorrect===wantCorrect) items.push({q,a});
+  });
+  if(items.length===0){ body.innerHTML = `<div class="empty">没有符合条件的题目</div>`; return; }
+  body.innerHTML = items.map(({q,a})=>{
+    const plain = q.text + (q.code? "\n"+q.code.replace(/\{\{\}\}/g,"____") : "");
+    let yourAnsText, correctAnsText;
+    if(q.type==="mcq"){
+      yourAnsText = a.selectedOpt ? `${a.selectedOpt}. ${q.options[a.selectedOpt]}` : "未作答";
+      correctAnsText = `${q.correct}. ${q.options[q.correct]}`;
+    } else {
+      yourAnsText = a.userInputs.join("、");
+      correctAnsText = q.ans.map(x=>x.split("|")[0]).join("、");
+    }
+    return `<div class="review-item">
+      <div class="qtext">${escapeHtml(plain)}</div>
+      <div class="your-ans" style="color:${a.allCorrect?'var(--green)':'var(--red)'}">你的答案：${escapeHtml(yourAnsText)}</div>
+      <div class="correct-ans-line">正确答案：${escapeHtml(correctAnsText)}</div>
+    </div>`;
+  }).join("");
+}
+document.getElementById("resCorrectBox").onclick=()=>{ renderResultList(true); showScreen("resultlist"); };
+document.getElementById("resWrongBox").onclick=()=>{ renderResultList(false); showScreen("resultlist"); };
+document.getElementById("resultListBackBtn").onclick=()=>{ showScreen("result"); };
+
+document.getElementById("startBtn").onclick=()=>{
+  const checked = [...document.querySelectorAll(".catChk:checked")].map(c=>c.value);
+  if(checked.length===0){ alert("请至少选择一个章节"); return; }
+  const pool = QUESTIONS.filter(q=>checked.includes(q.cat));
+  startQuiz(pool, checked.length===CATS.length? "全部章节" : checked.join("、"));
+};
+
+/* ===================== 错题本 ===================== */
+function renderWrongbook(){
+  const items = Object.entries(wrongbook).map(([id,w])=>({id,...w}));
+  const summary = document.getElementById("wrongbookSummary");
+  const list = document.getElementById("wrongbookList");
+  if(items.length===0){
+    summary.innerHTML = `<div class="empty">暂无错题，继续保持！</div>`;
+    list.innerHTML=""; return;
+  }
+  summary.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;">
+      <div>共 <b>${items.length}</b> 道错题</div>
+      <button class="btn" id="practiceWrongBtn">练习全部错题</button>
+    </div>`;
+  document.getElementById("practiceWrongBtn").onclick=()=>{
+    const pool = items.map(it=>QUESTIONS.find(q=>q.id===it.id)).filter(Boolean);
+    startQuiz(pool, "错题本练习");
+  };
+  items.sort((a,b)=>b.lastWrongAt-a.lastWrongAt);
+  list.innerHTML = items.map(it=>{
+    const plain = it.text.replace(/\{\{\}\}/g,"____");
+    let ansText="";
+    if(it.type==="mcq") ansText = it.correct + "  " + (it.options? it.options[it.correct]:"");
+    else ansText = (it.ans||[]).map(a=>a.split("|")[0]).join("  /  ");
+    const streak = it.correctStreak||0;
+    return `<div class="wrong-item">
+      <div class="top"><span>${it.cat}</span><span>错${it.wrongCount}次 · ${fmtDate(it.lastWrongAt)}</span></div>
+      <div class="qtext">${escapeHtml(plain)}</div>
+      <div class="ans">答案：${escapeHtml(ansText)}</div>
+      <div class="note">已连续答对 ${streak}/3 次${streak>0?"，再连续答对"+(3-streak)+"次将自动从错题本移除":""}</div>
+    </div>`;
+  }).join("");
+}
+
+/* ===================== 历史记录 ===================== */
+function renderHistory(){
+  const list = document.getElementById("historyList");
+  if(history.length===0){ list.innerHTML = `<div class="empty">还没有练习记录，快去开始第一次练习吧～</div>`; return; }
+  list.innerHTML = history.map(h=>`
+    <div class="history-item">
+      <div class="top"><span>${fmtDate(h.date)}</span><span>用时 ${fmtTime(h.durationSec)}</span></div>
+      <div>${h.scope} · 共${h.total}题 · 对<b style="color:var(--green)">${h.correct}</b> 错<b style="color:var(--red)">${h.wrong}</b> · 正确率 <b>${h.rate}%</b></div>
+    </div>
+  `).join("");
+}
+document.getElementById("clearHistoryBtn").onclick=()=>{
+  if(confirm("确定清空所有练习记录吗？此操作不可恢复。")){ history=[]; saveJSON(LS_HISTORY, history); renderHistory(); }
+};
+
+/* ===================== 初始化 ===================== */
+renderCatList();
+</script>
+</body>
+</html>
