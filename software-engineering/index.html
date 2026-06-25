@@ -457,6 +457,11 @@ function isCorrect(userInput, acceptStr){
     const o = normalize(opt);
     if(u===o) return true;
     if(o.length>=4 && u.includes(o)) return true;
+    // 顺序无关匹配：按"和/、/，/,"拆分后排序再比较
+    const splitRe = /[和、，,]/;
+    const oParts = o.split(splitRe).filter(Boolean).sort();
+    const uParts = u.split(splitRe).filter(Boolean).sort();
+    if(oParts.length>1 && oParts.length===uParts.length && oParts.every((p,i)=>p===uParts[i])) return true;
   }
   return false;
 }
