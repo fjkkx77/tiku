@@ -376,6 +376,11 @@ function isCorrect(userInput, acceptStr){
     // 只允许"用户答案包含完整正确答案"（容忍多写了无关字），
     // 不允许反向（正确答案包含用户答案）——否则用户答了不完整/截断的内容也会被判对
     if(o.length>=2 && u.includes(o)) return true;
+    // 顺序无关匹配：对原始字符串按"和/、/，/,"拆分，各部分分别normalize后排序比较
+    const splitRe = /[和、，,]/;
+    const oParts = opt.split(splitRe).map(normalize).filter(Boolean).sort();
+    const uParts = userInput.split(splitRe).map(normalize).filter(Boolean).sort();
+    if(oParts.length>1 && oParts.length===uParts.length && oParts.every((p,i)=>p===uParts[i])) return true;
   }
   return false;
 }
