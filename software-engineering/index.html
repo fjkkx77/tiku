@@ -1,0 +1,837 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>软件工程练习题</title>
+<style>
+  :root{
+    --primary:#3b82f6; --primary-dark:#2563eb; --green:#16a34a; --red:#dc2626;
+    --bg:#f3f4f6; --card:#ffffff; --text:#1f2937; --muted:#6b7280; --border:#e5e7eb;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:"Microsoft YaHei",Segoe UI,Arial,sans-serif;background:var(--bg);color:var(--text);}
+  .app{max-width:780px;margin:0 auto;min-height:100vh;background:var(--bg);display:flex;flex-direction:column;}
+  .topbar{position:sticky;top:0;z-index:10;}
+  header{background:linear-gradient(135deg,var(--primary),var(--primary-dark));color:#fff;padding:18px 16px;text-align:center;}
+  header h1{margin:0;font-size:19px;word-break:break-word;}
+  header p{margin:4px 0 0;font-size:12px;opacity:.85;}
+  nav{display:flex;background:#fff;border-bottom:1px solid var(--border);}
+  nav button{flex:1;border:none;background:none;padding:11px 4px;font-size:14px;color:var(--muted);cursor:pointer;border-bottom:3px solid transparent;}
+  nav button.active{color:var(--primary-dark);font-weight:bold;border-bottom-color:var(--primary);}
+  main{flex:1;padding:14px;}
+  .screen{display:none;}
+  .screen.active{display:block;}
+  .card{background:var(--card);border-radius:10px;padding:16px;margin-bottom:12px;box-shadow:0 1px 3px rgba(0,0,0,.08);}
+  .cat-list label{display:flex;align-items:center;gap:8px;padding:9px 4px;border-bottom:1px solid var(--border);font-size:14px;}
+  .cat-list label:last-child{border-bottom:none;}
+  .cat-count{color:var(--muted);font-size:12px;margin-left:auto;}
+  .btn{display:inline-block;border:none;border-radius:8px;padding:11px 18px;font-size:15px;cursor:pointer;background:var(--primary);color:#fff;text-align:center;}
+  .btn:active{transform:scale(.98);}
+  .btn.secondary{background:#fff;color:var(--primary-dark);border:1px solid var(--primary);}
+  .btn.green{background:var(--green);}
+  .btn.gray{background:#9ca3af;}
+  .btn:disabled{opacity:.4;cursor:not-allowed;}
+  .btn-row{display:flex;gap:10px;margin-top:14px;flex-wrap:wrap;}
+  .btn-row .btn{flex:1;}
+  .mode-row{display:flex;gap:10px;margin:10px 0;}
+  .mode-row label{flex:1;border:1px solid var(--border);border-radius:8px;padding:8px;text-align:center;font-size:13px;cursor:pointer;}
+  .mode-row input{margin-right:4px;}
+  .toplinks{display:flex;justify-content:space-between;margin-bottom:8px;font-size:13px;}
+  .toplinks span{color:var(--primary-dark);cursor:pointer;}
+  .progress-wrap{display:flex;align-items:center;gap:10px;margin-bottom:10px;font-size:13px;color:var(--muted);}
+  .progress-bar{flex:1;height:7px;background:var(--border);border-radius:4px;overflow:hidden;}
+  .progress-bar-fill{height:100%;background:var(--primary);transition:width .25s;}
+  .q-tag{display:inline-block;background:#eef2ff;color:var(--primary-dark);font-size:12px;padding:2px 8px;border-radius:10px;margin-bottom:8px;}
+  .q-text{font-size:16px;line-height:1.8;margin-bottom:10px;white-space:pre-wrap;overflow-x:auto;word-break:break-word;}
+  .q-code{font-family:Consolas,"Courier New",monospace;font-size:13.5px;background:#f8fafc;border:1px solid var(--border);border-radius:8px;padding:10px;margin:8px 0;line-height:1.7;white-space:pre-wrap;overflow-x:auto;}
+  .opt-list{display:flex;flex-direction:column;margin:10px 0;}
+  .opt-row{padding:13px 6px;border-bottom:1px solid var(--border);cursor:pointer;border-radius:6px;}
+  .opt-row:last-child{border-bottom:none;}
+  .opt-row .opt-label{font-size:13px;color:var(--muted);margin-bottom:3px;}
+  .opt-row .opt-text{font-size:14.5px;white-space:pre-wrap;font-family:Consolas,"Microsoft YaHei",monospace;line-height:1.6;}
+  .opt-row.selected{background:#eef2ff;}
+  .opt-row.selected .opt-label{color:var(--primary-dark);font-weight:bold;}
+  .opt-row.disabled{cursor:default;}
+  .answer-box .my-ans{font-weight:bold;}
+  .answer-box .my-ans.wrong-color{color:var(--red);}
+  .answer-box .correct-ans{color:var(--green);font-weight:bold;}
+  .blank-input{-webkit-appearance:none;appearance:none;border:1.5px solid var(--primary);border-radius:6px;background:#f8fafc;padding:4px 8px;font-size:14.5px;min-width:90px;text-align:center;margin:2px;font-family:Consolas,monospace;color:var(--text);box-shadow:none;}
+  .blank-input.correct{border-color:var(--green);background:#ecfdf3;color:var(--green);}
+  .blank-input.wrong{border-color:var(--red);background:#fef2f2;color:var(--red);}
+  .blank-input:disabled{opacity:1;-webkit-text-fill-color:var(--text);background:#f8fafc;}
+  .blank-input.correct:disabled{-webkit-text-fill-color:var(--green);background:#ecfdf3;border-color:var(--green);}
+  .blank-input.wrong:disabled{-webkit-text-fill-color:var(--red);background:#fef2f2;border-color:var(--red);}
+  .blank-row{margin:6px 0;font-size:13px;color:var(--muted);}
+  .blank-row b{color:var(--text);font-weight:normal;}
+  .answer-box{margin-top:10px;font-size:14px;padding:10px;border-radius:8px;display:none;}
+  .answer-box.show{display:block;}
+  .answer-box.right{background:#ecfdf3;color:#15803d;}
+  .answer-box.wrong{background:#fef2f2;color:#b91c1c;}
+  .answer-box .real{font-weight:bold;}
+  footer.qfoot{display:flex;gap:10px;margin-top:14px;}
+  footer.qfoot .btn{flex:1;}
+  .stat-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;text-align:center;margin:10px 0;}
+  .stat-grid div b{display:block;font-size:22px;}
+  .stat-grid div span{font-size:12px;color:var(--muted);}
+  .stat-click{cursor:pointer;border-radius:8px;padding:6px 2px;transition:background .15s;}
+  .stat-click:hover{background:#f3f4f6;}
+  .review-item{border-bottom:1px solid var(--border);padding:12px 0;font-size:14px;}
+  .review-item:last-child{border-bottom:none;}
+  .review-item .qtext{margin-bottom:6px;line-height:1.6;white-space:pre-wrap;}
+  .review-item .your-ans{font-size:13px;margin-bottom:2px;}
+  .review-item .correct-ans-line{font-size:13px;color:var(--green);}
+  .history-item, .wrong-item{border-bottom:1px solid var(--border);padding:10px 0;font-size:14px;}
+  .history-item:last-child, .wrong-item:last-child{border-bottom:none;}
+  .history-item .top, .wrong-item .top{display:flex;justify-content:space-between;color:var(--muted);font-size:12px;margin-bottom:4px;}
+  .empty{text-align:center;color:var(--muted);padding:40px 0;font-size:14px;}
+  .wrong-item .qtext{margin-bottom:4px;}
+  .wrong-item .ans{color:var(--green);font-size:13px;}
+  .badge-cnt{background:#fee2e2;color:#b91c1c;border-radius:10px;font-size:11px;padding:1px 7px;}
+  .note{font-size:12px;color:var(--muted);margin-top:6px;}
+  .ov-link{font-size:13px;color:var(--primary-dark);cursor:pointer;white-space:nowrap;}
+  .ov-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;}
+  .ov-item{position:relative;aspect-ratio:1;border-radius:8px;border:1.5px solid var(--primary);display:flex;align-items:center;justify-content:center;font-size:14px;cursor:pointer;color:var(--primary-dark);background:#fff;}
+  .ov-item.cur{background:var(--primary);color:#fff;border-color:var(--primary);}
+  .ov-item.right{background:#ecfdf3;border-color:var(--green);color:#15803d;}
+  .ov-item.wrong{background:#fef2f2;border-color:var(--red);color:#b91c1c;}
+  .ov-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:49;display:none;}
+  .ov-backdrop.show{display:block;}
+  #screen-overview.active{
+    display:block;position:fixed;top:0;right:0;height:100vh;width:320px;max-width:88vw;
+    background:#fff;z-index:50;overflow-y:auto;box-shadow:-6px 0 20px rgba(0,0,0,.18);
+    padding:16px;animation:ovSlideIn .18s ease;
+  }
+  @keyframes ovSlideIn{from{transform:translateX(100%);}to{transform:translateX(0);}}
+  .ov-section-title{font-size:14px;font-weight:bold;color:var(--text);margin:14px 0 10px;padding-bottom:6px;border-bottom:1px solid var(--border);}
+  .ov-section-title:first-child{margin-top:0;}
+  .ov-header-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;}
+  .ov-header-row .ov-close{cursor:pointer;color:var(--muted);font-size:20px;line-height:1;padding:0 4px;}
+  .ov-legend{display:flex;gap:14px;font-size:12px;color:var(--muted);margin-bottom:12px;flex-wrap:wrap;}
+  .ov-legend span{display:inline-flex;align-items:center;gap:5px;}
+  .ov-dot{width:11px;height:11px;border-radius:3px;display:inline-block;border:1.5px solid var(--primary);}
+  .ov-dot.right{background:#ecfdf3;border-color:var(--green);}
+  .ov-dot.wrong{background:#fef2f2;border-color:var(--red);}
+  .ov-dot.cur{background:var(--primary);border-color:var(--primary);}
+  @media (max-width:380px){
+    .ov-grid{grid-template-columns:repeat(4,1fr);}
+    .blank-input{min-width:64px;font-size:13.5px;}
+    header h1{font-size:17px;}
+    .opt-row .opt-text{font-size:13.5px;}
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="topbar">
+  <header>
+    <h1>软件工程练习题</h1>
+    <p>仿考试宝 · 错题本 · 练习记录</p>
+  </header>
+  <nav>
+    <button data-screen="home" class="active">开始练习</button>
+    <button data-screen="wrongbook">错题本</button>
+    <button data-screen="history">练习记录</button>
+  </nav>
+  </div>
+  <main>
+
+    <section class="screen active" id="screen-home">
+      <div class="card">
+        <div class="toplinks">
+          <span id="selAll">全选</span>
+          <span id="selNone">清空</span>
+          <span id="selWrongOnly">仅选有错题章节</span>
+        </div>
+        <div class="cat-list" id="catList"></div>
+      </div>
+      <div class="card">
+        <div style="font-size:14px;font-weight:bold;margin-bottom:6px;">出题方式</div>
+        <div class="mode-row">
+          <label><input type="radio" name="order" value="random" checked>随机顺序</label>
+          <label><input type="radio" name="order" value="seq">原始顺序</label>
+        </div>
+        <div class="btn-row">
+          <button class="btn" id="startBtn">开始练习</button>
+        </div>
+      </div>
+      <div class="card" style="font-size:12px;color:var(--muted);text-align:center;">
+        题库共 <b id="totalQCount">0</b> 题（单选题72题 + 填空题84题，按知识点/模拟套卷分类）
+      </div>
+    </section>
+
+    <section class="screen" id="screen-quiz">
+      <div class="progress-wrap">
+        <span id="quizProgressText">1/10</span>
+        <div class="progress-bar"><div class="progress-bar-fill" id="quizProgressFill"></div></div>
+        <span id="quizScoreText">对0 错0</span>
+        <span class="ov-link" id="overviewLink">题目总览</span>
+      </div>
+      <div class="card">
+        <div class="q-tag" id="qTag"></div>
+        <div class="q-text" id="qText"></div>
+        <div id="qCode" class="q-code" style="display:none;"></div>
+        <div id="qBody"></div>
+        <div class="answer-box" id="answerBox"></div>
+        <footer class="qfoot">
+          <button class="btn secondary" id="prevBtn">上一题</button>
+          <button class="btn secondary" id="checkBtn">提交答案</button>
+          <button class="btn" id="nextBtn" style="display:none;">下一题</button>
+        </footer>
+      </div>
+      <div class="btn-row">
+        <button class="btn gray" id="quitQuizBtn">结束并查看结果</button>
+      </div>
+    </section>
+
+    <!-- 题目总览 -->
+    <div class="ov-backdrop" id="ovBackdrop"></div>
+    <section class="screen" id="screen-overview">
+      <div class="ov-header-row">
+        <div style="font-size:16px;font-weight:bold;">题目总览</div>
+        <span class="ov-close" id="ovCloseBtn">&times;</span>
+      </div>
+      <div class="ov-legend">
+        <span><span class="ov-dot cur"></span>当前</span>
+        <span><span class="ov-dot right"></span>已答对</span>
+        <span><span class="ov-dot wrong"></span>已答错</span>
+        <span><span class="ov-dot"></span>未作答</span>
+      </div>
+      <div id="ovContent"></div>
+      <div class="btn-row">
+        <button class="btn gray" id="ovBackBtn">返回答题</button>
+      </div>
+    </section>
+
+    <section class="screen" id="screen-result">
+      <div class="card">
+        <div style="text-align:center;font-size:16px;font-weight:bold;">本次练习结果</div>
+        <div class="stat-grid">
+          <div><b id="resTotal">0</b><span>总题数</span></div>
+          <div class="stat-click" id="resCorrectBox"><b id="resCorrect" style="color:var(--green)">0</b><span>答对（点击查看）</span></div>
+          <div class="stat-click" id="resWrongBox"><b id="resWrong" style="color:var(--red)">0</b><span>答错（点击查看）</span></div>
+        </div>
+        <div style="text-align:center;color:var(--muted);font-size:13px;">正确率 <b id="resRate">0%</b> · 用时 <b id="resTime">0分0秒</b></div>
+        <div class="btn-row">
+          <button class="btn secondary" id="backToQuizBtn">返回本次练习（继续查看/作答）</button>
+        </div>
+        <div class="btn-row">
+          <button class="btn" id="retryAllBtn">重新练习（同范围）</button>
+          <button class="btn secondary" id="retryWrongBtn">只练本次错题</button>
+        </div>
+        <div class="btn-row">
+          <button class="btn gray" id="backHomeBtn">返回首页</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- 答对/答错题目明细 -->
+    <section class="screen" id="screen-resultlist">
+      <div class="card">
+        <div style="font-size:16px;font-weight:bold;margin-bottom:10px;" id="resultListTitle"></div>
+        <div id="resultListBody"></div>
+      </div>
+      <div class="btn-row">
+        <button class="btn gray" id="resultListBackBtn">返回结果</button>
+      </div>
+    </section>
+
+    <section class="screen" id="screen-wrongbook">
+      <div class="card" id="wrongbookSummary"></div>
+      <div class="card" id="wrongbookList"></div>
+    </section>
+
+    <section class="screen" id="screen-history">
+      <div class="card" id="historyList"></div>
+      <div class="card" style="text-align:center;">
+        <button class="btn gray" id="clearHistoryBtn">清空历史记录</button>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<script>
+/* ===================== 题库数据 ===================== */
+const QUESTIONS = [
+// ====== 一、软件工程概述（填空，来自原章节练习） ======
+{type:"blank", cat:"软件工程概述", text:"1. 软件包括程序、数据和{{}}。", ans:["文档"]},
+{type:"blank", cat:"软件工程概述", text:"2. 维护活动实质上是经历了一次压缩和简化了的{{}}和开发的全过程。", ans:["软件定义"]},
+{type:"blank", cat:"软件工程概述", text:"3. 软件定义时期包括{{}}、可行性研究和需求分析。", ans:["问题定义"]},
+{type:"blank", cat:"软件工程概述", text:"4. 过程通常用{{}}型来描述。", ans:["软件生命周期模|软件生命周期模型"]},
+{type:"blank", cat:"软件工程概述", text:"5. 软件维护过程中修改软件以适应环境的变化是{{}}维护。", ans:["适应性"]},
+{type:"blank", cat:"软件工程概述", text:"6. 软件工程分为传统方法和{{}}。", ans:["面向对象方法"]},
+{type:"blank", cat:"软件工程概述", text:"7. 软件工程的三要素是过程、工具和{{}}。", ans:["方法"]},
+{type:"blank", cat:"软件工程概述", text:"8. 软件危机是指软件{{}}中遇到的一系列严重问题。", ans:["开发与维护|开发和维护"]},
+
+// ====== 二、可行性研究（填空） ======
+{type:"blank", cat:"可行性研究", text:"1. 可行性分析的描述手段包括系统流程图和{{}}。", ans:["数据流图"]},
+{type:"blank", cat:"可行性研究", text:"2. 货币的时间价值是用{{}}来表示的。", ans:["银行利率"]},
+{type:"blank", cat:"可行性研究", text:"3. 可行性研究中使用现有的技术能否实现这个系统属于{{}}。", ans:["技术可行性"]},
+{type:"blank", cat:"可行性研究", text:"4. 数据流三个重要属性包括数据流的名字、{{}}和流向。", ans:["数据组成"]},
+{type:"blank", cat:"可行性研究", text:"5. 系统经济效益=新系统增加的收入＋{{}}。", ans:["新系统节省的费用|节省的运行费用"]},
+{type:"blank", cat:"可行性研究", text:"6. 数据流图和{{}}共同构成可行性研究阶段的逻辑模型。", ans:["数据字典"]},
+{type:"blank", cat:"可行性研究", text:"7. DFD的四个要素是源点/终点、数据流、数据存储和{{}}。", ans:["处理"]},
+{type:"blank", cat:"可行性研究", text:"8. 系统流程图是概括地描绘{{}}的传统工具。", ans:["物理系统"]},
+
+// ====== 三、需求分析（填空） ======
+{type:"blank", cat:"需求分析", text:"1. 实体联系图的三要素是数据对象、{{}}、关系。", ans:["属性"]},
+{type:"blank", cat:"需求分析", text:"2. 需求分析过程应该建立3种模型，分别是数据模型、{{}}、行为模型。", ans:["功能模型"]},
+{type:"blank", cat:"需求分析", text:"3. 联系可分为一对一联系、{{}}和多对多联系。", ans:["一对多联系"]},
+{type:"blank", cat:"需求分析", text:"4. 需求分析阶段最重要的产品是{{}}。", ans:["需求规格说明书"]},
+{type:"blank", cat:"需求分析", text:"5. 可以由一组属性来定义的实体都叫{{}}。", ans:["数据对象"]},
+{type:"blank", cat:"需求分析", text:"6. {{}}是引起系统做动作或(和)转换状态的控制信息。", ans:["事件"]},
+{type:"blank", cat:"需求分析", text:"7. {{}}是建立功能模型的图形。", ans:["数据流图"]},
+{type:"blank", cat:"需求分析", text:"8. 状态转换图中常用的3种标准事件分别是entry事件、exit事件和{{}}事件。", ans:["do"]},
+
+// ====== 四、总体设计（概要设计，填空） ======
+{type:"blank", cat:"总体设计", text:"1. 模块的作用域应该在{{}}之内。", ans:["控制域"]},
+{type:"blank", cat:"总体设计", text:"2. 软件开发实际上就是一个从{{}}到低层次抽象逐步过渡的过程。", ans:["高层次抽象"]},
+{type:"blank", cat:"总体设计", text:"3. 软件开发中的抽象分为数据的抽象和{{}}。", ans:["过程的抽象"]},
+{type:"blank", cat:"总体设计", text:"4. 面向数据流的设计方法定义了一些不同的“映射”，利用这些映射可以把{{}}变换成软件结构。", ans:["数据流图"]},
+{type:"blank", cat:"总体设计", text:"5. 衡量模块独立性的两个准则是耦合性和{{}}。", ans:["内聚性"]},
+{type:"blank", cat:"总体设计", text:"6. 软件设计分{{}}和详细设计两个阶段。", ans:["总体设计|概要设计"]},
+{type:"blank", cat:"总体设计", text:"7. {{}}是一个模块直接控制(调用)的模块数目。", ans:["扇出"]},
+{type:"blank", cat:"总体设计", text:"8. 信息流有两种类型分别是变换流和{{}}。", ans:["事务流"]},
+
+// ====== 五、详细设计（填空） ======
+{type:"blank", cat:"详细设计", text:"1. 详细设计也叫{{}}。", ans:["过程设计"]},
+{type:"blank", cat:"详细设计", text:"2. PFD的全称是{{}}。", ans:["程序流程图"]},
+{type:"blank", cat:"详细设计", text:"3. 在详细设计阶段，除了对模块内的算法进行设计，还应对模块内的{{}}进行设计。", ans:["数据结构"]},
+{type:"blank", cat:"详细设计", text:"4. 已知V(G)=9，则判定节点数是{{}}。", ans:["8"]},
+{type:"blank", cat:"详细设计", text:"5. 在详细设计中表格工具包括判定树和{{}}。", ans:["判定表"]},
+{type:"blank", cat:"详细设计", text:"6. McCabe方法根据程序控制流的复杂程度定量度量程序的复杂程度，这样度量出的结果称为{{}}。", ans:["程序的环形复杂度|环形复杂度"]},
+{type:"blank", cat:"详细设计", text:"7. 过程设计语言是一种介于自然语言和{{}}之间的语言。", ans:["形式化语言"]},
+{type:"blank", cat:"详细设计", text:"8. 结构化程序设计的三种基本结构是顺序、{{}}、循环。", ans:["选择"]},
+
+// ====== 六、实现与测试（填空） ======
+{type:"blank", cat:"实现与测试", text:"1. 通常把编码和{{}}统称为实现。", ans:["测试"]},
+{type:"blank", cat:"实现与测试", text:"2. 从流图的角度点覆盖等价{{}}。", ans:["语句覆盖"]},
+{type:"blank", cat:"实现与测试", text:"3. 软件测试方法一般分为：静态测试和{{}}。", ans:["动态测试"]},
+{type:"blank", cat:"实现与测试", text:"4. 软件测试计划是在{{}}阶段制定的。", ans:["总体设计|概要设计"]},
+{type:"blank", cat:"实现与测试", text:"5. 白盒测试的主要方法包括{{}}和基本路径测试。", ans:["逻辑覆盖测试|逻辑覆盖"]},
+{type:"blank", cat:"实现与测试", text:"6. 把程序所有可能的执行路径都进行检查的测试叫{{}}。", ans:["穷举测试|穷尽测试"]},
+{type:"blank", cat:"实现与测试", text:"7. 软件测试在软件生命周期中横跨两个阶段分别是单元测试和{{}}。", ans:["综合测试"]},
+{type:"blank", cat:"实现与测试", text:"8. 黑盒测试和白盒测试都属于{{}}。", ans:["动态测试"]},
+
+// ====== 七、模拟题第一套（12单选+6填空） ======
+{type:"mcq", cat:"模拟题第一套", text:"1. 需求分析阶段的任务是确定（ ）", options:{A:"软件开发方法",B:"软件开发工具",C:"软件开发费",D:"软件系统的功能"}, correct:"D"},
+{type:"mcq", cat:"模拟题第一套", text:"2. 软件测试中，白盒法是通过分析程序的（ ）来设计测试用例的。", options:{A:"应用范围",B:"内部逻辑",C:"功能",D:"输入数据"}, correct:"B"},
+{type:"mcq", cat:"模拟题第一套", text:"3. 软件维护费用高的主要原因是（ ）。", options:{A:"人员少",B:"人员多",C:"生产率低",D:"生产率高"}, correct:"C"},
+{type:"mcq", cat:"模拟题第一套", text:"4. 软件质量必须在（ ）加以保证。", options:{A:"开发之前",B:"开发之后",C:"可行性研究过程中",D:"设计与实现过程中"}, correct:"D"},
+{type:"mcq", cat:"模拟题第一套", text:"5. 确认测试主要涉及的文档是（ ）。", options:{A:"需求规格说明书",B:"概要设计说明书",C:"详细设计说明书",D:"源程序"}, correct:"A"},
+{type:"mcq", cat:"模拟题第一套", text:"6. 模块的内聚性最高的是（ ）", options:{A:"逻辑内聚",B:"时间内聚",C:"偶然内聚",D:"功能内聚"}, correct:"D"},
+{type:"mcq", cat:"模拟题第一套", text:"7. 原型化方法是用户和设计者之间执行的一种交互构成，适用于（ ）系统。", options:{A:"需求不确定性高的",B:"需求确定的",C:"管理信息",D:"实时"}, correct:"A"},
+{type:"mcq", cat:"模拟题第一套", text:"8. （ ）是软件生存期中的一系列相关软件工程活动的集合，它由软件规格说明、软件设计与开发、软件确认、软件改进等活动组成。", options:{A:"软件过程",B:"软件工具",C:"质量保证",D:"软件工程"}, correct:"A"},
+{type:"mcq", cat:"模拟题第一套", text:"9. 下列关于瀑布模型的描述正确的是（ ）。", options:{A:"利用瀑布模型，如果发现问题修改的代价很低",B:"瀑布模型的核心是按照软件开发的时间顺序将问题简化",C:"瀑布模型具有良好的灵活性",D:"瀑布模型采用结构化的分析与设计方法，将逻辑实现与物理实现分开"}, correct:"D"},
+{type:"mcq", cat:"模拟题第一套", text:"10. 总体设计的目的是确定整个系统的（ ）。", options:{A:"规模",B:"功能及模块结构",C:"费用",D:"测试方案"}, correct:"B"},
+{type:"mcq", cat:"模拟题第一套", text:"11. 两个模块彼此传递的信息中有控制信息，这种耦合称为（ ）", options:{A:"数据耦合",B:"公共环境耦合",C:"内容耦合",D:"控制耦合"}, correct:"D"},
+{type:"mcq", cat:"模拟题第一套", text:"12. 为了提高模块的独立性，模块之间最好是（ ）", options:{A:"控制耦合",B:"公共耦合",C:"内容耦合",D:"数据耦合"}, correct:"D"},
+{type:"blank", cat:"模拟题第一套", text:"13. 数据流图用图形符号表示{{}}、加工、数据源及外部实体。", ans:["数据流"]},
+{type:"blank", cat:"模拟题第一套", text:"14. 软件的定义阶段包括：{{}}、可行性研究、需求分析。", ans:["问题定义"]},
+{type:"blank", cat:"模拟题第一套", text:"15. 好的软件开发环境应采用{{}}和集成化CASE环境。", ans:["Case工具"]},
+{type:"blank", cat:"模拟题第一套", text:"16. 需求建模主要有：{{}}、面向数据的分析方法、面向对象的分析方法。", ans:["面向数据流的分析方法"]},
+{type:"blank", cat:"模拟题第一套", text:"17. 软件测试既是软件开发阶段的最后一个活动，又是软件质量保证的最后一项措施。它所用的主要技术是白盒测试和{{}}。", ans:["黑盒测试"]},
+{type:"blank", cat:"模拟题第一套", text:"18. 软件工程采用层次化的方法，每个层次都包括过程、方法、{{}}三要素。", ans:["工具"]},
+
+// ====== 八、模拟题第二套 ======
+{type:"mcq", cat:"模拟题第二套", text:"1. 瀑布模型的存在问题是（ ）", options:{A:"用户容易参与开发",B:"缺乏灵活性",C:"用户与开发者易沟通",D:"适用可变需求"}, correct:"B"},
+{type:"mcq", cat:"模拟题第二套", text:"2. 为了提高测试的效率，应该（ ）", options:{A:"随机地选取测试数据",B:"取一切可能的输入数据作为测试数据",C:"在完成编码以后制定软件的测试计划",D:"选择发现错误可能性大的数据作为测试数据"}, correct:"D"},
+{type:"mcq", cat:"模拟题第二套", text:"3. 使用白盒测试方法时，确定测试数据应根据（ ）和指定的覆盖标准。", options:{A:"程序的内部逻辑",B:"程序的复杂结构",C:"使用说明书",D:"程序的功能"}, correct:"A"},
+{type:"mcq", cat:"模拟题第二套", text:"4. 结构化程序之所以具有易于阅读，并且有可能验证其正确性，这是由于（ ）", options:{A:"它强调编程风格",B:"选择良好的数据结构和算法",C:"有限制地使用GOTO语句",D:"只有三种基本结构"}, correct:"D"},
+{type:"mcq", cat:"模拟题第二套", text:"5. 在结构化分析方法中，（ ）表达系统内部数据运动的图形化技术。", options:{A:"数据字典",B:"实体关系图",C:"数据流图",D:"状态转换图"}, correct:"C"},
+{type:"mcq", cat:"模拟题第二套", text:"6. （ ）意味着一个操作在不同的类中可以有不同的实现方式。", options:{A:"多态性",B:"多继承",C:"类的复用",D:"封装"}, correct:"A"},
+{type:"mcq", cat:"模拟题第二套", text:"7. 软件结构使用的图形工具，一般采用（ ）图。", options:{A:"DFD",B:"PAD",C:"SC",D:"ER"}, correct:"C"},
+{type:"mcq", cat:"模拟题第二套", text:"8. 设计测试方案最困难的问题是（ ）", options:{A:"确定要测试的功能",B:"确定预期的正确输出",C:"确定要测试的对象",D:"设计测试用例"}, correct:"D"},
+{type:"mcq", cat:"模拟题第二套", text:"9. 软件生命周期中所花费用最多的阶段是（ ）", options:{A:"详细设计",B:"软件编码",C:"软件测试",D:"软件维护"}, correct:"D"},
+{type:"mcq", cat:"模拟题第二套", text:"10. 如果某种内聚要求一个模块中包含的任务必须在同一段时间内执行，则这种内聚为（ ）。", options:{A:"时间内聚",B:"逻辑内聚",C:"通信内聚",D:"信息内聚"}, correct:"A"},
+{type:"mcq", cat:"模拟题第二套", text:"11. 实现单入口单出口程序的三种基本控制结构是（ ）", options:{A:"顺序、选择、循环",B:"过程、子程序、分程序",C:"调用、返回、转移",D:"递归、堆栈、队列"}, correct:"A"},
+{type:"mcq", cat:"模拟题第二套", text:"12. 为高质量地开发软件项目，在软件结构设计时，必须遵循（ ）原则。", options:{A:"信息隐蔽",B:"质量控制",C:"程序优化",D:"数据共享"}, correct:"A"},
+{type:"blank", cat:"模拟题第二套", text:"13. 软件工程方法分两类：传统方法和{{}}。", ans:["面向对象方法"]},
+{type:"blank", cat:"模拟题第二套", text:"14. 实体-关系图是数据模型的基础，它描述{{}}、属性、及其关系。", ans:["数据对象"]},
+{type:"blank", cat:"模拟题第二套", text:"15. 按照软件工程的观点,程序是软件设计的自然结果,程序的质量主要取决于设计的质量,而{{}}在很大程度上影响着程序的可读性、可测试性和可维护性。", ans:["编程的风格"]},
+{type:"blank", cat:"模拟题第二套", text:"16. 快速原型的构造过程可以归纳为分析与规划、实现、检查、{{}}四个步骤。", ans:["改进"]},
+{type:"blank", cat:"模拟题第二套", text:"17. 使用{{}}原型可以让用户更多、更早地参与需求分析过程。", ans:["快速"]},
+{type:"blank", cat:"模拟题第二套", text:"18. 从工程管理的角度看，软件设计可分为{{}}和详细设计两大步骤。", ans:["概要设计"]},
+
+// ====== 九、模拟题第三套 ======
+{type:"mcq", cat:"模拟题第三套", text:"1. 下列（ ）属于详细设计。", options:{A:"分析项目的成本和效益",B:"为每个模块确定采用的算法",C:"编写代码",D:"确定模块结构，划分模块功能"}, correct:"B"},
+{type:"mcq", cat:"模拟题第三套", text:"2. 结构化程序设计主要强调的是（ ）", options:{A:"程序的规模",B:"程序的效率",C:"程序设计语言的先进性",D:"程序易读性"}, correct:"D"},
+{type:"mcq", cat:"模拟题第三套", text:"3. 通常发现系统需求说明书中的错误的测试步骤是（ ）", options:{A:"模块测试",B:"子系统测试",C:"验收测试",D:"平行运行"}, correct:"C"},
+{type:"mcq", cat:"模拟题第三套", text:"4. 根据程序流程图划分的模块通常是（ ）", options:{A:"时间内聚的",B:"逻辑内聚的",C:"顺序内聚的",D:"过程内聚的"}, correct:"D"},
+{type:"mcq", cat:"模拟题第三套", text:"5. 维护活动必须应用于（ ）", options:{A:"软件文档",B:"整个软件配置",C:"可执行代码",D:"数据"}, correct:"B"},
+{type:"mcq", cat:"模拟题第三套", text:"6. 软件测试中根据测试用例设计的方法的不同可分为黑盒测试和白盒测试两种，它们（ ）", options:{A:"前者属于静态测试，后者属于动态测试",B:"前者属于动态测试，后者属于静态测试",C:"都属于静态测试",D:"都属于动态测试"}, correct:"D"},
+{type:"mcq", cat:"模拟题第三套", text:"7. 因计算机硬件和软件环境的变化而作出的修改软件的过程称为（ ）", options:{A:"改正性维护",B:"适应性维护",C:"完善性维护",D:"预防性维护"}, correct:"B"},
+{type:"mcq", cat:"模拟题第三套", text:"8. 可行性研究实质上是进行了一次（ ）", options:{A:"大大压缩简化了的系统分析和设计过程",B:"详尽的系统分析和设计过程",C:"彻底的系统设计过程",D:"深入的需求分析"}, correct:"A"},
+{type:"mcq", cat:"模拟题第三套", text:"9. 在详细设计阶段，经常采用的工具有（ ）", options:{A:"PAD",B:"SA",C:"SC",D:"DFD"}, correct:"A"},
+{type:"mcq", cat:"模拟题第三套", text:"10. 提高程序可读性的有力手段是（ ）", options:{A:"使用三种标准控制结构",B:"采用有实际意义的变量名",C:"显式说明一切变量",D:"给程序加注释"}, correct:"D"},
+{type:"mcq", cat:"模拟题第三套", text:"11. 程序的三种基本控制结构的共同特点是（ ）", options:{A:"只能用来描述简单程序",B:"不能嵌套使用",C:"单入口，单出口",D:"仅用于自动控制系统"}, correct:"C"},
+{type:"mcq", cat:"模拟题第三套", text:"12. 在软件开发的各种资源中，（ ）是最重要的资源。", options:{A:"开发工具",B:"方法",C:"硬件环境",D:"人员"}, correct:"D"},
+{type:"blank", cat:"模拟题第三套", text:"13. 设计任何一个人机界面一般必须考虑{{}}、用户求助机制、错误信息处理和命令方式四个方面。", ans:["系统响应时间"]},
+{type:"blank", cat:"模拟题第三套", text:"14. 快速原型的构造过程可以归纳为{{}}、实现、检查、改进四个步骤。", ans:["分析与规划"]},
+{type:"blank", cat:"模拟题第三套", text:"15. 软件维护的内容包括改正性维护，适应性维护、{{}}和预防性维护。", ans:["完善性维护"]},
+{type:"blank", cat:"模拟题第三套", text:"16. 对象之间进行通信的构造叫做{{}}。", ans:["消息"]},
+{type:"blank", cat:"模拟题第三套", text:"17. 耦合的强弱取决于{{}}的复杂性、进入或调用模块的位置以及通过界面传送数据的多少等。", ans:["模块间接口"]},
+{type:"blank", cat:"模拟题第三套", text:"18. 软件按照设计的要求，在规定时间和条件下达到不出故障，持续运行的要求的质量特性称为{{}}。", ans:["可靠性"]},
+
+// ====== 十、模拟题第四套 ======
+{type:"mcq", cat:"模拟题第四套", text:"1. 需求分析阶段的任务是确定（ ）", options:{A:"软件开发方法",B:"软件开发工具",C:"软件开发费",D:"软件系统的功能"}, correct:"D"},
+{type:"mcq", cat:"模拟题第四套", text:"2. 软件维护费用高的主要原因是（ ）", options:{A:"人员少",B:"人员多",C:"生产率低",D:"生产率高"}, correct:"C"},
+{type:"mcq", cat:"模拟题第四套", text:"3. 确认测试主要涉及的文档是（ ）", options:{A:"需求规格说明书",B:"概要设计说明书",C:"详细设计说明书",D:"源程序"}, correct:"A"},
+{type:"mcq", cat:"模拟题第四套", text:"4. 原型化方法是用户和设计者之间执行的一种交互构成，适用于（ ）系统。", options:{A:"需求不确定性高的",B:"需求确定的",C:"管理信息",D:"实时"}, correct:"A"},
+{type:"mcq", cat:"模拟题第四套", text:"5. 下列关于瀑布模型的描述正确的是（ ）", options:{A:"利用瀑布模型，如果发现问题修改的代价很低",B:"瀑布模型的核心是按照软件开发的时间顺序将问题简化",C:"瀑布模型具有良好的灵活性",D:"瀑布模型采用结构化的分析与设计方法，将逻辑实现与物理实现分开"}, correct:"D"},
+{type:"mcq", cat:"模拟题第四套", text:"6. 划分软件生存周期的阶段时所应遵循的基本原则是（ ）。", options:{A:"各阶段的任务尽可能相关性",B:"各阶段的任务尽可能相对独立",C:"各阶段的任务在时间上连续",D:"各阶段的任务在时间上相对独立"}, correct:"B"},
+{type:"mcq", cat:"模拟题第四套", text:"7. 一个软件项目是否进行开发的结论是在______文档中作出的。", options:{A:"软件开发计划",B:"可行性报告",C:"需求分析说明书",D:"测试报告"}, correct:"B"},
+{type:"mcq", cat:"模拟题第四套", text:"8. 分析员是（ ）。", options:{A:"用户中系统的直接使用者",B:"用户和软件人员的中间人",C:"软件的编程人员",D:"用户和软件人员的领导"}, correct:"B"},
+{type:"mcq", cat:"模拟题第四套", text:"9. 下列叙述中，（ ）不属于数据字典的作用。", options:{A:"作为编码阶段的描述工具",B:"为用户与开发人员之间统一认识",C:"作为概要设计的依据",D:"为需求分析阶段定义各类条目"}, correct:"A"},
+{type:"mcq", cat:"模拟题第四套", text:"10. 使用结构化分析方法时，采用的基本手段是（ ）。", options:{A:"分解和抽象",B:"分解和综合",C:"归纳与推导",D:"试探与回溯"}, correct:"A"},
+{type:"mcq", cat:"模拟题第四套", text:"11. 结构化系统分析主要是通过（ ）进行分析的。", options:{A:"算法分解",B:"控制结构分解",C:"数据结构分解",D:"处理功能分解"}, correct:"D"},
+{type:"mcq", cat:"模拟题第四套", text:"12. 分层数据流图是一种比较严格又易于理解的描述方式，它的顶层描述了系统的（ ）。", options:{A:"总貌",B:"细节",C:"抽象",D:"软件的作者"}, correct:"A"},
+{type:"blank", cat:"模拟题第四套", text:"13. 软件测试是为了{{}}而执行程序的过程。", ans:["发现错误"]},
+{type:"blank", cat:"模拟题第四套", text:"14. 需求建模主要有：{{}}、面向数据的分析方法、面向对象的分析方法。", ans:["面向数据流的分析方法"]},
+{type:"blank", cat:"模拟题第四套", text:"15. 结构化程序设计是一种程序设计技术，它采用{{}}的设计方法和顺序、选择、循环三种基本控制结构构造常态程序。", ans:["自顶向下逐步求精"]},
+{type:"blank", cat:"模拟题第四套", text:"16. 结构化分析方法中，数据流图的四种基本成分为：处理、源点或终点、{{}}。", ans:["数据存储和数据流"]},
+{type:"blank", cat:"模拟题第四套", text:"17. 从模块内外的联系来看，结构化设计的要求是{{}}。", ans:["高内聚低耦合"]},
+{type:"blank", cat:"模拟题第四套", text:"18. 在需求分析中，可从有关问题的简述中提取组成数据流图的基本成分。通常问题简述中的动词短语将成为数据流图中的{{}}成分。", ans:["处理"]},
+
+// ====== 十一、模拟题第五套 ======
+{type:"mcq", cat:"模拟题第五套", text:"1. Jackson设计方法由英国的M. Jackson提出的，它是一种面向（ ）的设计方法。", options:{A:"对象",B:"数据流",C:"数据结构",D:"控制结构"}, correct:"C"},
+{type:"mcq", cat:"模拟题第五套", text:"2. 如果模块中所有成分引用共同的数据，该模块内的联系类型是（ ）。", options:{A:"顺序内聚",B:"功能内聚",C:"通信内聚",D:"过程内聚"}, correct:"C"},
+{type:"mcq", cat:"模拟题第五套", text:"3. 初始化模块和结束模块从块内联系看，被称为（ ）模块。", options:{A:"过程内聚",B:"功能内聚",C:"时间内聚",D:"逻辑内聚"}, correct:"C"},
+{type:"mcq", cat:"模拟题第五套", text:"4. 若一模块内部的处理动作为：成分A的输出是成分B的输入，则该模块的聚合性称为（ ）。", options:{A:"顺序内聚",B:"功能内聚",C:"过程内聚",D:"通信内聚"}, correct:"A"},
+{type:"mcq", cat:"模拟题第五套", text:"5. 某模块的功能是打印录取通知书或不录取通知书，调用模块可通过向此模块传递布尔标志信息决定本次调用哪种通知书的打印，这种模块之间的耦合称为（ ）。", options:{A:"数据耦合",B:"混合耦合",C:"公共耦合",D:"控制耦合"}, correct:"D"},
+{type:"mcq", cat:"模拟题第五套", text:"6. 要减少两个模块之间的耦合，则必须（ ）。", options:{A:"两个模块间的调用次数要少",B:"模块间传递的参数要少",C:"模块间传递的参数要少且不传递开关型参数",D:"模块间传递的参数要少且不传递开关型参数以及两模块不引用同样的全局变量"}, correct:"D"},
+{type:"mcq", cat:"模拟题第五套", text:"7. 下列耦合度表示中，最弱的耦合形式是（ ）。", options:{A:"特征耦合",B:"公共耦合",C:"数据耦合",D:"数据结构"}, correct:"C"},
+{type:"mcq", cat:"模拟题第五套", text:"8. 一个模块传送给另一模块的参数是由单个数据项组成的数组，它属于（ ）耦合。", options:{A:"数据型",B:"复合型",C:"内容型",D:"公共型"}, correct:"A"},
+{type:"mcq", cat:"模拟题第五套", text:"9. PAD（Problem Analysis Diagram）图是一种（ ）工具。", options:{A:"系统描述",B:"详细设计",C:"测试",D:"编程辅助"}, correct:"B"},
+{type:"mcq", cat:"模拟题第五套", text:"10. 下列系统设计工具中，（ ）不属于详细设计工具。", options:{A:"N-S图",B:"数据流图",C:"程序流程图",D:"PAD"}, correct:"B"},
+{type:"mcq", cat:"模拟题第五套", text:"11. 程序流程图、N-S图和PAD图是（ ）使用的表达工具。", options:{A:"设计阶段的概要设计",B:"设计阶段的详细设计",C:"编码阶段",D:"测试阶段"}, correct:"B"},
+{type:"mcq", cat:"模拟题第五套", text:"12. 模块内部的算法设计在结构化方法的（ ）阶段进行。", options:{A:"系统分析",B:"概要设计",C:"详细设计",D:"编码（实现）"}, correct:"C"},
+{type:"blank", cat:"模拟题第五套", text:"13. 软件设计的主要任务是根据{{}}导出系统的实现方案。", ans:["需求规格说明"]},
+{type:"blank", cat:"模拟题第五套", text:"14. 实体-关系图是数据模型的基础，它描述{{}}、属性、及其关系。", ans:["数据对象"]},
+{type:"blank", cat:"模拟题第五套", text:"15. 自顶向下结合的渐增式测试法，在组合模块时有两种组合策略：深度优先策略和{{}}。", ans:["宽度优先策略"]},
+{type:"blank", cat:"模拟题第五套", text:"16. {{}}是指包括一组以前没有处理的语句或条件的一条路径。从程序图来看，一条独立路径是至少包含有一条在其他独立路径中未有过的边的路径。", ans:["独立路径"]},
+{type:"blank", cat:"模拟题第五套", text:"17. 汇编语言是面向{{}}的，可以完成高级语言无法完成的特殊功能，如与外部设备之间的一些接口工作。", ans:["机器"]},
+{type:"blank", cat:"模拟题第五套", text:"18. 详细设计的任务是确定每个模块的内部特性，即模块的算法、{{}}。", ans:["使用的数据"]},
+
+// ====== 十二、模拟题第六套 ======
+{type:"mcq", cat:"模拟题第六套", text:"1. 结构化分析SA方法以数据流图、（ ）和加工说明等描述工具，即用直观的图和简洁的语言来描述软系统模型。", options:{A:"DFD图",B:"数据字典",C:"IPO图",D:"PAD图"}, correct:"B"},
+{type:"mcq", cat:"模拟题第六套", text:"2. （ ）引入了“风险驱动”的思想，适用于大规模的内部开发项目。", options:{A:"增量模型",B:"喷泉模型",C:"原型模型",D:"螺旋模型"}, correct:"D"},
+{type:"mcq", cat:"模拟题第六套", text:"3. 瀑布模型把软件生存周期划分为运行及维护、软件开发和（ ）三个阶段，而每一阶段又可细分为若干个更小的阶段。", options:{A:"详细设计",B:"可行性分析",C:"软件定义",D:"测试与排错"}, correct:"C"},
+{type:"mcq", cat:"模拟题第六套", text:"4. 若有一个计算类型的程序，它的输入量只有一个X，其范围是[-1.0, 1.0]，现从输入的角度考虑一组测试用例：-1.001, -1.0, 1.0, 1.001。设计这组测试用例的方法是（ ）。", options:{A:"条件覆盖法",B:"等价分类法",C:"边界值分析法",D:"错误推测法"}, correct:"C"},
+{type:"mcq", cat:"模拟题第六套", text:"5. 数据字典是软件需求分析阶段的最重要工具之一，其最基本的功能是（ ）。", options:{A:"数据库设计",B:"数据通信",C:"数据定义",D:"数据维护"}, correct:"C"},
+{type:"mcq", cat:"模拟题第六套", text:"6. 模块本身的内聚是模块独立性的重要度量因素之一，在七类内聚中，具有最弱内聚的一类是（ ）。", options:{A:"顺序性内聚",B:"过程性内聚",C:"逻辑性内聚",D:"偶然内聚"}, correct:"D"},
+{type:"mcq", cat:"模拟题第六套", text:"7. 下面几种白箱测试技术，（ ）是最强的覆盖准则。", options:{A:"语句覆盖",B:"条件覆盖",C:"判定覆盖",D:"条件组合覆盖"}, correct:"D"},
+{type:"mcq", cat:"模拟题第六套", text:"8. 软件需求规格说明的内容不应包括（ ）。", options:{A:"主要功能",B:"算法的详细描述",C:"用户界面及运行环境",D:"软件的性能"}, correct:"B"},
+{type:"mcq", cat:"模拟题第六套", text:"9. 下列（ ）不是模块化设计的目的。", options:{A:"可采用结构化设计方法",B:"降低复杂度",C:"有利于信息隐蔽",D:"描述系统的功能与性能"}, correct:"D"},
+{type:"mcq", cat:"模拟题第六套", text:"10. 面向数据流的设计方法把（ ）映射成软件结构。", options:{A:"数据流",B:"系统结构",C:"控制结构",D:"信息流"}, correct:"A"},
+{type:"mcq", cat:"模拟题第六套", text:"11. 程序的三种基本控制结构的共同特点是（ ）", options:{A:"只能用来描述简单程序",B:"不能嵌套使用",C:"单入口，单出口",D:"仅用于自动控制系统"}, correct:"C"},
+{type:"mcq", cat:"模拟题第六套", text:"12. 在软件开发的各种资源中，（ ）是最重要的资源。", options:{A:"开发工具",B:"方法",C:"硬件环境",D:"人员"}, correct:"D"},
+{type:"blank", cat:"模拟题第六套", text:"13. 设计任何一个人机界面一般必须考虑{{}}、用户求助机制、错误信息处理和命令方式四个方面。", ans:["系统响应时间"]},
+{type:"blank", cat:"模拟题第六套", text:"14. 快速原型的构造过程可以归纳为{{}}、实现、检查、改进四个步骤。", ans:["分析与规划"]},
+{type:"blank", cat:"模拟题第六套", text:"15. 软件是由计算机程序、数据和{{}}组成。", ans:["文档"]},
+{type:"blank", cat:"模拟题第六套", text:"16. 软件工程的主要内容是{{}}、方法和工具等三方面内容。", ans:["过程"]},
+{type:"blank", cat:"模拟题第六套", text:"17. 在软件开发过程中的每个阶段都要进行严格的{{}}，以尽早发现在软件开发过程中产生的错误。", ans:["评审"]},
+{type:"blank", cat:"模拟题第六套", text:"18. 需求分析产生的文档是{{}}。", ans:["需求规格说明书"]},
+];
+
+QUESTIONS.forEach((q,i)=>q.id="q"+i);
+const CATS = [...new Set(QUESTIONS.map(q=>q.cat))];
+
+/* ===================== 本地存储 ===================== */
+const LS_HISTORY="rjgcquiz_history", LS_WRONGBOOK="rjgcquiz_wrongbook";
+function loadJSON(key,def){ try{ return JSON.parse(localStorage.getItem(key)) || def; }catch(e){ return def; } }
+function saveJSON(key,val){ localStorage.setItem(key, JSON.stringify(val)); }
+let history = loadJSON(LS_HISTORY, []);
+let wrongbook = loadJSON(LS_WRONGBOOK, {});
+
+/* ===================== 工具函数 ===================== */
+function normalize(s){
+  return (s||"").trim().toLowerCase().replace(/[\s;；]/g,"");
+}
+function isCorrect(userInput, acceptStr){
+  const options = acceptStr.split("|");
+  const u = normalize(userInput);
+  if(!u) return false;
+  for(const opt of options){
+    const o = normalize(opt);
+    if(u===o) return true;
+    if(o.length>=4 && u.includes(o)) return true;
+  }
+  return false;
+}
+function gradeBlanksSet(userInputs, expectedList){
+  const n = expectedList.length;
+  const used = new Array(n).fill(false);
+  const assignment = new Array(n).fill(-1);
+  for(let i=0;i<userInputs.length;i++){
+    for(let j=0;j<n;j++){
+      if(!used[j] && isCorrect(userInputs[i], expectedList[j])){ used[j]=true; assignment[i]=j; break; }
+    }
+  }
+  const allCorrect = assignment.every(a=>a!==-1);
+  return {allCorrect, assignment};
+}
+function fmtTime(sec){ const m=Math.floor(sec/60), s=sec%60; return m+"分"+s+"秒"; }
+function fmtDate(ts){ const d=new Date(ts); return `${d.getMonth()+1}/${d.getDate()} ${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`; }
+function escapeHtml(s){ return (s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+
+/* ===================== 屏幕切换 ===================== */
+function showScreen(name){
+  document.querySelectorAll(".screen").forEach(s=>s.classList.remove("active"));
+  document.getElementById("ovBackdrop").classList.remove("show");
+  document.getElementById("screen-"+name).classList.add("active");
+  document.querySelectorAll("nav button").forEach(b=>b.classList.remove("active"));
+  const navBtn = document.querySelector(`nav button[data-screen="${name}"]`);
+  if(navBtn) navBtn.classList.add("active");
+  if(name==="wrongbook") renderWrongbook();
+  if(name==="history") renderHistory();
+}
+document.querySelectorAll("nav button").forEach(b=>b.addEventListener("click", ()=>showScreen(b.dataset.screen)));
+
+/* ===================== 首页：章节选择 ===================== */
+function renderCatList(){
+  const wb = wrongbook;
+  const list = document.getElementById("catList");
+  list.innerHTML = CATS.map(cat=>{
+    const cnt = QUESTIONS.filter(q=>q.cat===cat).length;
+    const wcnt = Object.values(wb).filter(w=>w.cat===cat).length;
+    return `<label>
+      <input type="checkbox" class="catChk" value="${cat}" checked>
+      ${cat}
+      <span class="cat-count">${cnt}题${wcnt?` · <span class="badge-cnt">${wcnt}错</span>`:""}</span>
+    </label>`;
+  }).join("");
+  document.getElementById("totalQCount").textContent = QUESTIONS.length;
+}
+document.getElementById("selAll").onclick=()=>document.querySelectorAll(".catChk").forEach(c=>c.checked=true);
+document.getElementById("selNone").onclick=()=>document.querySelectorAll(".catChk").forEach(c=>c.checked=false);
+document.getElementById("selWrongOnly").onclick=()=>{
+  const wrongCats = new Set(Object.values(wrongbook).map(w=>w.cat));
+  document.querySelectorAll(".catChk").forEach(c=>c.checked=wrongCats.has(c.value));
+};
+
+/* ===================== 答题逻辑 ===================== */
+let session = null;
+let selectedOpt = null;
+
+function startQuiz(questionPool, scopeLabel){
+  const order = document.querySelector('input[name="order"]:checked').value;
+  let pool = questionPool.slice();
+  if(order==="random"){
+    for(let i=pool.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [pool[i],pool[j]]=[pool[j],pool[i]]; }
+  }
+  session = { queue:pool, idx:0, answers:new Array(pool.length).fill(null), startTime:Date.now(), scopeLabel };
+  showScreen("quiz");
+  renderQuestion();
+}
+function currentQ(){ return session.queue[session.idx]; }
+function sessionStats(){
+  let correct=0, wrong=0;
+  session.answers.forEach(a=>{ if(a){ a.allCorrect? correct++ : wrong++; } });
+  return {correct, wrong};
+}
+
+function renderQuestion(){
+  const q = currentQ();
+  const saved = session.answers[session.idx];
+  selectedOpt = saved && saved.selectedOpt ? saved.selectedOpt : null;
+  const stats = sessionStats();
+  document.getElementById("qTag").textContent = q.cat;
+  document.getElementById("quizProgressText").textContent = `${session.idx+1}/${session.queue.length}`;
+  document.getElementById("quizProgressFill").style.width = `${(session.idx/session.queue.length)*100}%`;
+  document.getElementById("quizScoreText").textContent = `对${stats.correct} 错${stats.wrong}`;
+  document.getElementById("qText").textContent = q.text;
+  document.getElementById("prevBtn").disabled = session.idx===0;
+
+  const codeEl = document.getElementById("qCode");
+  if(q.code){ codeEl.style.display="block"; codeEl.textContent = q.code.replace(/\{\{\}\}/g,"______"); }
+  else { codeEl.style.display="none"; codeEl.textContent=""; }
+
+  const body = document.getElementById("qBody");
+  const box=document.getElementById("answerBox");
+  box.className="answer-box"; box.innerHTML="";
+
+  if(q.type==="mcq"){
+    const letters = Object.keys(q.options);
+    body.innerHTML = `<div class="opt-list">` + letters.map(L=>
+      `<div class="opt-row" data-letter="${L}"><div class="opt-label">${L}.</div><div class="opt-text">${escapeHtml(q.options[L])}</div></div>`
+    ).join("") + `</div>`;
+    if(saved){
+      body.querySelectorAll(".opt-row").forEach(el=>{ el.classList.add("disabled"); });
+      showAnswerBoxMcq(q, saved.allCorrect, saved.selectedOpt);
+      document.getElementById("checkBtn").style.display="none";
+    } else {
+      body.querySelectorAll(".opt-row").forEach(el=>{
+        el.addEventListener("click", ()=>{
+          if(el.classList.contains("disabled")) return;
+          body.querySelectorAll(".opt-row").forEach(o=>o.classList.remove("selected"));
+          el.classList.add("selected");
+          selectedOpt = el.dataset.letter;
+        });
+      });
+      document.getElementById("checkBtn").style.display="inline-block";
+    }
+    updateNextBtn();
+  } else {
+    body.innerHTML = "";
+    let n=0;
+    if(q.text.includes("{{}}")){
+      document.getElementById("qText").innerHTML = q.text.replace(/\{\{\}\}/g, ()=>{
+        const idx=n++; return `<input type="text" class="blank-input" data-idx="${idx}" autocomplete="off">`;
+      });
+    }
+    if(q.code && q.code.includes("{{}}")){
+      codeEl.innerHTML = escapeHtml(q.code).replace(/\{\{\}\}/g, ()=>{
+        const idx=n++; return `<input type="text" class="blank-input" data-idx="${idx}" autocomplete="off">`;
+      });
+    }
+    const inputs = document.querySelectorAll("#qText .blank-input, #qCode .blank-input");
+    if(saved){
+      inputs.forEach((inp,i)=>{
+        inp.value = saved.userInputs[i] || "";
+        inp.classList.add(saved.assignment[i]!==-1 ? "correct" : "wrong");
+        inp.disabled = true;
+      });
+      showAnswerBoxBlank(q, saved.allCorrect);
+      document.getElementById("checkBtn").style.display="none";
+    } else {
+      inputs.forEach((inp,i)=>{
+        inp.addEventListener("keydown",(e)=>{
+          if(e.key==="Enter"){
+            if(i<inputs.length-1) inputs[i+1].focus();
+            else document.getElementById("checkBtn").click();
+          }
+        });
+      });
+      if(inputs[0]) inputs[0].focus();
+      document.getElementById("checkBtn").style.display="inline-block";
+    }
+    updateNextBtn();
+  }
+}
+
+function updateNextBtn(){
+  const nextBtnEl = document.getElementById("nextBtn");
+  const isLast = session.idx === session.queue.length-1;
+  nextBtnEl.style.display = "inline-block";
+  nextBtnEl.textContent = isLast ? "已是最后一题" : "下一题";
+  nextBtnEl.disabled = isLast;
+}
+
+function showAnswerBoxMcq(q, allCorrect, userOpt){
+  const box=document.getElementById("answerBox");
+  box.classList.add("show", allCorrect?"right":"wrong");
+  box.innerHTML = `<b>我的答案：</b><span class="my-ans${allCorrect?"":" wrong-color"}">${userOpt||"未作答"}</span>`
+    + `　　<b>正确答案：</b><span class="correct-ans">${q.correct}. ${escapeHtml(q.options[q.correct])}</span>`;
+}
+function showAnswerBoxBlank(q, allCorrect){
+  const box=document.getElementById("answerBox");
+  box.classList.add("show", allCorrect?"right":"wrong");
+  const correctAnsText = q.ans.map(a=>a.split("|")[0]).join("  /  ");
+  box.innerHTML = (allCorrect ? `✔ 回答正确！` : `✘ 回答有误。`) + ` 参考答案：<span class="real">${escapeHtml(correctAnsText)}</span>`;
+}
+
+document.getElementById("checkBtn").onclick=()=>{
+  const q = currentQ();
+  let allCorrect = true;
+  let answerRecord;
+
+  if(q.type==="mcq"){
+    if(!selectedOpt){ alert("请先选择一个选项"); return; }
+    allCorrect = selectedOpt===q.correct;
+    document.querySelectorAll("#qBody .opt-row").forEach(el=>{ el.classList.add("disabled"); });
+    showAnswerBoxMcq(q, allCorrect, selectedOpt);
+    answerRecord = { allCorrect, selectedOpt };
+  } else {
+    const inputs = [...document.querySelectorAll("#qText .blank-input, #qCode .blank-input")];
+    const userInputs = inputs.map(inp=>inp.value);
+    const graded = gradeBlanksSet(userInputs, q.ans);
+    allCorrect = graded.allCorrect;
+    inputs.forEach((inp,i)=>{
+      inp.classList.add(graded.assignment[i]!==-1 ? "correct" : "wrong");
+      inp.disabled = true;
+    });
+    showAnswerBoxBlank(q, allCorrect);
+    answerRecord = { allCorrect, userInputs, assignment: graded.assignment };
+  }
+
+  session.answers[session.idx] = answerRecord;
+
+  const MASTER_STREAK = 3;
+  if(allCorrect){
+    if(wrongbook[q.id]){
+      wrongbook[q.id].correctStreak = (wrongbook[q.id].correctStreak||0) + 1;
+      if(wrongbook[q.id].correctStreak >= MASTER_STREAK){ delete wrongbook[q.id]; }
+    }
+  } else {
+    wrongbook[q.id] = { cat:q.cat, type:q.type, text:q.text, code:q.code||"", options:q.options||null, correct:q.correct||null, ans:q.ans||null, wrongCount:(wrongbook[q.id]?.wrongCount||0)+1, correctStreak:0, lastWrongAt:Date.now() };
+  }
+  saveJSON(LS_WRONGBOOK, wrongbook);
+
+  document.getElementById("checkBtn").style.display="none";
+  updateNextBtn();
+  const stats = sessionStats();
+  document.getElementById("quizScoreText").textContent = `对${stats.correct} 错${stats.wrong}`;
+};
+
+document.getElementById("prevBtn").onclick=()=>{
+  if(session.idx>0){ session.idx--; renderQuestion(); }
+};
+document.getElementById("nextBtn").onclick=()=>{
+  if(session.idx < session.queue.length-1){ session.idx++; renderQuestion(); }
+};
+document.getElementById("quitQuizBtn").onclick=()=>{
+  if(confirm("确定结束本次练习并查看结果吗？")) finishQuiz();
+};
+
+function openOverview(){ renderOverview(); document.getElementById("screen-overview").classList.add("active"); document.getElementById("ovBackdrop").classList.add("show"); }
+function closeOverview(){ document.getElementById("screen-overview").classList.remove("active"); document.getElementById("ovBackdrop").classList.remove("show"); }
+document.getElementById("overviewLink").onclick=openOverview;
+document.getElementById("ovBackBtn").onclick=closeOverview;
+document.getElementById("ovCloseBtn").onclick=closeOverview;
+document.getElementById("ovBackdrop").onclick=closeOverview;
+
+function renderOverviewGrid(indices){
+  return `<div class="ov-grid">` + indices.map(i=>{
+    const a = session.answers[i];
+    let cls = "";
+    if(i===session.idx) cls += " cur";
+    if(a) cls += a.allCorrect ? " right" : " wrong";
+    return `<div class="ov-item${cls}" data-idx="${i}">${i+1}</div>`;
+  }).join("") + `</div>`;
+}
+function renderOverview(){
+  const content = document.getElementById("ovContent");
+  const mcqIdx = [], blankIdx = [];
+  session.queue.forEach((q,i)=> (q.type==="mcq" ? mcqIdx : blankIdx).push(i));
+  let html = "";
+  if(mcqIdx.length) html += `<div class="ov-section-title">一、单选题（${mcqIdx.length}题）</div>` + renderOverviewGrid(mcqIdx);
+  if(blankIdx.length) html += `<div class="ov-section-title">二、填空题（${blankIdx.length}题）</div>` + renderOverviewGrid(blankIdx);
+  content.innerHTML = html;
+  content.querySelectorAll(".ov-item").forEach(el=>{
+    el.addEventListener("click", ()=>{
+      session.idx = parseInt(el.dataset.idx, 10);
+      closeOverview();
+      showScreen("quiz");
+      renderQuestion();
+    });
+  });
+}
+
+function finishQuiz(){
+  const stats = sessionStats();
+  const total = session.queue.length;
+  const durationSec = Math.round((Date.now()-session.startTime)/1000);
+  const rate = total? Math.round(stats.correct/total*100):0;
+  history.unshift({ date: Date.now(), scope: session.scopeLabel, total, correct: stats.correct, wrong: stats.wrong, rate, durationSec });
+  if(history.length>100) history = history.slice(0,100);
+  saveJSON(LS_HISTORY, history);
+  document.getElementById("resTotal").textContent = total;
+  document.getElementById("resCorrect").textContent = stats.correct;
+  document.getElementById("resWrong").textContent = stats.wrong;
+  document.getElementById("resRate").textContent = rate+"%";
+  document.getElementById("resTime").textContent = fmtTime(durationSec);
+  showScreen("result");
+}
+
+document.getElementById("backToQuizBtn").onclick=()=>{ showScreen("quiz"); renderQuestion(); };
+document.getElementById("retryAllBtn").onclick=()=>{ startQuiz(session.queue, session.scopeLabel); };
+document.getElementById("retryWrongBtn").onclick=()=>{
+  const wrongList = session.queue.filter((q,i)=>session.answers[i] && !session.answers[i].allCorrect);
+  if(wrongList.length===0){ alert("本次没有错题，太棒了！"); return; }
+  startQuiz(wrongList, "本次错题重练");
+};
+document.getElementById("backHomeBtn").onclick=()=>{ renderCatList(); showScreen("home"); };
+
+function renderResultList(wantCorrect){
+  document.getElementById("resultListTitle").textContent = wantCorrect ? "答对的题目" : "答错的题目";
+  const body = document.getElementById("resultListBody");
+  const items = [];
+  session.queue.forEach((q,i)=>{
+    const a = session.answers[i];
+    if(a && a.allCorrect===wantCorrect) items.push({q,a});
+  });
+  if(items.length===0){ body.innerHTML = `<div class="empty">没有符合条件的题目</div>`; return; }
+  body.innerHTML = items.map(({q,a})=>{
+    const plain = q.text + (q.code? "\n"+q.code.replace(/\{\{\}\}/g,"____") : "");
+    let yourAnsText, correctAnsText;
+    if(q.type==="mcq"){
+      yourAnsText = a.selectedOpt ? `${a.selectedOpt}. ${q.options[a.selectedOpt]}` : "未作答";
+      correctAnsText = `${q.correct}. ${q.options[q.correct]}`;
+    } else {
+      yourAnsText = a.userInputs.join("、");
+      correctAnsText = q.ans.map(x=>x.split("|")[0]).join("、");
+    }
+    return `<div class="review-item">
+      <div class="qtext">${escapeHtml(plain)}</div>
+      <div class="your-ans" style="color:${a.allCorrect?'var(--green)':'var(--red)'}">你的答案：${escapeHtml(yourAnsText)}</div>
+      <div class="correct-ans-line">正确答案：${escapeHtml(correctAnsText)}</div>
+    </div>`;
+  }).join("");
+}
+document.getElementById("resCorrectBox").onclick=()=>{ renderResultList(true); showScreen("resultlist"); };
+document.getElementById("resWrongBox").onclick=()=>{ renderResultList(false); showScreen("resultlist"); };
+document.getElementById("resultListBackBtn").onclick=()=>{ showScreen("result"); };
+
+document.getElementById("startBtn").onclick=()=>{
+  const checked = [...document.querySelectorAll(".catChk:checked")].map(c=>c.value);
+  if(checked.length===0){ alert("请至少选择一个章节"); return; }
+  const pool = QUESTIONS.filter(q=>checked.includes(q.cat));
+  startQuiz(pool, checked.length===CATS.length? "全部章节" : checked.join("、"));
+};
+
+/* ===================== 错题本 ===================== */
+function renderWrongbook(){
+  const items = Object.entries(wrongbook).map(([id,w])=>({id,...w}));
+  const summary = document.getElementById("wrongbookSummary");
+  const list = document.getElementById("wrongbookList");
+  if(items.length===0){
+    summary.innerHTML = `<div class="empty">暂无错题，继续保持！</div>`;
+    list.innerHTML=""; return;
+  }
+  summary.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;">
+      <div>共 <b>${items.length}</b> 道错题</div>
+      <button class="btn" id="practiceWrongBtn">练习全部错题</button>
+    </div>`;
+  document.getElementById("practiceWrongBtn").onclick=()=>{
+    const pool = items.map(it=>QUESTIONS.find(q=>q.id===it.id)).filter(Boolean);
+    startQuiz(pool, "错题本练习");
+  };
+  items.sort((a,b)=>b.lastWrongAt-a.lastWrongAt);
+  list.innerHTML = items.map(it=>{
+    const plain = it.text.replace(/\{\{\}\}/g,"____");
+    let ansText="";
+    if(it.type==="mcq") ansText = it.correct + "  " + (it.options? it.options[it.correct]:"");
+    else ansText = (it.ans||[]).map(a=>a.split("|")[0]).join("  /  ");
+    const streak = it.correctStreak||0;
+    return `<div class="wrong-item">
+      <div class="top"><span>${it.cat}</span><span>错${it.wrongCount}次 · ${fmtDate(it.lastWrongAt)}</span></div>
+      <div class="qtext">${escapeHtml(plain)}</div>
+      <div class="ans">答案：${escapeHtml(ansText)}</div>
+      <div class="note">已连续答对 ${streak}/3 次${streak>0?"，再连续答对"+(3-streak)+"次将自动从错题本移除":""}</div>
+    </div>`;
+  }).join("");
+}
+
+/* ===================== 历史记录 ===================== */
+function renderHistory(){
+  const list = document.getElementById("historyList");
+  if(history.length===0){ list.innerHTML = `<div class="empty">还没有练习记录，快去开始第一次练习吧～</div>`; return; }
+  list.innerHTML = history.map(h=>`
+    <div class="history-item">
+      <div class="top"><span>${fmtDate(h.date)}</span><span>用时 ${fmtTime(h.durationSec)}</span></div>
+      <div>${h.scope} · 共${h.total}题 · 对<b style="color:var(--green)">${h.correct}</b> 错<b style="color:var(--red)">${h.wrong}</b> · 正确率 <b>${h.rate}%</b></div>
+    </div>
+  `).join("");
+}
+document.getElementById("clearHistoryBtn").onclick=()=>{
+  if(confirm("确定清空所有练习记录吗？此操作不可恢复。")){ history=[]; saveJSON(LS_HISTORY, history); renderHistory(); }
+};
+
+/* ===================== 初始化 ===================== */
+renderCatList();
+</script>
+</body>
+</html>
