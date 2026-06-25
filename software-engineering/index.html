@@ -515,12 +515,20 @@ document.getElementById("selWrongOnly").onclick=()=>{
 let session = null;
 let selectedOpt = null;
 
+function shuffleArray(arr){
+  for(let i=arr.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [arr[i],arr[j]]=[arr[j],arr[i]]; }
+  return arr;
+}
 function startQuiz(questionPool, scopeLabel){
   const order = document.querySelector('input[name="order"]:checked').value;
-  let pool = questionPool.slice();
+  // 单选题和填空题始终各自归成连续的一段，不互相穿插（哪怕选了多个章节/套卷混合练习），
+  // 避免答题时在两种题型之间反复切换造成割裂感；"随机顺序"只在各自类型内部打乱。
+  let mcqList = questionPool.filter(q=>q.type==="mcq");
+  let blankList = questionPool.filter(q=>q.type==="blank");
   if(order==="random"){
-    for(let i=pool.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [pool[i],pool[j]]=[pool[j],pool[i]]; }
+    shuffleArray(mcqList); shuffleArray(blankList);
   }
+  let pool = mcqList.concat(blankList);
   session = { queue:pool, idx:0, answers:new Array(pool.length).fill(null), startTime:Date.now(), scopeLabel };
   showScreen("quiz");
   renderQuestion();
@@ -693,12 +701,14 @@ document.getElementById("ovCloseBtn").onclick=closeOverview;
 document.getElementById("ovBackdrop").onclick=closeOverview;
 
 function renderOverviewGrid(indices){
-  return `<div class="ov-grid">` + indices.map(i=>{
+  // 题号显示该题在"本题型"内的顺序号（从1开始），不是在整个队列里的绝对位置，
+  // 这样单选题永远是1~N、填空题永远是1~M，不会因为两种题型穿插而显得题号乱跳。
+  return `<div class="ov-grid">` + indices.map((i,localIdx)=>{
     const a = session.answers[i];
     let cls = "";
     if(i===session.idx) cls += " cur";
     if(a) cls += a.allCorrect ? " right" : " wrong";
-    return `<div class="ov-item${cls}" data-idx="${i}">${i+1}</div>`;
+    return `<div class="ov-item${cls}" data-idx="${i}">${localIdx+1}</div>`;
   }).join("") + `</div>`;
 }
 function renderOverview(){
