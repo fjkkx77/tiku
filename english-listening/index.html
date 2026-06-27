@@ -1,0 +1,650 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>大学英语听力练习</title>
+<style>
+  :root{
+    --primary:#3b82f6; --primary-dark:#2563eb; --green:#16a34a; --red:#dc2626;
+    --bg:#f3f4f6; --card:#ffffff; --text:#1f2937; --muted:#6b7280; --border:#e5e7eb;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:"Microsoft YaHei",Segoe UI,Arial,sans-serif;background:var(--bg);color:var(--text);}
+  .app{max-width:780px;margin:0 auto;min-height:100vh;background:var(--bg);display:flex;flex-direction:column;}
+  .topbar{position:sticky;top:0;z-index:10;}
+  header{background:linear-gradient(135deg,var(--primary),var(--primary-dark));color:#fff;padding:18px 16px;text-align:center;}
+  header h1{margin:0;font-size:19px;word-break:break-word;}
+  header p{margin:4px 0 0;font-size:12px;opacity:.85;}
+  nav{display:flex;background:#fff;border-bottom:1px solid var(--border);}
+  nav button{flex:1;border:none;background:none;padding:11px 4px;font-size:14px;color:var(--muted);cursor:pointer;border-bottom:3px solid transparent;}
+  nav button.active{color:var(--primary-dark);font-weight:bold;border-bottom-color:var(--primary);}
+  main{flex:1;padding:14px;}
+  .screen{display:none;}
+  .screen.active{display:block;}
+  .card{background:var(--card);border-radius:10px;padding:16px;margin-bottom:12px;box-shadow:0 1px 3px rgba(0,0,0,.08);}
+  .cat-list label{display:flex;align-items:center;gap:8px;padding:9px 4px;border-bottom:1px solid var(--border);font-size:14px;}
+  .cat-list label:last-child{border-bottom:none;}
+  .cat-count{color:var(--muted);font-size:12px;margin-left:auto;}
+  .btn{display:inline-block;border:none;border-radius:8px;padding:11px 18px;font-size:15px;cursor:pointer;background:var(--primary);color:#fff;text-align:center;}
+  .btn:active{transform:scale(.98);}
+  .btn.secondary{background:#fff;color:var(--primary-dark);border:1px solid var(--primary);}
+  .btn.green{background:var(--green);}
+  .btn.gray{background:#9ca3af;}
+  .btn:disabled{opacity:.4;cursor:not-allowed;}
+  .btn-row{display:flex;gap:10px;margin-top:14px;flex-wrap:wrap;}
+  .btn-row .btn{flex:1;}
+  .mode-row{display:flex;gap:10px;margin:10px 0;}
+  .mode-row label{flex:1;border:1px solid var(--border);border-radius:8px;padding:8px;text-align:center;font-size:13px;cursor:pointer;}
+  .mode-row input{margin-right:4px;}
+  .toplinks{display:flex;justify-content:space-between;margin-bottom:8px;font-size:13px;}
+  .toplinks span{color:var(--primary-dark);cursor:pointer;}
+  .progress-wrap{display:flex;align-items:center;gap:10px;margin-bottom:10px;font-size:13px;color:var(--muted);}
+  .progress-bar{flex:1;height:7px;background:var(--border);border-radius:4px;overflow:hidden;}
+  .progress-bar-fill{height:100%;background:var(--primary);transition:width .25s;}
+  .q-tag{display:inline-block;background:#eef2ff;color:var(--primary-dark);font-size:12px;padding:2px 8px;border-radius:10px;margin-bottom:8px;}
+  .q-text{font-size:15px;line-height:1.8;margin-bottom:6px;white-space:pre-wrap;overflow-x:auto;word-break:break-word;color:var(--muted);}
+  .opt-list{display:flex;flex-direction:column;margin:10px 0;}
+  .opt-row{padding:13px 6px;border-bottom:1px solid var(--border);cursor:pointer;border-radius:6px;}
+  .opt-row:last-child{border-bottom:none;}
+  .opt-row .opt-label{font-size:13px;color:var(--muted);margin-bottom:3px;}
+  .opt-row .opt-text{font-size:14.5px;white-space:pre-wrap;line-height:1.6;}
+  .opt-row.selected{background:#eef2ff;}
+  .opt-row.selected .opt-label{color:var(--primary-dark);font-weight:bold;}
+  .opt-row.disabled{cursor:default;}
+  .answer-box{margin-top:10px;font-size:14px;padding:10px;border-radius:8px;display:none;}
+  .answer-box.show{display:block;}
+  .answer-box.right{background:#ecfdf3;color:#15803d;}
+  .answer-box.wrong{background:#fef2f2;color:#b91c1c;}
+  .answer-box .my-ans{font-weight:bold;}
+  .answer-box .my-ans.wrong-color{color:var(--red);}
+  .answer-box .correct-ans{color:var(--green);font-weight:bold;}
+  footer.qfoot{display:flex;gap:10px;margin-top:14px;}
+  footer.qfoot .btn{flex:1;}
+  .stat-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;text-align:center;margin:10px 0;}
+  .stat-grid div b{display:block;font-size:22px;}
+  .stat-grid div span{font-size:12px;color:var(--muted);}
+  .stat-click{cursor:pointer;border-radius:8px;padding:6px 2px;transition:background .15s;}
+  .stat-click:hover{background:#f3f4f6;}
+  .review-item{border-bottom:1px solid var(--border);padding:12px 0;font-size:14px;}
+  .review-item:last-child{border-bottom:none;}
+  .review-item .qtext{margin-bottom:6px;line-height:1.6;white-space:pre-wrap;}
+  .review-item .your-ans{font-size:13px;margin-bottom:2px;}
+  .review-item .correct-ans-line{font-size:13px;color:var(--green);}
+  .history-item,.wrong-item{border-bottom:1px solid var(--border);padding:10px 0;font-size:14px;}
+  .history-item:last-child,.wrong-item:last-child{border-bottom:none;}
+  .history-item .top,.wrong-item .top{display:flex;justify-content:space-between;color:var(--muted);font-size:12px;margin-bottom:4px;}
+  .empty{text-align:center;color:var(--muted);padding:40px 0;font-size:14px;}
+  .wrong-item .qtext{margin-bottom:4px;}
+  .wrong-item .ans{color:var(--green);font-size:13px;}
+  .badge-cnt{background:#fee2e2;color:#b91c1c;border-radius:10px;font-size:11px;padding:1px 7px;}
+  .note{font-size:12px;color:var(--muted);margin-top:6px;}
+  .ov-link{font-size:13px;color:var(--primary-dark);cursor:pointer;white-space:nowrap;}
+  .ov-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;}
+  .ov-item{position:relative;aspect-ratio:1;border-radius:8px;border:1.5px solid var(--primary);display:flex;align-items:center;justify-content:center;font-size:14px;cursor:pointer;color:var(--primary-dark);background:#fff;}
+  .ov-item.cur{background:var(--primary);color:#fff;border-color:var(--primary);}
+  .ov-item.right{background:#ecfdf3;border-color:var(--green);color:#15803d;}
+  .ov-item.wrong{background:#fef2f2;border-color:var(--red);color:#b91c1c;}
+  .ov-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:49;display:none;}
+  .ov-backdrop.show{display:block;}
+  #screen-overview.active{
+    display:block;position:fixed;top:0;right:0;height:100vh;width:320px;max-width:88vw;
+    background:#fff;z-index:50;overflow-y:auto;box-shadow:-6px 0 20px rgba(0,0,0,.18);
+    padding:16px;animation:ovSlideIn .18s ease;
+  }
+  @keyframes ovSlideIn{from{transform:translateX(100%);}to{transform:translateX(0);}}
+  .ov-section-title{font-size:14px;font-weight:bold;color:var(--text);margin:14px 0 10px;padding-bottom:6px;border-bottom:1px solid var(--border);}
+  .ov-section-title:first-child{margin-top:0;}
+  .ov-header-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;}
+  .ov-header-row .ov-close{cursor:pointer;color:var(--muted);font-size:20px;line-height:1;padding:0 4px;}
+  .ov-legend{display:flex;gap:14px;font-size:12px;color:var(--muted);margin-bottom:12px;flex-wrap:wrap;}
+  .ov-legend span{display:inline-flex;align-items:center;gap:5px;}
+  .ov-dot{width:11px;height:11px;border-radius:3px;display:inline-block;border:1.5px solid var(--primary);}
+  .ov-dot.right{background:#ecfdf3;border-color:var(--green);}
+  .ov-dot.wrong{background:#fef2f2;border-color:var(--red);}
+  .ov-dot.cur{background:var(--primary);border-color:var(--primary);}
+  @media (max-width:380px){
+    .ov-grid{grid-template-columns:repeat(4,1fr);}
+    header h1{font-size:17px;}
+    .opt-row .opt-text{font-size:13.5px;}
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="topbar">
+  <header>
+    <h1>大学英语听力练习</h1>
+    <p>仿考试宝 · 六单元共120题 · 错题本 · 练习记录</p>
+  </header>
+  <nav>
+    <button data-screen="home" class="active">开始练习</button>
+    <button data-screen="wrongbook">错题本</button>
+    <button data-screen="history">练习记录</button>
+  </nav>
+  </div>
+  <main>
+
+    <section class="screen active" id="screen-home">
+      <div class="card">
+        <div class="toplinks">
+          <span id="selAll">全选</span>
+          <span id="selNone">清空</span>
+          <span id="selWrongOnly">仅选有错题单元</span>
+        </div>
+        <div class="cat-list" id="catList"></div>
+      </div>
+      <div class="card">
+        <div style="font-size:14px;font-weight:bold;margin-bottom:6px;">出题方式</div>
+        <div class="mode-row">
+          <label><input type="radio" name="order" value="random" checked>随机顺序</label>
+          <label><input type="radio" name="order" value="seq">原始顺序</label>
+        </div>
+        <div class="btn-row">
+          <button class="btn" id="startBtn">开始练习</button>
+        </div>
+      </div>
+      <div class="card" style="font-size:12px;color:var(--muted);text-align:center;">
+        题库共 <b id="totalQCount">0</b> 题（六单元各20题，全部单选题，按原始考试顺序整理）
+      </div>
+    </section>
+
+    <section class="screen" id="screen-quiz">
+      <div class="progress-wrap">
+        <span id="quizProgressText">1/10</span>
+        <div class="progress-bar"><div class="progress-bar-fill" id="quizProgressFill"></div></div>
+        <span id="quizScoreText">对0 错0</span>
+        <span class="ov-link" id="overviewLink">题目总览</span>
+      </div>
+      <div class="card">
+        <div class="q-tag" id="qTag"></div>
+        <div class="q-text" id="qText"></div>
+        <div id="qBody"></div>
+        <div class="answer-box" id="answerBox"></div>
+        <footer class="qfoot">
+          <button class="btn secondary" id="prevBtn">上一题</button>
+          <button class="btn secondary" id="checkBtn">提交答案</button>
+          <button class="btn" id="nextBtn" style="display:none;">下一题</button>
+        </footer>
+      </div>
+      <div class="btn-row">
+        <button class="btn gray" id="quitQuizBtn">结束并查看结果</button>
+      </div>
+    </section>
+
+    <div class="ov-backdrop" id="ovBackdrop"></div>
+    <section class="screen" id="screen-overview">
+      <div class="ov-header-row">
+        <div style="font-size:16px;font-weight:bold;">题目总览</div>
+        <span class="ov-close" id="ovCloseBtn">&times;</span>
+      </div>
+      <div class="ov-legend">
+        <span><span class="ov-dot cur"></span>当前</span>
+        <span><span class="ov-dot right"></span>已答对</span>
+        <span><span class="ov-dot wrong"></span>已答错</span>
+        <span><span class="ov-dot"></span>未作答</span>
+      </div>
+      <div id="ovContent"></div>
+      <div class="btn-row">
+        <button class="btn gray" id="ovBackBtn">返回答题</button>
+      </div>
+    </section>
+
+    <section class="screen" id="screen-result">
+      <div class="card">
+        <div style="text-align:center;font-size:16px;font-weight:bold;">本次练习结果</div>
+        <div class="stat-grid">
+          <div><b id="resTotal">0</b><span>总题数</span></div>
+          <div class="stat-click" id="resCorrectBox"><b id="resCorrect" style="color:var(--green)">0</b><span>答对（点击查看）</span></div>
+          <div class="stat-click" id="resWrongBox"><b id="resWrong" style="color:var(--red)">0</b><span>答错（点击查看）</span></div>
+        </div>
+        <div style="text-align:center;color:var(--muted);font-size:13px;">正确率 <b id="resRate">0%</b> · 用时 <b id="resTime">0分0秒</b></div>
+        <div class="btn-row">
+          <button class="btn secondary" id="backToQuizBtn">返回本次练习（继续查看/作答）</button>
+        </div>
+        <div class="btn-row">
+          <button class="btn" id="retryAllBtn">重新练习（同范围）</button>
+          <button class="btn secondary" id="retryWrongBtn">只练本次错题</button>
+        </div>
+        <div class="btn-row">
+          <button class="btn gray" id="backHomeBtn">返回首页</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="screen" id="screen-resultlist">
+      <div class="card">
+        <div style="font-size:16px;font-weight:bold;margin-bottom:10px;" id="resultListTitle"></div>
+        <div id="resultListBody"></div>
+      </div>
+      <div class="btn-row">
+        <button class="btn gray" id="resultListBackBtn">返回结果</button>
+      </div>
+    </section>
+
+    <section class="screen" id="screen-wrongbook">
+      <div class="card" id="wrongbookSummary"></div>
+      <div class="card" id="wrongbookList"></div>
+    </section>
+
+    <section class="screen" id="screen-history">
+      <div class="card" id="historyList"></div>
+      <div class="card" style="text-align:center;">
+        <button class="btn gray" id="clearHistoryBtn">清空历史记录</button>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<script>
+/* ===== 题库数据 ===== */
+const QUESTIONS = [
+// ====== 第一单元（20题）======
+{type:"mcq",cat:"第一单元",text:"",options:{A:"Public services on charities.",B:"Wealth and inequality in the world.",C:"Wealth proportional to the world's population.",D:"The Chinese mainiand vs. Hong Kong in wealth."},correct:"B"},
+{type:"mcq",cat:"第一单元",text:"",options:{A:"A drop of 41 per cent.",B:"A drop of $3.5 billion.",C:"An increase of $1 trillion.",D:"An increase of 41 per cent"},correct:"A"},
+{type:"mcq",cat:"第一单元",text:"",options:{A:"Many.",B:"Twenty-one.",C:"Five.",D:"Two."},correct:"D"},
+{type:"mcq",cat:"第一单元",text:"",options:{A:"Five students.",B:"Many people.",C:"Most of his students.",D:"One professor and one student."},correct:"B"},
+{type:"mcq",cat:"第一单元",text:"",options:{A:"While the gunmen were fleeing.",B:"While the classes were going on.",C:"While someone was talking on the phone.",D:"While there was a heavy military presence there."},correct:"B"},
+{type:"mcq",cat:"第一单元",text:"",options:{A:"Office manger.",B:"Programmer.",C:"Travel agent.",D:"Secretary."},correct:"D"},
+{type:"mcq",cat:"第一单元",text:"",options:{A:"He was busy minding his own business.",B:"He was on sick leave last week.",C:"He was out of town last week.",D:"He arrived at work too late."},correct:"C"},
+{type:"mcq",cat:"第一单元",text:"",options:{A:"It's easy.",B:"It's boring.",C:"It's demanding.",D:"It's convenient."},correct:"C"},
+{type:"mcq",cat:"第一单元",text:"",options:{A:"College students.",B:"High school graduates.",C:"An instructor and a graduate.",D:"A travel agent and a customer."},correct:"B"},
+{type:"mcq",cat:"第一单元",text:"",options:{A:"Their hometowns.",B:"Their future plans.",C:"Their college lives.",D:"Their school parties."},correct:"B"},
+{type:"mcq",cat:"第一单元",text:"",options:{A:"Where to stay, on campus or off campus.",B:"What to do upon graduation.",C:"Where to go to college.",D:"What to study next fall."},correct:"C"},
+{type:"mcq",cat:"第一单元",text:"",options:{A:"In the state with private schools.",B:"In the city of NY.",C:"Within the state.",D:"Out of the state."},correct:"C"},
+{type:"mcq",cat:"第一单元",text:"",options:{A:"Because the students are more serious about school.",B:"Because the students are fond of partying.",C:"Because it is not so expensive.",D:"Because it is close to home."},correct:"A"},
+{type:"mcq",cat:"第一单元",text:"",options:{A:"Valentine's Day.",B:"April Fool's Day.",C:"Cultural Heritage Day.",D:"National Handshake Day."},correct:"D"},
+{type:"mcq",cat:"第一单元",text:"",options:{A:"To know National Handshake Day.",B:"To develop your hand-to-hand style.",C:"To have a better understanding of yourself.",D:"To convey the message you want to convey."},correct:"D"},
+{type:"mcq",cat:"第一单元",text:"",options:{A:"For the promotion of an emotional connection.",B:"For the purpose of handshake practice.",C:"For the sake of a business situation.",D:"For the practice of expressing love."},correct:"A"},
+{type:"mcq",cat:"第一单元",text:"",options:{A:"Lovers.",B:"Friends.",C:"Couples.",D:"Students."},correct:"C"},
+{type:"mcq",cat:"第一单元",text:"",options:{A:"To be hugged is to be loved.",B:"People prefer words to hugging.",C:"Hugging does not mean anything in our life.",D:"How much it means to be hugged is neglected."},correct:"D"},
+{type:"mcq",cat:"第一单元",text:"",options:{A:"It 1s part of communication.",B:"It is a form of body language.",C:"It is simply more than a word.",D:"It can convey more than words."},correct:"D"},
+{type:"mcq",cat:"第一单元",text:"",options:{A:"It is nonverbal in nature.",B:"It is a way of managing your stress.",C:"It is generally practiced without affection.",D:"It helps keep your relationship happy and healthy."},correct:"D"},
+
+// ====== 第二单元（20题）======
+{type:"mcq",cat:"第二单元",text:"",options:{A:"The latest issue of the program of Spring Festival Gala.",B:"The market shares of the major Internet companies in China.",C:"The three archrivals of Alibaba, Baidu and Tencent in China.",D:"Cash-filled virtual red envelopes to be sent out at the eve of Spring Festival."},correct:"D"},
+{type:"mcq",cat:"第二单元",text:"",options:{A:"RMB10,000,000.00.",B:"RMB15,200,000.00.",C:"RMB100,000,000.00.",D:"RMB200,000,000.00."},correct:"C"},
+{type:"mcq",cat:"第二单元",text:"",options:{A:"He made an attack on the stranger.",B:"He poured coffee on himself for $5 cash.",C:"He had never received a contribution of $5 cash.",D:"He was posted to Facebook for his unexpected fortune."},correct:"B"},
+{type:"mcq",cat:"第二单元",text:"",options:{A:"Because the stranger did not do it on purpose.",B:"Because the homeless man did not even know about Facebook.",C:"Because the homeless man agreed with the stranger on his behavior.",D:"Because the stranger always spares the homeless man money in the street."},correct:"C"},
+{type:"mcq",cat:"第二单元",text:"",options:{A:"They think highly of the story on social media.",B:"They stand up for the freedom of begging.",C:"They do not care about homeless people.",D:"They urge police to investigate the event."},correct:"D"},
+{type:"mcq",cat:"第二单元",text:"",options:{A:"Looking for an apartment.",B:"Working hard on his apartment.",C:"Experiencing a really hard time.",D:"Preparing for the final in the library."},correct:"A"},
+{type:"mcq",cat:"第二单元",text:"",options:{A:"The woman happens to have a choice for him.",B:"The woman has an empty room for him.",C:"He doesn't have to move right away.",D:"He can live close to school."},correct:"A"},
+{type:"mcq",cat:"第二单元",text:"",options:{A:"He missed it.",B:"It came too late.",C:"It sounds good to him.",D:"He's not interested in it."},correct:"C"},
+{type:"mcq",cat:"第二单元",text:"",options:{A:"Getting married soon.",B:"Getting to know the man.",C:"Finishing school wonderfully.",D:"Starting a new life in Beijing."},correct:"D"},
+{type:"mcq",cat:"第二单元",text:"",options:{A:"Leaving the man.",B:"Meeting with the woman.",C:"Having a job interview soon.",D:"Experiencing a big change in her life."},correct:"D"},
+{type:"mcq",cat:"第二单元",text:"",options:{A:"They're in need of her help.",B:"They're expecting her return to Bejing.",C:"They're looking forward to communication.",D:"They're getting to know her as a friend of theirs."},correct:"C"},
+{type:"mcq",cat:"第二单元",text:"",options:{A:"She is afraid of new living places.",B:"She gets along well with people.",C:"She is shy of making friends.",D:"She loves challenges."},correct:"B"},
+{type:"mcq",cat:"第二单元",text:"",options:{A:"To change her mind.",B:"To leave with the man.",C:"To keep in touch with each other.",D:"To start a friendship with the man."},correct:"C"},
+{type:"mcq",cat:"第二单元",text:"",options:{A:"They travel all over the world.",B:"They are rich and respectable.",C:"They cannot enjoy life better.",D:"They are mentally unhealthy."},correct:"C"},
+{type:"mcq",cat:"第二单元",text:"",options:{A:"Health issues.",B:"Competitive life.",C:"Stress management.",D:"Social relationships."},correct:"D"},
+{type:"mcq",cat:"第二单元",text:"",options:{A:"They make life easier.",B:"They can change their interest.",C:"They can live in small villages.",D:"They give evils little space to grow."},correct:"D"},
+{type:"mcq",cat:"第二单元",text:"",options:{A:"Stress is part of life.",B:"It affects everybody.",C:"Absence of stress is death.",D:"Everything seems to have become too much."},correct:"D"},
+{type:"mcq",cat:"第二单元",text:"",options:{A:"The way of looking at the world.",B:"The harmful effects of stress.",C:"The meaning of life.",D:"The nature of stress."},correct:"D"},
+{type:"mcq",cat:"第二单元",text:"",options:{A:"Going out on a first date.",B:"Our feeling under stress.",C:"Unpleasant people.",D:"Noises."},correct:"B"},
+{type:"mcq",cat:"第二单元",text:"",options:{A:"The quick response to a stressor.",B:"The environmental factors.",C:"The number of stressors.",D:"The social environment."},correct:"C"},
+
+// ====== 第三单元（20题）======
+{type:"mcq",cat:"第三单元",text:"",options:{A:"Clerk does what it takes to search for her biological father.",B:"Homeless man turns out to be a millionaire.",C:"Clerk discovers homeless man is her father.",D:"Man has been homeless for over 20 years."},correct:"C"},
+{type:"mcq",cat:"第三单元",text:"",options:{A:"When she began to work at the convenience store.",B:"After she was recognized by the homeless man in the street.",C:"While she was distributing food stamp cards to homeless people.",D:"Not until she heard the homeless man's middle name in the store."},correct:"D"},
+{type:"mcq",cat:"第三单元",text:"",options:{A:"The US importing less barrels of crude oil from Canada.",B:"Canada becoming the largest exporter of crude oil.",C:"The world's biggest exporters of crude oil today.",D:"China as the biggest trading partner with the US."},correct:"D"},
+{type:"mcq",cat:"第三单元",text:"",options:{A:"The increased consumption of oil by China.",B:"The collapse in Canadian oil production.",C:"The decreased exports of oil by the US.",D:"The slump in Canadian oil prices."},correct:"D"},
+{type:"mcq",cat:"第三单元",text:"",options:{A:"$441.6 billion vs. $438.1 billion.",B:"$414.6 billion vs. $413.1 billion.",C:"$144.6 billion vs. $143.1 billion.",D:"$41.6 billion vs. $38.1 billion."},correct:"A"},
+{type:"mcq",cat:"第三单元",text:"",options:{A:"He doesn't get along well with people.",B:"He is not the right person for the job.",C:"He acts like a stranger to others.",D:"He has no years of experience."},correct:"B"},
+{type:"mcq",cat:"第三单元",text:"",options:{A:"He's sick and tired of it.",B:"He steps into a wrong place.",C:"He can't stand the cold weather.",D:"He loses his courage or confidence."},correct:"D"},
+{type:"mcq",cat:"第三单元",text:"",options:{A:"It fits the man well.",B:"It cannot be successful.",C:"It is not terrible as the man says.",D:"It makes him a good salesperson."},correct:"C"},
+{type:"mcq",cat:"第三单元",text:"",options:{A:"Success and failure.",B:"Good and bad luck.",C:"Traffic rules.",D:"Driving test."},correct:"D"},
+{type:"mcq",cat:"第三单元",text:"",options:{A:"Once.",B:"Twice.",C:"Thrice.",D:"Four times."},correct:"B"},
+{type:"mcq",cat:"第三单元",text:"",options:{A:"He may have passed it.",B:"He could have passed it.",C:"He should have passed it.",D:"He cannot have passed it."},correct:"B"},
+{type:"mcq",cat:"第三单元",text:"",options:{A:"Uncertain.",B:"Confident.",C:"Anxious.",D:"Negative."},correct:"B"},
+{type:"mcq",cat:"第三单元",text:"",options:{A:"He has lost heart.",B:"He will do it better.",C:"He has no more chance.",D:"He's not certain of his third time."},correct:"B"},
+{type:"mcq",cat:"第三单元",text:"",options:{A:"The greatest scientist in the world.",B:"The theory of relativity.",C:"The childhood.",D:"The universe."},correct:"D"},
+{type:"mcq",cat:"第三单元",text:"",options:{A:"He asked wrong questions.",B:"He left a wrong impression on people.",C:"He carried a wrong picture of himself.",D:"He bumped up against a wrong question."},correct:"A"},
+{type:"mcq",cat:"第三单元",text:"",options:{A:"To do as a Scientist does.",B:"To explore the theory of everything.",C:"To come up with an equation.",D:"To die like Princess Diana or like Albert Einstein."},correct:"B"},
+{type:"mcq",cat:"第三单元",text:"",options:{A:"So many Londoners died from an unknown cause.",B:"The Industrial revolution took place in London.",C:"Smog killed about 4,000 people.",D:"London was called a foggy city."},correct:"C"},
+{type:"mcq",cat:"第三单元",text:"",options:{A:"(选项内容缺失)",B:"They are dangerous in nature.",C:"They are present everywhere.",D:"They are formed in the air."},correct:"B"},
+{type:"mcq",cat:"第三单元",text:"",options:{A:"It is present in the air.",B:"It is hard to locate.",C:"It is unknown.",D:"It is various."},correct:"D"},
+{type:"mcq",cat:"第三单元",text:"",options:{A:"43,000,000 tons.",B:"31,000,000 tons.",C:"12,000,000 tons.",D:"86,000,000 tons."},correct:"A"},
+
+// ====== 第四单元（20题）======
+{type:"mcq",cat:"第四单元",text:"",options:{A:"Just as expected.",B:"The delayed arrival.",C:"The delayed TV news.",D:"Decades of team work."},correct:"D"},
+{type:"mcq",cat:"第四单元",text:"",options:{A:"The new drug helps fight parasite diseases.",B:"The new drug has saved millions of poorest populations.",C:"The new drug is more than the discovery of the active agent.",D:"The new drug has removed a huge barrier to improving human health."},correct:"C"},
+{type:"mcq",cat:"第四单元",text:"",options:{A:"Two aspects.",B:"Four aspects.",C:"Fifteen aspects.",D:"Thirty aspects."},correct:"A"},
+{type:"mcq",cat:"第四单元",text:"",options:{A:"Increasing the export of aviation and transportation.",B:"Making an industrial upgrade at home.",C:"Exporting low-grade consumer-goods.",D:"Driving domestic economic growth."},correct:"B"},
+{type:"mcq",cat:"第四单元",text:"",options:{A:"A global demand for highly developed markets.",B:"A stable domestic economic growth.",C:"A growing expansion in the world.",D:"An increase in resource efficiency."},correct:"C"},
+{type:"mcq",cat:"第四单元",text:"",options:{A:"In a rowing boat.",B:"At a lunch table.",C:"In the park.",D:"In a car."},correct:"C"},
+{type:"mcq",cat:"第四单元",text:"",options:{A:"Enjoying the beautiful weather with the man.",B:"Watching birds with her boyfriend.",C:"Having a picnic with the man.",D:"Meeting the man for a date."},correct:"B"},
+{type:"mcq",cat:"第四单元",text:"",options:{A:"Birds to arrive.",B:"The rain to stop.",C:"A delivery of food.",D:"Her boyfriend with food."},correct:"D"},
+{type:"mcq",cat:"第四单元",text:"",options:{A:"At dinner.",B:"Over lunch.",C:"Before work.",D:"Close to supper."},correct:"D"},
+{type:"mcq",cat:"第四单元",text:"",options:{A:"He's sick.",B:"He's angry.",C:"He's hungry.",D:"He's painful."},correct:"C"},
+{type:"mcq",cat:"第四单元",text:"",options:{A:"It's overly demanding.",B:"It's a real pain.",C:"It's well-paid.",D:"It's boring."},correct:"B"},
+{type:"mcq",cat:"第四单元",text:"",options:{A:"He enjoys what he does at the airport.",B:"He's lucky enough to be employed.",C:"He's going to quit his job.",D:"He's got a well-paid job."},correct:"B"},
+{type:"mcq",cat:"第四单元",text:"",options:{A:"They meet with each other at the airport.",B:"They get together sometime.",C:"They have supper together.",D:"They do shopping together."},correct:"B"},
+{type:"mcq",cat:"第四单元",text:"",options:{A:"She is deaf.",B:"She is out of mind.",C:"She is hard to get alone with.",D:"She is sick and tired of cooking."},correct:"A"},
+{type:"mcq",cat:"第四单元",text:"",options:{A:"Fifteen feet away from her.",B:"Ten feet away from her.",C:"Five feet away from her.",D:"Right behind her."},correct:"C"},
+{type:"mcq",cat:"第四单元",text:"",options:{A:"A Wrong Diagnosis.",B:"A Clever Reply.",C:"Aging Society.",D:"Who Is Deaf?"},correct:"D"},
+{type:"mcq",cat:"第四单元",text:"",options:{A:"The risk of bus driving.",B:"The danger of terrorism.",C:"The problem of misunderstanding.",D:"The frequency of making a mistake."},correct:"C"},
+{type:"mcq",cat:"第四单元",text:"",options:{A:"The words cannot be proper.",B:"The message can be totally different.",C:"The emphasis cannot be laid on what is important.",D:"The differences in culture and gender can be ignored."},correct:"B"},
+{type:"mcq",cat:"第四单元",text:"",options:{A:"The 1st method.",B:"The 2nd method.",C:"The 3rd method.",D:"The 4th method."},correct:"A"},
+{type:"mcq",cat:"第四单元",text:"",options:{A:"Paying attention to the differences in culture and gender.",B:"Listening carefully to what others say.",C:"Laying stress on what is important.",D:"Saying what you're sure is proper."},correct:"A"},
+
+// ====== 第五单元（20题）======
+{type:"mcq",cat:"第五单元",text:"",options:{A:"A real story of green travel across China.",B:"An economic way of travelling across China.",C:"The best way of overcoming physical challenges.",D:"A travel across China by a disabled man on wheelchair."},correct:"D"},
+{type:"mcq",cat:"第五单元",text:"",options:{A:"The environment-friendly means of travelling.",B:"The public awareness of physical challenges.",C:"The new concept of wheelchair.",D:"The justice of disabled people."},correct:"D"},
+{type:"mcq",cat:"第五单元",text:"",options:{A:"He is one of three escaped convicts.",B:"He is a lucky customer.",C:"He is a fast-food eater.",D:"He is a homeless man."},correct:"D"},
+{type:"mcq",cat:"第五单元",text:"",options:{A:"He saw a homeless man he had been looking for.",B:"He recognized one of three escaped convicts.",C:"He picked up a bundle of cash.",D:"He found an abandoned van."},correct:"B"},
+{type:"mcq",cat:"第五单元",text:"",options:{A:"A job at McDonald's.",B:"A reward of $100,000.",C:"A cup of coffee for free.",D:"A white van as a reward."},correct:"B"},
+{type:"mcq",cat:"第五单元",text:"",options:{A:"The man.",B:"The woman.",C:"The man's wife.",D:"The woman's husband."},correct:"A"},
+{type:"mcq",cat:"第五单元",text:"",options:{A:"She is a housewife most of the time.",B:"She works at home as a publisher.",C:"She is a mother of ten children.",D:"She writes on her computer."},correct:"D"},
+{type:"mcq",cat:"第五单元",text:"",options:{A:"Nine.",B:"Ten.",C:"Eleven.",D:"Twelve."},correct:"C"},
+{type:"mcq",cat:"第五单元",text:"",options:{A:"The company's reorganization.",B:"A decrease in production.",C:"A mistake he has made.",D:"His loss of advantage."},correct:"B"},
+{type:"mcq",cat:"第五单元",text:"",options:{A:"It began to lose money.",B:"It increased its production.",C:"It started to lay off its employees.",D:"It hired more employees than necessary."},correct:"A"},
+{type:"mcq",cat:"第五单元",text:"",options:{A:"He's upset.",B:"He's crazy.",C:"He's penniless.",D:"He's out of job."},correct:"D"},
+{type:"mcq",cat:"第五单元",text:"",options:{A:"On his savings.",B:"With his new business.",C:"By doing part-time jobs.",D:"By borrowing money from the woman."},correct:"A"},
+{type:"mcq",cat:"第五单元",text:"",options:{A:"He never lost money in business.",B:"He stopped spending so much.",C:"He made smart investments.",D:"He made more than he spent."},correct:"B"},
+{type:"mcq",cat:"第五单元",text:"",options:{A:"He drove his Rolls-Royce in the European countries.",B:"He parked his Rolls-Royce in the bank's underground.",C:"He found a job in a downtown New York City bank.",D:"He went to Europe for some important business."},correct:"B"},
+{type:"mcq",cat:"第五单元",text:"",options:{A:"$15.40.",B:"$5,000.",C:"$51.40.",D:"$40.15."},correct:"B"},
+{type:"mcq",cat:"第五单元",text:"",options:{A:"He was penny-wise, but pound-foolish.",B:"He was not honest when he did business in the bank.",C:"He paid for his parking fee when he paid the interest.",D:"He fooled the loan officer into an immediate loan of $5,000."},correct:"C"},
+{type:"mcq",cat:"第五单元",text:"",options:{A:"Breastfeeding her baby.",B:"Nodding through his words.",C:"Driving her new SUV.",D:"Walking around in the showroom."},correct:"B"},
+{type:"mcq",cat:"第五单元",text:"",options:{A:"She does not know what she is doing.",B:"She loves everything about Len.",C:"She does not like the new SUV.",D:"She will certainly buy the car."},correct:"D"},
+{type:"mcq",cat:"第五单元",text:"",options:{A:"The same behavior means different things to them.",B:"They like to drive the cars of their own styles.",C:"It is polite for one to nod while listening.",D:"Understanding doesn't mean agreeing."},correct:"A"},
+{type:"mcq",cat:"第五单元",text:"",options:{A:"To learn a language is to learn its culture.",B:"Listening and nodding go hand in hand.",C:"Misunderstanding is part of life.",D:"Nodding doesn't mean yes."},correct:"D"},
+
+// ====== 第六单元（20题）======
+{type:"mcq",cat:"第六单元",text:"",options:{A:"The recycling of domestic waste.",B:"The biggest diamond in the world.",C:"A newly-wed couple's loving story.",D:"A diamond wedding ring lost and found."},correct:"D"},
+{type:"mcq",cat:"第六单元",text:"",options:{A:"Within eight tons of garbage.",B:"In their garbage collector.",C:"At the garbage company.",D:"At the garbage landfill."},correct:"A"},
+{type:"mcq",cat:"第六单元",text:"",options:{A:"Size.",B:"Beauty.",C:"Chirping.",D:"Immunity."},correct:"D"},
+{type:"mcq",cat:"第六单元",text:"",options:{A:"Scarcity.",B:"Location.",C:"Intelligence.",D:"Food choice."},correct:"C"},
+{type:"mcq",cat:"第六单元",text:"",options:{A:"A real Jurassic Park is being developed.",B:"Biological evolution is fast.",C:"Birds evolve by location.",D:"Animals can be trained."},correct:"C"},
+{type:"mcq",cat:"第六单元",text:"",options:{A:"A mechanical drawing.",B:"A handicraft.",C:"A novel of love.",D:"A car."},correct:"D"},
+{type:"mcq",cat:"第六单元",text:"",options:{A:"He enjoys having things done.",B:"He went to the vocational school.",C:"He always loves working with his hands.",D:"He could fix a car when he was a little kid."},correct:"C"},
+{type:"mcq",cat:"第六单元",text:"",options:{A:"He's a good car dealer.",B:"He's fond of the woman.",C:"He shows off his car.",D:"He loves his job."},correct:"D"},
+{type:"mcq",cat:"第六单元",text:"",options:{A:"To go to college.",B:"To see the family.",C:"To visit a place of interest.",D:"To have a vacation at the beach."},correct:"B"},
+{type:"mcq",cat:"第六单元",text:"",options:{A:"Better than expected.",B:"Wonderful.",C:"Terrible.",D:"Not bad."},correct:"C"},
+{type:"mcq",cat:"第六单元",text:"",options:{A:"Canceled so that she was rerouted.",B:"Accompanied by awful weather.",C:"Provided with poor service.",D:"Delayed for six hours."},correct:"A"},
+{type:"mcq",cat:"第六单元",text:"",options:{A:"She paid for the overweight.",B:"She had one piece of her luggage lost.",C:"She got it back six days after her arrival.",D:"She had to pick up her luggage at Oakland."},correct:"C"},
+{type:"mcq",cat:"第六单元",text:"",options:{A:"She's aggressive.",B:"She's pleased.",C:"She's excited.",D:"She's angry."},correct:"D"},
+{type:"mcq",cat:"第六单元",text:"",options:{A:"Easy to get alone with.",B:'Not good at saying "no."',C:"Good at making friends.",D:"A very emotional person."},correct:"B"},
+{type:"mcq",cat:"第六单元",text:"",options:{A:"Losing a job.",B:"Becoming alone.",C:"Hurting others' feelings.",D:"Spending much time and energy."},correct:"D"},
+{type:"mcq",cat:"第六单元",text:"",options:{A:"The importance of teamwork.",B:'A need to learn to say "no."',C:"The work efficiency.",D:"The value of time."},correct:"B"},
+{type:"mcq",cat:"第六单元",text:"",options:{A:"Offering a good reason.",B:"Having one project at a time.",C:"Explaining your reasons thoroughly.",D:"Giving your boss ample warning."},correct:"B"},
+{type:"mcq",cat:"第六单元",text:"",options:{A:"To ask your boss to allow you more time.",B:"To work on the new one instead of the other projects.",C:"To prepare a list of the other projects you're working on.",D:"To delegate the other assignments to your co-workers."},correct:"C"},
+{type:"mcq",cat:"第六单元",text:"",options:{A:"Productivity.",B:"Efficiency.",C:"Difficulty.",D:"Honesty."},correct:"D"},
+{type:"mcq",cat:"第六单元",text:"",options:{A:"Interviewees.",B:"Employees.",C:"Managers.",D:"Students."},correct:"B"},
+];
+
+QUESTIONS.forEach((q,i)=>q.id="q"+i);
+const CATS=[...new Set(QUESTIONS.map(q=>q.cat))];
+
+/* ===== 本地存储 ===== */
+const LS_HISTORY="listeningquiz_history",LS_WRONGBOOK="listeningquiz_wrongbook";
+function loadJSON(key,def){try{return JSON.parse(localStorage.getItem(key))||def;}catch(e){return def;}}
+function saveJSON(key,val){localStorage.setItem(key,JSON.stringify(val));}
+let history=loadJSON(LS_HISTORY,[]);
+let wrongbook=loadJSON(LS_WRONGBOOK,{});
+
+/* ===== 工具函数 ===== */
+function fmtTime(sec){const m=Math.floor(sec/60),s=sec%60;return m+"分"+s+"秒";}
+function fmtDate(ts){const d=new Date(ts);return`${d.getMonth()+1}/${d.getDate()} ${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`;}
+function escapeHtml(s){return(s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");}
+
+/* ===== 屏幕切换 ===== */
+function showScreen(name){
+  document.querySelectorAll(".screen").forEach(s=>s.classList.remove("active"));
+  document.getElementById("ovBackdrop").classList.remove("show");
+  document.getElementById("screen-"+name).classList.add("active");
+  document.querySelectorAll("nav button").forEach(b=>b.classList.remove("active"));
+  const nb=document.querySelector(`nav button[data-screen="${name}"]`);
+  if(nb)nb.classList.add("active");
+  if(name==="wrongbook")renderWrongbook();
+  if(name==="history")renderHistory();
+}
+document.querySelectorAll("nav button").forEach(b=>b.addEventListener("click",()=>showScreen(b.dataset.screen)));
+
+/* ===== 首页 ===== */
+function renderCatList(){
+  const wb=wrongbook;
+  const list=document.getElementById("catList");
+  list.innerHTML=CATS.map(cat=>{
+    const cnt=QUESTIONS.filter(q=>q.cat===cat).length;
+    const wcnt=Object.values(wb).filter(w=>w.cat===cat).length;
+    return`<label><input type="checkbox" class="catChk" value="${cat}" checked>${cat}<span class="cat-count">${cnt}题${wcnt?` · <span class="badge-cnt">${wcnt}错</span>`:""}</span></label>`;
+  }).join("");
+  document.getElementById("totalQCount").textContent=QUESTIONS.length;
+}
+document.getElementById("selAll").onclick=()=>document.querySelectorAll(".catChk").forEach(c=>c.checked=true);
+document.getElementById("selNone").onclick=()=>document.querySelectorAll(".catChk").forEach(c=>c.checked=false);
+document.getElementById("selWrongOnly").onclick=()=>{
+  const wc=new Set(Object.values(wrongbook).map(w=>w.cat));
+  document.querySelectorAll(".catChk").forEach(c=>c.checked=wc.has(c.value));
+};
+
+/* ===== 答题逻辑 ===== */
+let session=null;
+let selectedOpt=null;
+
+function startQuiz(questionPool,scopeLabel){
+  const order=document.querySelector('input[name="order"]:checked').value;
+  let pool=questionPool.slice();
+  if(order==="random"){for(let i=pool.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[pool[i],pool[j]]=[pool[j],pool[i]];}}
+  session={queue:pool,idx:0,answers:new Array(pool.length).fill(null),startTime:Date.now(),scopeLabel};
+  showScreen("quiz");
+  renderQuestion();
+}
+function currentQ(){return session.queue[session.idx];}
+function sessionStats(){let c=0,w=0;session.answers.forEach(a=>{if(a){a.allCorrect?c++:w++;}});return{correct:c,wrong:w};}
+
+function renderQuestion(){
+  const q=currentQ();
+  const saved=session.answers[session.idx];
+  selectedOpt=saved&&saved.selectedOpt?saved.selectedOpt:null;
+  const stats=sessionStats();
+  document.getElementById("qTag").textContent=q.cat;
+  document.getElementById("quizProgressText").textContent=`${session.idx+1}/${session.queue.length}`;
+  document.getElementById("quizProgressFill").style.width=`${(session.idx/session.queue.length)*100}%`;
+  document.getElementById("quizScoreText").textContent=`对${stats.correct} 错${stats.wrong}`;
+  const qtEl=document.getElementById("qText");
+  qtEl.textContent=q.text||"";
+  qtEl.style.display=q.text?"block":"none";
+  document.getElementById("prevBtn").disabled=session.idx===0;
+
+  const body=document.getElementById("qBody");
+  const box=document.getElementById("answerBox");
+  box.className="answer-box";box.innerHTML="";
+
+  const letters=Object.keys(q.options);
+  body.innerHTML=`<div class="opt-list">`+letters.map(L=>
+    `<div class="opt-row" data-letter="${L}"><div class="opt-label">${L}.</div><div class="opt-text">${escapeHtml(q.options[L])}</div></div>`
+  ).join("")+`</div>`;
+
+  if(saved){
+    body.querySelectorAll(".opt-row").forEach(el=>{
+      el.classList.add("disabled");
+      if(el.dataset.letter===saved.selectedOpt)el.classList.add("selected");
+    });
+    showAnswerBox(q,saved.allCorrect,saved.selectedOpt);
+    document.getElementById("checkBtn").style.display="none";
+  } else {
+    body.querySelectorAll(".opt-row").forEach(el=>{
+      el.addEventListener("click",()=>{
+        if(el.classList.contains("disabled"))return;
+        body.querySelectorAll(".opt-row").forEach(o=>o.classList.remove("selected"));
+        el.classList.add("selected");
+        selectedOpt=el.dataset.letter;
+      });
+    });
+    document.getElementById("checkBtn").style.display="inline-block";
+  }
+  updateNextBtn();
+}
+
+function updateNextBtn(){
+  const btn=document.getElementById("nextBtn");
+  const isLast=session.idx===session.queue.length-1;
+  btn.style.display="inline-block";
+  btn.textContent=isLast?"已是最后一题":"下一题";
+  btn.disabled=isLast;
+}
+
+function showAnswerBox(q,allCorrect,userOpt){
+  const box=document.getElementById("answerBox");
+  box.classList.add("show",allCorrect?"right":"wrong");
+  box.innerHTML=`<b>我的答案：</b><span class="my-ans${allCorrect?"":" wrong-color"}">${userOpt||"未作答"}</span>`
+    +`　　<b>正确答案：</b><span class="correct-ans">${q.correct}. ${escapeHtml(q.options[q.correct])}</span>`;
+}
+
+document.getElementById("checkBtn").onclick=()=>{
+  const q=currentQ();
+  if(!selectedOpt){alert("请先选择一个选项");return;}
+  const allCorrect=selectedOpt===q.correct;
+  document.querySelectorAll("#qBody .opt-row").forEach(el=>el.classList.add("disabled"));
+  showAnswerBox(q,allCorrect,selectedOpt);
+  const answerRecord={allCorrect,selectedOpt};
+  session.answers[session.idx]=answerRecord;
+
+  const STREAK=3;
+  if(allCorrect){
+    if(wrongbook[q.id]){
+      wrongbook[q.id].correctStreak=(wrongbook[q.id].correctStreak||0)+1;
+      if(wrongbook[q.id].correctStreak>=STREAK)delete wrongbook[q.id];
+    }
+  } else {
+    wrongbook[q.id]={cat:q.cat,type:q.type,text:q.text,options:q.options,correct:q.correct,wrongCount:(wrongbook[q.id]?.wrongCount||0)+1,correctStreak:0,lastWrongAt:Date.now()};
+  }
+  saveJSON(LS_WRONGBOOK,wrongbook);
+  document.getElementById("checkBtn").style.display="none";
+  updateNextBtn();
+  const stats=sessionStats();
+  document.getElementById("quizScoreText").textContent=`对${stats.correct} 错${stats.wrong}`;
+};
+
+document.getElementById("prevBtn").onclick=()=>{if(session.idx>0){session.idx--;renderQuestion();}};
+document.getElementById("nextBtn").onclick=()=>{if(session.idx<session.queue.length-1){session.idx++;renderQuestion();}};
+document.getElementById("quitQuizBtn").onclick=()=>{if(confirm("确定结束本次练习并查看结果吗？"))finishQuiz();};
+
+/* ===== 题目总览 ===== */
+function openOverview(){renderOverview();document.getElementById("screen-overview").classList.add("active");document.getElementById("ovBackdrop").classList.add("show");}
+function closeOverview(){document.getElementById("screen-overview").classList.remove("active");document.getElementById("ovBackdrop").classList.remove("show");}
+document.getElementById("overviewLink").onclick=openOverview;
+document.getElementById("ovBackBtn").onclick=closeOverview;
+document.getElementById("ovCloseBtn").onclick=closeOverview;
+document.getElementById("ovBackdrop").onclick=closeOverview;
+
+function renderOverview(){
+  const content=document.getElementById("ovContent");
+  const mcqIdx=[];
+  session.queue.forEach((q,i)=>mcqIdx.push(i));
+  let html=`<div class="ov-section-title">单选题（${mcqIdx.length}题）</div><div class="ov-grid">`;
+  mcqIdx.forEach((absIdx,localIdx)=>{
+    const a=session.answers[absIdx];
+    let cls="";
+    if(absIdx===session.idx)cls+=" cur";
+    if(a)cls+=a.allCorrect?" right":" wrong";
+    html+=`<div class="ov-item${cls}" data-idx="${absIdx}">${localIdx+1}</div>`;
+  });
+  html+=`</div>`;
+  content.innerHTML=html;
+  content.querySelectorAll(".ov-item").forEach(el=>{
+    el.addEventListener("click",()=>{
+      session.idx=parseInt(el.dataset.idx,10);
+      closeOverview();showScreen("quiz");renderQuestion();
+    });
+  });
+}
+
+/* ===== 结果页 ===== */
+function finishQuiz(){
+  const stats=sessionStats();
+  const total=session.queue.length;
+  const dur=Math.round((Date.now()-session.startTime)/1000);
+  const rate=total?Math.round(stats.correct/total*100):0;
+  history.unshift({date:Date.now(),scope:session.scopeLabel,total,correct:stats.correct,wrong:stats.wrong,rate,durationSec:dur});
+  if(history.length>100)history=history.slice(0,100);
+  saveJSON(LS_HISTORY,history);
+  document.getElementById("resTotal").textContent=total;
+  document.getElementById("resCorrect").textContent=stats.correct;
+  document.getElementById("resWrong").textContent=stats.wrong;
+  document.getElementById("resRate").textContent=rate+"%";
+  document.getElementById("resTime").textContent=fmtTime(dur);
+  showScreen("result");
+}
+
+document.getElementById("backToQuizBtn").onclick=()=>{showScreen("quiz");renderQuestion();};
+document.getElementById("retryAllBtn").onclick=()=>{startQuiz(session.queue,session.scopeLabel);};
+document.getElementById("retryWrongBtn").onclick=()=>{
+  const wl=session.queue.filter((q,i)=>session.answers[i]&&!session.answers[i].allCorrect);
+  if(wl.length===0){alert("本次没有错题，太棒了！");return;}
+  startQuiz(wl,"本次错题重练");
+};
+document.getElementById("backHomeBtn").onclick=()=>{renderCatList();showScreen("home");};
+
+function renderResultList(wantCorrect){
+  document.getElementById("resultListTitle").textContent=wantCorrect?"答对的题目":"答错的题目";
+  const body=document.getElementById("resultListBody");
+  const items=[];
+  session.queue.forEach((q,i)=>{const a=session.answers[i];if(a&&a.allCorrect===wantCorrect)items.push({q,a});});
+  if(items.length===0){body.innerHTML=`<div class="empty">没有符合条件的题目</div>`;return;}
+  body.innerHTML=items.map(({q,a})=>{
+    const yourAns=a.selectedOpt?`${a.selectedOpt}. ${q.options[a.selectedOpt]}`:"未作答";
+    const correctAns=`${q.correct}. ${q.options[q.correct]}`;
+    const optText=Object.entries(q.options).map(([L,v])=>`${L}. ${v}`).join("\n");
+    return`<div class="review-item">
+      <div class="qtext">${escapeHtml(optText)}</div>
+      <div class="your-ans" style="color:${a.allCorrect?"var(--green)":"var(--red)"}">你的答案：${escapeHtml(yourAns)}</div>
+      <div class="correct-ans-line">正确答案：${escapeHtml(correctAns)}</div>
+    </div>`;
+  }).join("");
+}
+document.getElementById("resCorrectBox").onclick=()=>{renderResultList(true);showScreen("resultlist");};
+document.getElementById("resWrongBox").onclick=()=>{renderResultList(false);showScreen("resultlist");};
+document.getElementById("resultListBackBtn").onclick=()=>{showScreen("result");};
+
+document.getElementById("startBtn").onclick=()=>{
+  const checked=[...document.querySelectorAll(".catChk:checked")].map(c=>c.value);
+  if(checked.length===0){alert("请至少选择一个单元");return;}
+  const pool=QUESTIONS.filter(q=>checked.includes(q.cat));
+  startQuiz(pool,checked.length===CATS.length?"全部单元":checked.join("、"));
+};
+
+/* ===== 错题本 ===== */
+function renderWrongbook(){
+  const items=Object.entries(wrongbook).map(([id,w])=>({id,...w}));
+  const summary=document.getElementById("wrongbookSummary");
+  const list=document.getElementById("wrongbookList");
+  if(items.length===0){summary.innerHTML=`<div class="empty">暂无错题，继续保持！</div>`;list.innerHTML="";return;}
+  summary.innerHTML=`<div style="display:flex;justify-content:space-between;align-items:center;"><div>共 <b>${items.length}</b> 道错题</div><button class="btn" id="practiceWrongBtn">练习全部错题</button></div>`;
+  document.getElementById("practiceWrongBtn").onclick=()=>{
+    const pool=items.map(it=>QUESTIONS.find(q=>q.id===it.id)).filter(Boolean);
+    startQuiz(pool,"错题本练习");
+  };
+  items.sort((a,b)=>b.lastWrongAt-a.lastWrongAt);
+  list.innerHTML=items.map(it=>{
+    const ansText=it.correct+"  "+((it.options&&it.options[it.correct])||"");
+    const streak=it.correctStreak||0;
+    return`<div class="wrong-item">
+      <div class="top"><span>${it.cat}</span><span>错${it.wrongCount}次 · ${fmtDate(it.lastWrongAt)}</span></div>
+      <div class="qtext">${escapeHtml(Object.entries(it.options||{}).map(([L,v])=>`${L}. ${v}`).join("\n"))}</div>
+      <div class="ans">答案：${escapeHtml(ansText)}</div>
+      <div class="note">已连续答对 ${streak}/3 次${streak>0?"，再连续答对"+(3-streak)+"次将自动从错题本移除":""}</div>
+    </div>`;
+  }).join("");
+}
+
+/* ===== 历史记录 ===== */
+function renderHistory(){
+  const list=document.getElementById("historyList");
+  if(history.length===0){list.innerHTML=`<div class="empty">还没有练习记录，快去开始第一次练习吧～</div>`;return;}
+  list.innerHTML=history.map(h=>`<div class="history-item">
+    <div class="top"><span>${fmtDate(h.date)}</span><span>用时 ${fmtTime(h.durationSec)}</span></div>
+    <div>${h.scope} · 共${h.total}题 · 对<b style="color:var(--green)">${h.correct}</b> 错<b style="color:var(--red)">${h.wrong}</b> · 正确率 <b>${h.rate}%</b></div>
+  </div>`).join("");
+}
+document.getElementById("clearHistoryBtn").onclick=()=>{
+  if(confirm("确定清空所有练习记录吗？此操作不可恢复。")){history=[];saveJSON(LS_HISTORY,history);renderHistory();}
+};
+
+/* ===== 初始化 ===== */
+renderCatList();
+</script>
+</body>
+</html>
