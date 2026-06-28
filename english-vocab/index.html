@@ -1,0 +1,684 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>英语课后选词填空练习</title>
+<style>
+  :root{
+    --primary:#3b82f6; --primary-dark:#2563eb; --green:#16a34a; --red:#dc2626;
+    --bg:#f3f4f6; --card:#ffffff; --text:#1f2937; --muted:#6b7280; --border:#e5e7eb;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:"Microsoft YaHei",Segoe UI,Arial,sans-serif;background:var(--bg);color:var(--text);}
+  .app{max-width:780px;margin:0 auto;min-height:100vh;background:var(--bg);display:flex;flex-direction:column;}
+  .topbar{position:sticky;top:0;z-index:10;}
+  header{background:linear-gradient(135deg,var(--primary),var(--primary-dark));color:#fff;padding:18px 16px;text-align:center;}
+  header h1{margin:0;font-size:19px;word-break:break-word;}
+  header p{margin:4px 0 0;font-size:12px;opacity:.85;}
+  nav{display:flex;background:#fff;border-bottom:1px solid var(--border);}
+  nav button{flex:1;border:none;background:none;padding:11px 4px;font-size:14px;color:var(--muted);cursor:pointer;border-bottom:3px solid transparent;}
+  nav button.active{color:var(--primary-dark);font-weight:bold;border-bottom-color:var(--primary);}
+  main{flex:1;padding:14px;}
+  .screen{display:none;}
+  .screen.active{display:block;}
+  .card{background:var(--card);border-radius:10px;padding:16px;margin-bottom:12px;box-shadow:0 1px 3px rgba(0,0,0,.08);}
+  .cat-list label{display:flex;align-items:center;gap:8px;padding:9px 4px;border-bottom:1px solid var(--border);font-size:14px;}
+  .cat-list label:last-child{border-bottom:none;}
+  .cat-count{color:var(--muted);font-size:12px;margin-left:auto;}
+  .btn{display:inline-block;border:none;border-radius:8px;padding:11px 18px;font-size:15px;cursor:pointer;background:var(--primary);color:#fff;text-align:center;}
+  .btn:active{transform:scale(.98);}
+  .btn.secondary{background:#fff;color:var(--primary-dark);border:1px solid var(--primary);}
+  .btn.green{background:var(--green);}
+  .btn.gray{background:#9ca3af;}
+  .btn:disabled{opacity:.4;cursor:not-allowed;}
+  .btn-row{display:flex;gap:10px;margin-top:14px;flex-wrap:wrap;}
+  .btn-row .btn{flex:1;}
+  .mode-row{display:flex;gap:10px;margin:10px 0;}
+  .mode-row label{flex:1;border:1px solid var(--border);border-radius:8px;padding:8px;text-align:center;font-size:13px;cursor:pointer;}
+  .mode-row input{margin-right:4px;}
+  .toplinks{display:flex;justify-content:space-between;margin-bottom:8px;font-size:13px;}
+  .toplinks span{color:var(--primary-dark);cursor:pointer;}
+  .progress-wrap{display:flex;align-items:center;gap:10px;margin-bottom:10px;font-size:13px;color:var(--muted);}
+  .progress-bar{flex:1;height:7px;background:var(--border);border-radius:4px;overflow:hidden;}
+  .progress-bar-fill{height:100%;background:var(--primary);transition:width .25s;}
+  .q-tag{display:inline-block;background:#eef2ff;color:var(--primary-dark);font-size:12px;padding:2px 8px;border-radius:10px;margin-bottom:8px;}
+  .q-text{font-size:16px;line-height:1.8;margin-bottom:10px;white-space:pre-wrap;overflow-x:auto;word-break:break-word;}
+  .q-code{font-family:Consolas,"Courier New",monospace;font-size:13.5px;background:#f8fafc;border:1px solid var(--border);border-radius:8px;padding:10px;margin:8px 0;line-height:1.7;white-space:pre-wrap;overflow-x:auto;}
+  .opt-list{display:flex;flex-direction:column;margin:10px 0;}
+  .opt-row{padding:13px 6px;border-bottom:1px solid var(--border);cursor:pointer;border-radius:6px;}
+  .opt-row:last-child{border-bottom:none;}
+  .opt-row .opt-label{font-size:13px;color:var(--muted);margin-bottom:3px;}
+  .opt-row .opt-text{font-size:14.5px;white-space:pre-wrap;font-family:Consolas,"Microsoft YaHei",monospace;line-height:1.6;}
+  .opt-row.selected{background:#eef2ff;}
+  .opt-row.selected .opt-label{color:var(--primary-dark);font-weight:bold;}
+  .opt-row.disabled{cursor:default;}
+  .answer-box .my-ans{font-weight:bold;}
+  .answer-box .my-ans.wrong-color{color:var(--red);}
+  .answer-box .correct-ans{color:var(--green);font-weight:bold;}
+  /* 自己画完整边框方框，不依赖各平台原生input外观（原生样式在不同浏览器/系统下表现差异很大，不可靠） */
+  .blank-input{-webkit-appearance:none;appearance:none;border:1.5px solid var(--primary);border-radius:6px;background:#f8fafc;padding:4px 8px;font-size:14.5px;min-width:90px;text-align:center;margin:2px;font-family:Consolas,monospace;color:var(--text);box-shadow:none;}
+  .blank-input.correct{border-color:var(--green);background:#ecfdf3;color:var(--green);}
+  .blank-input.wrong{border-color:var(--red);background:#fef2f2;color:var(--red);}
+  /* iOS Safari会强制改变disabled输入框的颜色和透明度，必须用-webkit-text-fill-color覆盖，否则手机上看不出方框和颜色 */
+  .blank-input:disabled{opacity:1;-webkit-text-fill-color:var(--text);background:#f8fafc;}
+  .blank-input.correct:disabled{-webkit-text-fill-color:var(--green);background:#ecfdf3;border-color:var(--green);}
+  .blank-input.wrong:disabled{-webkit-text-fill-color:var(--red);background:#fef2f2;border-color:var(--red);}
+  .blank-row{margin:6px 0;font-size:13px;color:var(--muted);}
+  .blank-row b{color:var(--text);font-weight:normal;}
+  .answer-box{margin-top:10px;font-size:14px;padding:10px;border-radius:8px;display:none;}
+  .answer-box.show{display:block;}
+  .answer-box.right{background:#ecfdf3;color:#15803d;}
+  .answer-box.wrong{background:#fef2f2;color:#b91c1c;}
+  .answer-box .real{font-weight:bold;}
+  footer.qfoot{display:flex;gap:10px;margin-top:14px;}
+  footer.qfoot .btn{flex:1;}
+  .stat-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;text-align:center;margin:10px 0;}
+  .stat-grid div b{display:block;font-size:22px;}
+  .stat-grid div span{font-size:12px;color:var(--muted);}
+  .stat-click{cursor:pointer;border-radius:8px;padding:6px 2px;transition:background .15s;}
+  .stat-click:hover{background:#f3f4f6;}
+  .review-item{border-bottom:1px solid var(--border);padding:12px 0;font-size:14px;}
+  .review-item:last-child{border-bottom:none;}
+  .review-item .qtext{margin-bottom:6px;line-height:1.6;white-space:pre-wrap;}
+  .review-item .your-ans{font-size:13px;margin-bottom:2px;}
+  .review-item .correct-ans-line{font-size:13px;color:var(--green);}
+  .history-item, .wrong-item{border-bottom:1px solid var(--border);padding:10px 0;font-size:14px;}
+  .history-item:last-child, .wrong-item:last-child{border-bottom:none;}
+  .history-item .top, .wrong-item .top{display:flex;justify-content:space-between;color:var(--muted);font-size:12px;margin-bottom:4px;}
+  .empty{text-align:center;color:var(--muted);padding:40px 0;font-size:14px;}
+  .wrong-item .qtext{margin-bottom:4px;}
+  .wrong-item .ans{color:var(--green);font-size:13px;}
+  .badge-cnt{background:#fee2e2;color:#b91c1c;border-radius:10px;font-size:11px;padding:1px 7px;}
+  .note{font-size:12px;color:var(--muted);margin-top:6px;}
+  .ov-link{font-size:13px;color:var(--primary-dark);cursor:pointer;white-space:nowrap;}
+  .ov-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;}
+  .ov-item{position:relative;aspect-ratio:1;border-radius:8px;border:1.5px solid var(--primary);display:flex;align-items:center;justify-content:center;font-size:14px;cursor:pointer;color:var(--primary-dark);background:#fff;}
+  .ov-item.cur{background:var(--primary);color:#fff;border-color:var(--primary);}
+  .ov-item.right{background:#ecfdf3;border-color:var(--green);color:#15803d;}
+  .ov-item.wrong{background:#fef2f2;border-color:var(--red);color:#b91c1c;}
+  .ov-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:49;display:none;}
+  .ov-backdrop.show{display:block;}
+  #screen-overview.active{
+    display:block;position:fixed;top:0;right:0;height:100vh;width:320px;max-width:88vw;
+    background:#fff;z-index:50;overflow-y:auto;box-shadow:-6px 0 20px rgba(0,0,0,.18);
+    padding:16px;animation:ovSlideIn .18s ease;
+  }
+  @keyframes ovSlideIn{from{transform:translateX(100%);}to{transform:translateX(0);}}
+  .ov-section-title{font-size:14px;font-weight:bold;color:var(--text);margin:14px 0 10px;padding-bottom:6px;border-bottom:1px solid var(--border);}
+  .ov-section-title:first-child{margin-top:0;}
+  .ov-header-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;}
+  .ov-header-row .ov-close{cursor:pointer;color:var(--muted);font-size:20px;line-height:1;padding:0 4px;}
+  .ov-legend{display:flex;gap:14px;font-size:12px;color:var(--muted);margin-bottom:12px;flex-wrap:wrap;}
+  .ov-legend span{display:inline-flex;align-items:center;gap:5px;}
+  .ov-dot{width:11px;height:11px;border-radius:3px;display:inline-block;border:1.5px solid var(--primary);}
+  .ov-dot.right{background:#ecfdf3;border-color:var(--green);}
+  .ov-dot.wrong{background:#fef2f2;border-color:var(--red);}
+  .ov-dot.cur{background:var(--primary);border-color:var(--primary);}
+  @media (max-width:380px){
+    .ov-grid{grid-template-columns:repeat(4,1fr);}
+    .blank-input{min-width:64px;font-size:13.5px;}
+    header h1{font-size:17px;}
+    .opt-row .opt-text{font-size:13.5px;}
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="topbar">
+  <header>
+    <h1>英语课后选词填空练习</h1>
+    <p>六单元课后选词填空 · 词形变化 · 错题本</p>
+  </header>
+  <nav>
+    <button data-screen="home" class="active">开始练习</button>
+    <button data-screen="wrongbook">错题本</button>
+    <button data-screen="history">练习记录</button>
+  </nav>
+  </div>
+  <main>
+
+    <section class="screen active" id="screen-home">
+      <div class="card">
+        <div class="toplinks">
+          <span id="selAll">全选</span>
+          <span id="selNone">清空</span>
+          <span id="selWrongOnly">仅选有错题章节</span>
+        </div>
+        <div class="cat-list" id="catList"></div>
+      </div>
+      <div class="card">
+        <div style="font-size:14px;font-weight:bold;margin-bottom:6px;">出题方式</div>
+        <div class="mode-row">
+          <label><input type="radio" name="order" value="random" checked>随机顺序</label>
+          <label><input type="radio" name="order" value="seq">原始顺序</label>
+        </div>
+        <div class="btn-row">
+          <button class="btn" id="startBtn">开始练习</button>
+        </div>
+      </div>
+      <div class="card" style="font-size:12px;color:var(--muted);text-align:center;">
+        题库共 <b id="totalQCount">0</b> 题（六单元课后选词填空，共93空，每题含词表）
+      </div>
+    </section>
+
+    <section class="screen" id="screen-quiz">
+      <div class="progress-wrap">
+        <span id="quizProgressText">1/10</span>
+        <div class="progress-bar"><div class="progress-bar-fill" id="quizProgressFill"></div></div>
+        <span id="quizScoreText">对0 错0</span>
+        <span class="ov-link" id="overviewLink">题目总览</span>
+      </div>
+      <div class="card">
+        <div class="q-tag" id="qTag"></div>
+        <div class="q-text" id="qText"></div>
+        <div id="qCode" class="q-code" style="display:none;"></div>
+        <div id="qBody"></div>
+        <div class="answer-box" id="answerBox"></div>
+        <footer class="qfoot">
+          <button class="btn secondary" id="prevBtn">上一题</button>
+          <button class="btn secondary" id="checkBtn">提交答案</button>
+          <button class="btn" id="nextBtn" style="display:none;">下一题</button>
+        </footer>
+      </div>
+      <div class="btn-row">
+        <button class="btn gray" id="quitQuizBtn">结束并查看结果</button>
+      </div>
+    </section>
+
+    <!-- 题目总览 -->
+    <div class="ov-backdrop" id="ovBackdrop"></div>
+    <section class="screen" id="screen-overview">
+      <div class="ov-header-row">
+        <div style="font-size:16px;font-weight:bold;">题目总览</div>
+        <span class="ov-close" id="ovCloseBtn">&times;</span>
+      </div>
+      <div class="ov-legend">
+        <span><span class="ov-dot cur"></span>当前</span>
+        <span><span class="ov-dot right"></span>已答对</span>
+        <span><span class="ov-dot wrong"></span>已答错</span>
+        <span><span class="ov-dot"></span>未作答</span>
+      </div>
+      <div id="ovContent"></div>
+      <div class="btn-row">
+        <button class="btn gray" id="ovBackBtn">返回答题</button>
+      </div>
+    </section>
+
+    <section class="screen" id="screen-result">
+      <div class="card">
+        <div style="text-align:center;font-size:16px;font-weight:bold;">本次练习结果</div>
+        <div class="stat-grid">
+          <div><b id="resTotal">0</b><span>总题数</span></div>
+          <div class="stat-click" id="resCorrectBox"><b id="resCorrect" style="color:var(--green)">0</b><span>答对（点击查看）</span></div>
+          <div class="stat-click" id="resWrongBox"><b id="resWrong" style="color:var(--red)">0</b><span>答错（点击查看）</span></div>
+        </div>
+        <div style="text-align:center;color:var(--muted);font-size:13px;">正确率 <b id="resRate">0%</b> · 用时 <b id="resTime">0分0秒</b></div>
+        <div class="btn-row">
+          <button class="btn secondary" id="backToQuizBtn">返回本次练习（继续查看/作答）</button>
+        </div>
+        <div class="btn-row">
+          <button class="btn" id="retryAllBtn">重新练习（同范围）</button>
+          <button class="btn secondary" id="retryWrongBtn">只练本次错题</button>
+        </div>
+        <div class="btn-row">
+          <button class="btn gray" id="backHomeBtn">返回首页</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- 答对/答错题目明细 -->
+    <section class="screen" id="screen-resultlist">
+      <div class="card">
+        <div style="font-size:16px;font-weight:bold;margin-bottom:10px;" id="resultListTitle"></div>
+        <div id="resultListBody"></div>
+      </div>
+      <div class="btn-row">
+        <button class="btn gray" id="resultListBackBtn">返回结果</button>
+      </div>
+    </section>
+
+    <section class="screen" id="screen-wrongbook">
+      <div class="card" id="wrongbookSummary"></div>
+      <div class="card" id="wrongbookList"></div>
+    </section>
+
+    <section class="screen" id="screen-history">
+      <div class="card" id="historyList"></div>
+      <div class="card" style="text-align:center;">
+        <button class="btn gray" id="clearHistoryBtn">清空历史记录</button>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<script>
+/* ===================== 题库数据 ===================== */
+// 英语课后选词填空，六单元，ordered逐空判分
+const QUESTIONS = [
+{type:"blank", cat:"第一单元-选词填空", text:"选词填入各空格（参考下方词表，注意词形变化）\n\n1. Jack has no interest (1){{}} in pursuing an acting career. He loves writing and directing.\n\n2. The idea was to have users upload (上传) their medical records, so that they could be (2){{}} at any time.\n\n3. Traffic jams often build up when drivers (3){{}} to see what happened in a crash.\n\n4. A native New Yorker, Ben (4){{}} the city, its neighborhoods, and all he has connections with.\n\n5. You may have already seen your dream house. Before you (5){{}} an offer, you can do a few more things to ensure you purchase the right property for the right price.\n\n6. Buying (6){{}} fruit and vegetables costs more, and for many shoppers, the benefits hardly seem worth the extra expense.\n\n7. (7){{}} living is the practice of providing for your own needs without outside aid (帮助) or resources.\n\n8. In the interview, the writer was asked how he (8){{}} writing a novel based on a dream he once had.\n\n9. Are you thinking of becoming an insurance sales (9){{}}? Take this quiz to find out if this is the right career choice for you.\n\n10. The rent for the apartment is reasonable; besides, the (10){{}} are included, which means you don’t have to pay anything for gas, electricity and water.\n\n11. A central heating and cooling (11){{}} produces warm or cool air in one central area and distributes it throughout the building.\n\n12. We were deeply shocked and saddened when we (12){{}} the sudden death of our newly retired professor.\n\n13. If you know the (13){{}} of something, you know all the details about it and understand how it works.\n\n14. It’s long been proven that we can (14){{}} any project if we break it up into small pieces and do the project one piece at a time.", code:"【词表（选词填空，每词限用一次）】\n1 accomplish\n2 self-sufficient\n3 utility\n4 agent\n5 whatsoever\n6 system\n7 adjustment\n8 organic\n9 slow down\n10 set about\n11 consist of\n12 be familiar with\n13 ins and outs\n14 put in\n15 learn of\n16 available", ans:["whatsoever", "available", "slow down", "is familiar with|be familiar with|familiar with", "put in", "organic", "Self-sufficient", "set about", "agent", "utilities|utility", "system", "learned of|learn of|learnt of", "ins and outs", "accomplish"], ordered:true},
+{type:"blank", cat:"第二单元-选词填空", text:"选词填入各空格（参考下方词表，注意词形变化）\n\n1. While I was working in a fast-food restaurant, I constantly dreamt of being able to own one (1){{}}.\n\n2. It was common for people to keep up (2){{}} with friends through letters before the age of the Internet.\n\n3. In modern Chinese society, women, to a large extent, are no longer (3){{}} by men either in family life or in the workplace.\n\n4. There is now a growing (4){{}} of the importance of recycling among the residents in our neighborhood.\n\n5. The Japanese (5){{}} during World War II met with fierce resistance (抵抗) from the Chinese people.\n\n6. It is wonderful to see flowers (6){{}} in different colours after a long bleak winter.\n\n7. The elderly landlady couldn’t (7){{}} the behavior of the young man any more: he tossed trash all over the building.\n\n8. It is true that human beings have had war (8){{}} throughout history; nevertheless human civilization has managed to survive.\n\n9. An increasingly large number of Chinese plan to spend their time travelling to different countries and seeing more of the world when they (9){{}}.\n\n10. Last week I submitted my first project proposal and I was very anxious to know how the department manager would (10){{}} it.\n\n11. We all (11){{}} those who lost loved ones in the disaster.\n\n12. The general decided to launch a(n) (12){{}} on the enemy at midnight.\n\n13. At that time, most stores in that region allowed shoppers to (13){{}} goods and services at a mutually agreed price.\n\n14. The kids never received any professional training previously, but their performance was (14){{}}.\n\n15. It’s amazing that the toddler can (15){{}} to one hundred and backward (反向).", code:"【词表（选词填空，每词限用一次）】\n1 assault\n2 bloom\n3 constantly\n4 correspondence\n5 dominate\n6 endure\n7 enjoyment\n8 exchange\n9 invasion\n10 impressive\n11 react to\n12 sympathize with\n13 count up\n14 realization\n15 retire\n16 separation\n17 someday", ans:["someday", "correspondence", "dominated|dominate", "realization", "invasion", "bloom", "endure", "constantly", "retire", "react to", "sympathize with", "assault", "exchange", "impressive", "count up"], ordered:true},
+{type:"blank", cat:"第三单元-选词填空", text:"选词填入各空格（参考下方词表，注意词形变化）\n\n1. We set out to find the truth behind the (1){{}} of the scientist’s disappearance.\n\n2. A good relationship is built on honesty, trust, and (2){{}} respect.\n\n3. Kids may grow faster or slower but most of them still (3){{}} an average height.\n\n4. In the joint (4){{}}, the Chinese party will hold a 51 percent controlling interest.\n\n5. Although John (5){{}} the girl for a year, he is still in two minds as to whether to marry her or not.\n\n6. Many people are unaware of just how much food and drink they (6){{}} each day.\n\n7. In order not to hurt Mary’s feelings, please don’t (7){{}} the incident again.\n\n8. He and Jeannie used to live together, but recently they have been (8){{}} for the first time.\n\n9. Adam has announced that he is to take a(n) (9){{}} touring break in order to spend more time with his family.\n\n10. Jim (10){{}} the heart attack thanks to the prompt first aid treatment.\n\n11. His interview did not go well and his chance of getting the job (11){{}}.\n\n12. Kids (12){{}} to an unhealthy environment tend to grow up with more problems.\n\n13. An occasional all-nighter is rough, but he is young enough to (13){{}}.\n\n14. Olivier turned it down flat and tried to persuade Vivien to do (14){{}}.\n\n15. Nowadays when you buy a house in a big city, you have to (15){{}} lots of money.", code:"【词表（选词填空，每词限用一次）】\n1 apart\n2 expose\n3 bounce back\n4 invest\n5 date\n6 extended\n7 mutual\n8 likewise\n9 venture\n10 survive\n11 tend\n12 mystery\n13 involve\n14 refer to\n15 consume\n16 slip away\n17 end up with", ans:["mystery", "mutual", "end up with", "venture", "has dated|date|dated", "consume", "refer to", "apart", "extended", "survived|survive", "slipped away|slip away", "exposed|expose", "bounce back", "likewise", "invest"], ordered:true},
+{type:"blank", cat:"第四单元-选词填空", text:"选词填入各空格（参考下方词表，注意词形变化）\n\n1. Which one is better, a (1){{}} job with a low pay or a job with a high pay but easy to lose?\n\n2. News (2){{}} through from Bombay (孟买) last night of a city on strike and tourists stuck at the airport.\n\n3. (3){{}} ranks as the 10th leading cause of death in the United States. Globally, an estimated 700,000 people take their own lives annually.\n\n4. A large product (4){{}} is critical to a successful furniture store website. People who visit your website are looking for new furniture. You need to show it to them.\n\n5. Some of the most (5){{}} thinkers, writers, artists, business people, teachers and other leaders drawn from different fields around the world will gather at this summer program — to teach, speak, lead, question, and answer.\n\n6. The guy tried to run away but the policeman caught him by (6){{}} the collar of his coat.\n\n7. This dialogue window (7){{}} in my game every five seconds! How do I disable it?\n\n8. Life is like a journey with no known (8){{}}.\n\n9. No one can finish all the tasks alone. Don’t (9){{}} to ask for help. We can all benefit from cooperation.\n\n10. Manchester United (曼联队), (10){{}} the Red Devils, is a top football team in England.\n\n11. The police officer turned to the crowd and shouted, “Come on. You need to get out of here. No (11){{}} around the crime scene (犯罪现场).”\n\n12. The flower show is so crowded that there is never an ideal (12){{}} for taking pictures no matter how you position yourself.\n\n13. Our mutual friend John has got a rare ability to (13){{}} facts and figures.\n\n14. John (14){{}} an arm from bed to pick up his phone. Sleepily he asked, “Who is it?”\n\n15. An advance team was sent to the UK to make (15){{}} for President Xi Jinping's visit.", code:"【词表（选词填空，每词限用一次）】\n1 catalog\n2 destination\n3 dub\n4 filter\n5 grab\n6 hesitate\n7 linger\n8 memorize\n9 pop up\n10 preparation\n11 provocative\n12 secure\n13 split\n14 spot\n15 stick to\n16 stretch out\n17 suicide", ans:["secure", "filtered|filter", "Suicide", "catalog", "provocative", "grabbing|grab", "pops up|pop up", "destination", "hesitate", "dubbed|dub", "lingering|linger", "spot", "memorize", "stretched out|stretch out", "preparations|preparation"], ordered:true},
+{type:"blank", cat:"第五单元-选词填空", text:"选词填入各空格（参考下方词表，注意词形变化）\n\n1. He regards learning as a daily experience as well as a lifetime (1){{}}.\n\n2. His plan is to design a new model, into which some (2){{}} of previous models will be (3){{}}.\n\n3. The ship, with 1,000 passengers (4){{}}, was bound for New York.\n\n4. It’s one thing to learn the rules of politics from books. It is quite another to get into the (5){{}} world of real-life politics.\n\n5. At yesterday’s sports meet, my roommate Brian (6){{}} of our school in the men’s 100-meter race.\n\n6. Jack had a hard time grasping the basic (7){{}} of mathematics.\n\n7. They are working on a new (8){{}}, which calls for a(n) (9){{}} amount of time and energy.\n\n8. After I bought this iPad, I (10){{}} my old computer.\n\n9. The new law tries to maintain a balance between national interests and (11){{}} rights.\n\n10. The teacher drew a(n) (12){{}} between the human heart and a pump to help students understand how it works.\n\n11. If we teachers believe in education and (13){{}} students’ growth, our labor will eventually pay off.\n\n12. (14){{}} in the exhibition room is a new (15){{}} to harness wind power.\n\n13. His newly published book, which has made waves in literary circles, (16){{}} events that the writer himself has (17){{}}.\n\n14. At the meeting, he tried to (18){{}} the discussion away from criticizing the educational experiment.\n\n15. The money was given to Ann as a scholarship, with no conditions (19){{}}.", code:"【词表（选词填空，每词限用一次）】\n1 analogy\n2 attach\n3 mission\n4 aboard\n5 complex\n6 concept\n7 project\n8 steer\n9 devise\n10 device\n11 individual\n12 feature\n13 enormous\n14 witness\n15 principle\n16 put into storage\n17 base ... on\n18 focus on\n19 hold/break/set a record\n20 on display\n21 incorporate (into)", ans:["mission", "features|feature", "incorporated|incorporate|incorporate into", "aboard", "complex", "broke the record|break the record|break a record|hold a record", "concepts|concept", "project", "enormous", "put into storage", "individual", "analogy", "focus on", "On display", "device", "is based on|based on|base on", "witnessed|witness", "steer", "attached|attach"], ordered:true},
+{type:"blank", cat:"第六单元-选词填空", text:"选词填入各空格（参考下方词表，注意词形变化）\n\n1. For the time being, this computer system is still in its (1){{}} stages.\n\n2. There is a growing (2){{}} to regard money more highly than quality of life.\n\n3. The following table includes a list of subjects at the (3){{}} of scientific exploration.\n\n4. Computer technology in all its phases from (4){{}} to software has become less expensive.\n\n5. Problem solving, like other mental activities such as creativity, is hard to (5){{}} but generally easy to recognize.\n\n6. Due to his health problems, Richard has to give up hard (6){{}} work on his farm.\n\n7. My storybooks (7){{}} most of the space of my two bookshelves in my bedroom.\n\n8. I am eager to know where my (8){{}} classmates are now.\n\n9. Online stores are (9){{}} and continually increasing their market share.\n\n10. Cloud-based tools enable you to engage and (10){{}} your audience in real-time.\n\n11. It is amazing that Jack built a robot (11){{}}.\n\n12. Human beings are born with a (12){{}} to learn languages.\n\n13. Jack recommended to me a unique restaurant that (13){{}} in seafood.\n\n14. There are three promising (14){{}} for the job.\n\n15. Emily and her partners are (15){{}} their classroom presentation.", code:"【词表（选词填空，每词限用一次）】\n1 boom\n2 capacity\n3 candidate\n4 define\n5 encouragement\n6 experimental\n7 formal\n8 former\n9 frontier\n10 hardware\n11 occupy\n12 physical\n13 specialize\n14 tendency\n15 interact with\n16 of one’s own\n17 work on", ans:["experimental", "tendency", "frontier", "hardware", "define", "physical", "occupy", "former", "booming|boom", "interact with", "of his own|of one's own|of ones own", "capacity", "specializes|specialize", "candidates|candidate", "working on|work on"], ordered:true},
+];
+QUESTIONS.forEach((q,i)=>q.id="q"+i);
+const CATS = [...new Set(QUESTIONS.map(q=>q.cat))];
+
+/* ===================== 本地存储 ===================== */
+const LS_HISTORY="engvocabquiz_history", LS_WRONGBOOK="engvocabquiz_wrongbook";
+function loadJSON(key,def){ try{ return JSON.parse(localStorage.getItem(key)) || def; }catch(e){ return def; } }
+function saveJSON(key,val){ localStorage.setItem(key, JSON.stringify(val)); }
+let history = loadJSON(LS_HISTORY, []);
+let wrongbook = loadJSON(LS_WRONGBOOK, {});
+
+/* ===================== 工具函数 ===================== */
+function normalize(s){
+  return (s||"").trim().toLowerCase().replace(/[\s;；]/g,"");
+}
+function isCorrect(userInput, acceptStr){
+  const options = acceptStr.split("|");
+  const u = normalize(userInput);
+  if(!u) return false;
+  for(const opt of options){
+    const o = normalize(opt);
+    if(u===o) return true;
+    // 只允许"用户答案包含完整正确答案"（容忍多写了无关字），
+    // 不允许反向（正确答案包含用户答案）——否则用户答了不完整/截断的内容也会被判对
+    if(o.length>=4 && u.includes(o)) return true;
+    // 顺序无关匹配：对原始字符串按"和/、/，/,"拆分，各部分分别normalize后排序比较
+    const splitRe = /[和、，,]/;
+    const oParts = opt.split(splitRe).map(normalize).filter(Boolean).sort();
+    const uParts = userInput.split(splitRe).map(normalize).filter(Boolean).sort();
+    if(oParts.length>1 && oParts.length===uParts.length && oParts.every((p,i)=>p===uParts[i])) return true;
+  }
+  return false;
+}
+function gradeBlanksSet(userInputs, expectedList){
+  const n = expectedList.length;
+  const used = new Array(n).fill(false);
+  const assignment = new Array(n).fill(-1);
+  for(let i=0;i<userInputs.length;i++){
+    for(let j=0;j<n;j++){
+      if(!used[j] && isCorrect(userInputs[i], expectedList[j])){ used[j]=true; assignment[i]=j; break; }
+    }
+  }
+  const allCorrect = assignment.every(a=>a!==-1);
+  return {allCorrect, assignment};
+}
+function gradeOrdered(userInputs, expectedList){
+  const assignment = expectedList.map((exp,i)=> isCorrect(userInputs[i]||'',exp) ? i : -1);
+  const allCorrect = assignment.every(a=>a!==-1);
+  return {allCorrect, assignment};
+}
+function fmtTime(sec){ const m=Math.floor(sec/60), s=sec%60; return m+"分"+s+"秒"; }
+function fmtDate(ts){ const d=new Date(ts); return `${d.getMonth()+1}/${d.getDate()} ${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`; }
+function escapeHtml(s){ return (s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+
+/* ===================== 屏幕切换 ===================== */
+function showScreen(name){
+  document.querySelectorAll(".screen").forEach(s=>s.classList.remove("active"));
+  document.getElementById("ovBackdrop").classList.remove("show");
+  document.getElementById("screen-"+name).classList.add("active");
+  document.querySelectorAll("nav button").forEach(b=>b.classList.remove("active"));
+  const navBtn = document.querySelector(`nav button[data-screen="${name}"]`);
+  if(navBtn) navBtn.classList.add("active");
+  if(name==="wrongbook") renderWrongbook();
+  if(name==="history") renderHistory();
+}
+document.querySelectorAll("nav button").forEach(b=>b.addEventListener("click", ()=>showScreen(b.dataset.screen)));
+
+/* ===================== 首页：章节选择 ===================== */
+function renderCatList(){
+  const wb = wrongbook;
+  const list = document.getElementById("catList");
+  list.innerHTML = CATS.map(cat=>{
+    const cnt = QUESTIONS.filter(q=>q.cat===cat).length;
+    const wcnt = Object.values(wb).filter(w=>w.cat===cat).length;
+    return `<label>
+      <input type="checkbox" class="catChk" value="${cat}" checked>
+      ${cat}
+      <span class="cat-count">${cnt}题${wcnt?` · <span class="badge-cnt">${wcnt}错</span>`:""}</span>
+    </label>`;
+  }).join("");
+  document.getElementById("totalQCount").textContent = QUESTIONS.length;
+}
+document.getElementById("selAll").onclick=()=>document.querySelectorAll(".catChk").forEach(c=>c.checked=true);
+document.getElementById("selNone").onclick=()=>document.querySelectorAll(".catChk").forEach(c=>c.checked=false);
+document.getElementById("selWrongOnly").onclick=()=>{
+  const wrongCats = new Set(Object.values(wrongbook).map(w=>w.cat));
+  document.querySelectorAll(".catChk").forEach(c=>c.checked=wrongCats.has(c.value));
+};
+
+/* ===================== 答题逻辑 ===================== */
+let session = null; // {queue, idx, answers[], startTime, scopeLabel}
+let selectedOpt = null;
+
+function startQuiz(questionPool, scopeLabel){
+  const order = document.querySelector('input[name="order"]:checked').value;
+  let pool = questionPool.slice();
+  if(order==="random"){
+    for(let i=pool.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [pool[i],pool[j]]=[pool[j],pool[i]]; }
+  }
+  session = { queue:pool, idx:0, answers:new Array(pool.length).fill(null), startTime:Date.now(), scopeLabel };
+  showScreen("quiz");
+  renderQuestion();
+}
+function currentQ(){ return session.queue[session.idx]; }
+function sessionStats(){
+  let correct=0, wrong=0;
+  session.answers.forEach(a=>{ if(a){ a.allCorrect? correct++ : wrong++; } });
+  return {correct, wrong};
+}
+
+function renderQuestion(){
+  const q = currentQ();
+  const saved = session.answers[session.idx];
+  selectedOpt = saved && saved.selectedOpt ? saved.selectedOpt : null;
+  const stats = sessionStats();
+  document.getElementById("qTag").textContent = q.cat;
+  document.getElementById("quizProgressText").textContent = `${session.idx+1}/${session.queue.length}`;
+  document.getElementById("quizProgressFill").style.width = `${(session.idx/session.queue.length)*100}%`;
+  document.getElementById("quizScoreText").textContent = `对${stats.correct} 错${stats.wrong}`;
+  document.getElementById("qText").textContent = q.text;
+  document.getElementById("prevBtn").disabled = session.idx===0;
+
+  const codeEl = document.getElementById("qCode");
+  if(q.code){ codeEl.style.display="block"; codeEl.textContent = q.code.replace(/\{\{\}\}/g,"______"); }
+  else { codeEl.style.display="none"; codeEl.textContent=""; }
+
+  const body = document.getElementById("qBody");
+  const box=document.getElementById("answerBox");
+  box.className="answer-box"; box.innerHTML="";
+
+  if(q.type==="mcq"){
+    const letters = Object.keys(q.options);
+    body.innerHTML = `<div class="opt-list">` + letters.map(L=>
+      `<div class="opt-row" data-letter="${L}"><div class="opt-label">${L}.</div><div class="opt-text">${escapeHtml(q.options[L])}</div></div>`
+    ).join("") + `</div>`;
+    if(saved){
+      body.querySelectorAll(".opt-row").forEach(el=>{ el.classList.add("disabled"); });
+      showAnswerBoxMcq(q, saved.allCorrect, saved.selectedOpt);
+      document.getElementById("checkBtn").style.display="none";
+    } else {
+      body.querySelectorAll(".opt-row").forEach(el=>{
+        el.addEventListener("click", ()=>{
+          if(el.classList.contains("disabled")) return;
+          body.querySelectorAll(".opt-row").forEach(o=>o.classList.remove("selected"));
+          el.classList.add("selected");
+          selectedOpt = el.dataset.letter;
+        });
+      });
+      document.getElementById("checkBtn").style.display="inline-block";
+    }
+    updateNextBtn();
+  } else {
+    body.innerHTML = "";
+    let n=0;
+    if(q.text.includes("{{}}")){
+      const safeT = escapeHtml(q.text).replace(/\n/g,'<br>');
+      document.getElementById("qText").innerHTML = safeT.replace(/\{\{\}\}/g, ()=>{
+        const idx=n++; return `<input type="text" class="blank-input" data-idx="${idx}" autocomplete="off">`;
+      });
+    }
+    if(q.code && q.code.includes("{{}}")){
+      codeEl.innerHTML = escapeHtml(q.code).replace(/\{\{\}\}/g, ()=>{
+        const idx=n++; return `<input type="text" class="blank-input" data-idx="${idx}" autocomplete="off">`;
+      });
+    }
+    const inputs = document.querySelectorAll("#qText .blank-input, #qCode .blank-input");
+    if(saved){
+      inputs.forEach((inp,i)=>{
+        inp.value = saved.userInputs[i] || "";
+        inp.classList.add(saved.assignment[i]!==-1 ? "correct" : "wrong");
+        inp.disabled = true;
+      });
+      showAnswerBoxBlank(q, saved.allCorrect);
+      document.getElementById("checkBtn").style.display="none";
+    } else {
+      inputs.forEach((inp,i)=>{
+        inp.addEventListener("keydown",(e)=>{
+          if(e.key==="Enter"){
+            if(i<inputs.length-1) inputs[i+1].focus();
+            else document.getElementById("checkBtn").click();
+          }
+        });
+      });
+      if(inputs[0]) inputs[0].focus();
+      document.getElementById("checkBtn").style.display="inline-block";
+    }
+    updateNextBtn();
+  }
+}
+
+function updateNextBtn(){
+  const nextBtnEl = document.getElementById("nextBtn");
+  const isLast = session.idx === session.queue.length-1;
+  nextBtnEl.style.display = "inline-block";
+  nextBtnEl.textContent = isLast ? "已是最后一题" : "下一题";
+  nextBtnEl.disabled = isLast;
+}
+
+function showAnswerBoxMcq(q, allCorrect, userOpt){
+  const box=document.getElementById("answerBox");
+  box.classList.add("show", allCorrect?"right":"wrong");
+  box.innerHTML = `<b>我的答案：</b><span class="my-ans${allCorrect?"":" wrong-color"}">${userOpt||"未作答"}</span>`
+    + `　　<b>正确答案：</b><span class="correct-ans">${q.correct}. ${escapeHtml(q.options[q.correct])}</span>`;
+}
+function showAnswerBoxBlank(q, allCorrect){
+  const box=document.getElementById("answerBox");
+  box.classList.add("show", allCorrect?"right":"wrong");
+  let correctAnsText;
+  if(q.ordered){
+    correctAnsText = q.ans.map((a,i)=>`(${i+1})${a.split("|")[0]}`).join("　");
+  } else {
+    correctAnsText = q.ans.map(a=>a.split("|")[0]).join("  /  ");
+  }
+  box.innerHTML = (allCorrect ? `✔ 回答正确！` : `✘ 回答有误。`) + ` 参考答案：<span class="real">${escapeHtml(correctAnsText)}</span>`;
+}
+
+document.getElementById("checkBtn").onclick=()=>{
+  const q = currentQ();
+  let allCorrect = true;
+  let answerRecord;
+
+  if(q.type==="mcq"){
+    if(!selectedOpt){ alert("请先选择一个选项"); return; }
+    allCorrect = selectedOpt===q.correct;
+    document.querySelectorAll("#qBody .opt-row").forEach(el=>{ el.classList.add("disabled"); });
+    showAnswerBoxMcq(q, allCorrect, selectedOpt);
+    answerRecord = { allCorrect, selectedOpt };
+  } else {
+    const inputs = [...document.querySelectorAll("#qText .blank-input, #qCode .blank-input")];
+    const userInputs = inputs.map(inp=>inp.value);
+    const graded = q.ordered ? gradeOrdered(userInputs, q.ans) : gradeBlanksSet(userInputs, q.ans);
+    allCorrect = graded.allCorrect;
+    inputs.forEach((inp,i)=>{
+      inp.classList.add(graded.assignment[i]!==-1 ? "correct" : "wrong");
+      inp.disabled = true;
+    });
+    showAnswerBoxBlank(q, allCorrect);
+    answerRecord = { allCorrect, userInputs, assignment: graded.assignment };
+  }
+
+  session.answers[session.idx] = answerRecord;
+
+  const MASTER_STREAK = 3;
+  if(allCorrect){
+    if(wrongbook[q.id]){
+      wrongbook[q.id].correctStreak = (wrongbook[q.id].correctStreak||0) + 1;
+      if(wrongbook[q.id].correctStreak >= MASTER_STREAK){ delete wrongbook[q.id]; }
+    }
+  } else {
+    wrongbook[q.id] = { cat:q.cat, type:q.type, text:q.text, code:q.code||"", options:q.options||null, correct:q.correct||null, ans:q.ans||null, wrongCount:(wrongbook[q.id]?.wrongCount||0)+1, correctStreak:0, lastWrongAt:Date.now() };
+  }
+  saveJSON(LS_WRONGBOOK, wrongbook);
+
+  document.getElementById("checkBtn").style.display="none";
+  updateNextBtn();
+  const stats = sessionStats();
+  document.getElementById("quizScoreText").textContent = `对${stats.correct} 错${stats.wrong}`;
+};
+
+document.getElementById("prevBtn").onclick=()=>{
+  if(session.idx>0){ session.idx--; renderQuestion(); }
+};
+document.getElementById("nextBtn").onclick=()=>{
+  if(session.idx < session.queue.length-1){ session.idx++; renderQuestion(); }
+};
+document.getElementById("quitQuizBtn").onclick=()=>{
+  if(confirm("确定结束本次练习并查看结果吗？")) finishQuiz();
+};
+
+function openOverview(){ renderOverview(); document.getElementById("screen-overview").classList.add("active"); document.getElementById("ovBackdrop").classList.add("show"); }
+function closeOverview(){ document.getElementById("screen-overview").classList.remove("active"); document.getElementById("ovBackdrop").classList.remove("show"); }
+document.getElementById("overviewLink").onclick=openOverview;
+document.getElementById("ovBackBtn").onclick=closeOverview;
+document.getElementById("ovCloseBtn").onclick=closeOverview;
+document.getElementById("ovBackdrop").onclick=closeOverview;
+
+function renderOverviewGrid(indices){
+  return `<div class="ov-grid">` + indices.map(i=>{
+    const a = session.answers[i];
+    let cls = "";
+    if(i===session.idx) cls += " cur";
+    if(a) cls += a.allCorrect ? " right" : " wrong";
+    return `<div class="ov-item${cls}" data-idx="${i}">${i+1}</div>`;
+  }).join("") + `</div>`;
+}
+function renderOverview(){
+  const content = document.getElementById("ovContent");
+  const mcqIdx = [], blankIdx = [];
+  session.queue.forEach((q,i)=> (q.type==="mcq" ? mcqIdx : blankIdx).push(i));
+  let html = "";
+  if(mcqIdx.length) html += `<div class="ov-section-title">一、单选题（${mcqIdx.length}题）</div>` + renderOverviewGrid(mcqIdx);
+  if(blankIdx.length) html += `<div class="ov-section-title">二、填空题（${blankIdx.length}题）</div>` + renderOverviewGrid(blankIdx);
+  content.innerHTML = html;
+  content.querySelectorAll(".ov-item").forEach(el=>{
+    el.addEventListener("click", ()=>{
+      session.idx = parseInt(el.dataset.idx, 10);
+      closeOverview();
+      showScreen("quiz");
+      renderQuestion();
+    });
+  });
+}
+
+function finishQuiz(){
+  const stats = sessionStats();
+  const total = session.queue.length;
+  const durationSec = Math.round((Date.now()-session.startTime)/1000);
+  const rate = total? Math.round(stats.correct/total*100):0;
+  history.unshift({ date: Date.now(), scope: session.scopeLabel, total, correct: stats.correct, wrong: stats.wrong, rate, durationSec });
+  if(history.length>100) history = history.slice(0,100);
+  saveJSON(LS_HISTORY, history);
+  document.getElementById("resTotal").textContent = total;
+  document.getElementById("resCorrect").textContent = stats.correct;
+  document.getElementById("resWrong").textContent = stats.wrong;
+  document.getElementById("resRate").textContent = rate+"%";
+  document.getElementById("resTime").textContent = fmtTime(durationSec);
+  showScreen("result");
+}
+
+document.getElementById("backToQuizBtn").onclick=()=>{ showScreen("quiz"); renderQuestion(); };
+document.getElementById("retryAllBtn").onclick=()=>{ startQuiz(session.queue, session.scopeLabel); };
+document.getElementById("retryWrongBtn").onclick=()=>{
+  const wrongList = session.queue.filter((q,i)=>session.answers[i] && !session.answers[i].allCorrect);
+  if(wrongList.length===0){ alert("本次没有错题，太棒了！"); return; }
+  startQuiz(wrongList, "本次错题重练");
+};
+document.getElementById("backHomeBtn").onclick=()=>{ renderCatList(); showScreen("home"); };
+
+function renderResultList(wantCorrect){
+  document.getElementById("resultListTitle").textContent = wantCorrect ? "答对的题目" : "答错的题目";
+  const body = document.getElementById("resultListBody");
+  const items = [];
+  session.queue.forEach((q,i)=>{
+    const a = session.answers[i];
+    if(a && a.allCorrect===wantCorrect) items.push({q,a});
+  });
+  if(items.length===0){ body.innerHTML = `<div class="empty">没有符合条件的题目</div>`; return; }
+  body.innerHTML = items.map(({q,a})=>{
+    const plain = q.text + (q.code? "\n"+q.code.replace(/\{\{\}\}/g,"____") : "");
+    let yourAnsText, correctAnsText;
+    if(q.type==="mcq"){
+      yourAnsText = a.selectedOpt ? `${a.selectedOpt}. ${q.options[a.selectedOpt]}` : "未作答";
+      correctAnsText = `${q.correct}. ${q.options[q.correct]}`;
+    } else {
+      yourAnsText = a.userInputs.join("、");
+      correctAnsText = q.ans.map(x=>x.split("|")[0]).join("、");
+    }
+    return `<div class="review-item">
+      <div class="qtext">${escapeHtml(plain)}</div>
+      <div class="your-ans" style="color:${a.allCorrect?'var(--green)':'var(--red)'}">你的答案：${escapeHtml(yourAnsText)}</div>
+      <div class="correct-ans-line">正确答案：${escapeHtml(correctAnsText)}</div>
+    </div>`;
+  }).join("");
+}
+document.getElementById("resCorrectBox").onclick=()=>{ renderResultList(true); showScreen("resultlist"); };
+document.getElementById("resWrongBox").onclick=()=>{ renderResultList(false); showScreen("resultlist"); };
+document.getElementById("resultListBackBtn").onclick=()=>{ showScreen("result"); };
+
+document.getElementById("startBtn").onclick=()=>{
+  const checked = [...document.querySelectorAll(".catChk:checked")].map(c=>c.value);
+  if(checked.length===0){ alert("请至少选择一个章节"); return; }
+  const pool = QUESTIONS.filter(q=>checked.includes(q.cat));
+  startQuiz(pool, checked.length===CATS.length? "全部章节" : checked.join("、"));
+};
+
+/* ===================== 错题本 ===================== */
+function renderWrongbook(){
+  const items = Object.entries(wrongbook).map(([id,w])=>({id,...w}));
+  const summary = document.getElementById("wrongbookSummary");
+  const list = document.getElementById("wrongbookList");
+  if(items.length===0){
+    summary.innerHTML = `<div class="empty">暂无错题，继续保持！</div>`;
+    list.innerHTML=""; return;
+  }
+  summary.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;">
+      <div>共 <b>${items.length}</b> 道错题</div>
+      <button class="btn" id="practiceWrongBtn">练习全部错题</button>
+    </div>`;
+  document.getElementById("practiceWrongBtn").onclick=()=>{
+    const pool = items.map(it=>QUESTIONS.find(q=>q.id===it.id)).filter(Boolean);
+    startQuiz(pool, "错题本练习");
+  };
+  items.sort((a,b)=>b.lastWrongAt-a.lastWrongAt);
+  list.innerHTML = items.map(it=>{
+    const plain = it.text.replace(/\{\{\}\}/g,"____");
+    let ansText="";
+    if(it.type==="mcq") ansText = it.correct + "  " + (it.options? it.options[it.correct]:"");
+    else ansText = (it.ans||[]).map(a=>a.split("|")[0]).join("  /  ");
+    const streak = it.correctStreak||0;
+    return `<div class="wrong-item">
+      <div class="top"><span>${it.cat}</span><span>错${it.wrongCount}次 · ${fmtDate(it.lastWrongAt)}</span></div>
+      <div class="qtext">${escapeHtml(plain)}</div>
+      <div class="ans">答案：${escapeHtml(ansText)}</div>
+      <div class="note">已连续答对 ${streak}/3 次${streak>0?"，再连续答对"+(3-streak)+"次将自动从错题本移除":""}</div>
+    </div>`;
+  }).join("");
+}
+
+/* ===================== 历史记录 ===================== */
+function renderHistory(){
+  const list = document.getElementById("historyList");
+  if(history.length===0){ list.innerHTML = `<div class="empty">还没有练习记录，快去开始第一次练习吧～</div>`; return; }
+  list.innerHTML = history.map(h=>`
+    <div class="history-item">
+      <div class="top"><span>${fmtDate(h.date)}</span><span>用时 ${fmtTime(h.durationSec)}</span></div>
+      <div>${h.scope} · 共${h.total}题 · 对<b style="color:var(--green)">${h.correct}</b> 错<b style="color:var(--red)">${h.wrong}</b> · 正确率 <b>${h.rate}%</b></div>
+    </div>
+  `).join("");
+}
+document.getElementById("clearHistoryBtn").onclick=()=>{
+  if(confirm("确定清空所有练习记录吗？此操作不可恢复。")){ history=[]; saveJSON(LS_HISTORY, history); renderHistory(); }
+};
+
+/* ===================== 初始化 ===================== */
+renderCatList();
+</script>
+</body>
+</html>
