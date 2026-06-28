@@ -163,10 +163,19 @@ function startEdit(subj, nameSpan, renameBtn, resetBtn) {
   // 宽度自适应内容
   input.style.width = Math.max(currentText.length * 18, 120) + 'px';
 
+  // 编辑期间禁用链接跳转
+  const a = nameSpan.closest('a');
+  const savedHref = a.getAttribute('href');
+  a.removeAttribute('href');
+
   nameSpan.replaceWith(input);
   renameBtn.style.display = 'none';
   input.focus();
   input.select();
+
+  // 阻止输入框上的所有点击冒泡到父级
+  input.addEventListener('click', function(e) { e.stopPropagation(); });
+  input.addEventListener('mousedown', function(e) { e.stopPropagation(); });
 
   function commit() {
     const newName = input.value.trim();
@@ -174,6 +183,8 @@ function startEdit(subj, nameSpan, renameBtn, resetBtn) {
     nameSpan.textContent = finalName;
     input.replaceWith(nameSpan);
     renameBtn.style.display = '';
+    // 恢复链接
+    a.setAttribute('href', savedHref);
     if (finalName !== subj.defaultName) {
       saveName(subj.key, finalName);
       resetBtn.classList.add('visible');
