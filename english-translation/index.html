@@ -472,7 +472,7 @@ function renderQuestion(){
       const safeT = escapeHtml(q.text).replace(/\n/g,'<br>');
       document.getElementById("qText").innerHTML = safeT.replace(/\{\{\}\}/g, ()=>{
         const idx=n++;
-        if(q.vocab) return `<textarea class="blank-input trans-area" data-idx="${idx}" rows="3" placeholder="请在此输入英语翻译\u2026"></textarea>`;
+        if(q.vocab) return `<textarea class="blank-input trans-area" data-idx="${idx}" rows="5" placeholder="请在此输入英语翻译\u2026"></textarea>`;
         return `<input type="text" class="blank-input" data-idx="${idx}" autocomplete="off">`;
       });
     }
