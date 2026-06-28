@@ -503,7 +503,6 @@ function showAnswerBox(q,allCorrect,userOpt){
 
 document.getElementById("checkBtn").onclick=()=>{
   const q=currentQ();
-  if(!selectedOpt){alert("请先选择一个选项");return;}
   const allCorrect=selectedOpt===q.correct;
   document.querySelectorAll("#qBody .opt-row").forEach(el=>el.classList.add("disabled"));
   showAnswerBox(q,allCorrect,selectedOpt);

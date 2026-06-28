@@ -493,7 +493,6 @@ document.getElementById("checkBtn").onclick=()=>{
   let answerRecord;
 
   if(q.type==="mcq"){
-    if(!selectedOpt){ alert("请先选择一个选项"); return; }
     allCorrect = selectedOpt===q.correct;
     document.querySelectorAll("#qBody .opt-row").forEach(el=>{ el.classList.add("disabled"); });
     showAnswerBoxMcq(q, allCorrect, selectedOpt);
