@@ -13,10 +13,46 @@
   header h1{margin:0;font-size:22px;}
   header p{margin:6px 0 0;font-size:13px;opacity:.85;}
   .list{display:flex;flex-direction:column;gap:12px;}
-  .item{display:block;background:#fff;border-radius:10px;padding:16px;box-shadow:0 1px 3px rgba(0,0,0,.08);text-decoration:none;color:var(--text);}
-  .item .name{font-size:17px;font-weight:bold;margin-bottom:4px;}
+  .item{display:block;background:#fff;border-radius:10px;padding:16px;box-shadow:0 1px 3px rgba(0,0,0,.08);text-decoration:none;color:var(--text);position:relative;}
+  .item .name-row{display:flex;align-items:center;gap:6px;margin-bottom:4px;}
+  .item .name{font-size:17px;font-weight:bold;}
   .item .desc{font-size:13px;color:var(--muted);}
   .empty-note{font-size:12px;color:var(--muted);text-align:center;margin-top:24px;}
+
+  /* 重命名按钮 */
+  .rename-btn{
+    display:none;
+    background:none;border:none;cursor:pointer;
+    padding:2px 4px;border-radius:4px;
+    color:var(--muted);font-size:14px;line-height:1;
+    flex-shrink:0;
+  }
+  .rename-btn:hover{color:var(--primary);background:#e0edff;}
+  .item:hover .rename-btn{display:inline-flex;}
+
+  /* 编辑状态输入框 */
+  .name-input{
+    font-size:17px;font-weight:bold;
+    border:2px solid var(--primary);border-radius:6px;
+    padding:1px 6px;outline:none;
+    font-family:inherit;color:var(--text);
+    min-width:80px;width:auto;
+  }
+
+  /* 重置按钮（已自定义名称时显示） */
+  .reset-btn{
+    display:none;
+    background:none;border:none;cursor:pointer;
+    padding:2px 5px;border-radius:4px;
+    color:#ef4444;font-size:11px;line-height:1.4;
+    flex-shrink:0;margin-left:2px;
+  }
+  .reset-btn:hover{background:#fee2e2;}
+  .item:hover .reset-btn.visible{display:inline-flex;}
+
+  /* 阻止点击编辑区跳转 */
+  .name-row{pointer-events:none;}
+  .rename-btn,.reset-btn,.name-input{pointer-events:auto;}
 </style>
 </head>
 <body>
@@ -25,41 +61,136 @@
     <h1>刷题合集</h1>
     <p>各科目练习题网站入口 · 持续更新</p>
   </header>
-  <div class="list">
-    <a class="item" href="./web-design/">
-      <div class="name">WEB程序设计</div>
-      <div class="desc">单选+填空混合，90题 · 错题本 / 练习记录 / 题目总览</div>
-    </a>
-    <a class="item" href="./os/">
-      <div class="name">操作系统</div>
-      <div class="desc">填空题，85题 · 错题本 / 练习记录 / 题目总览</div>
-    </a>
-    <a class="item" href="./software-engineering/">
-      <div class="name">软件工程</div>
-      <div class="desc">单选+填空混合，156题（6章节填空+6套模拟题） · 错题本 / 练习记录 / 题目总览</div>
-    </a>
-    <a class="item" href="./mobile-app/">
-      <div class="name">移动应用开发</div>
-      <div class="desc">单选题，10题（第1次+第2次作业） · 错题本 / 练习记录 / 题目总览</div>
-    </a>
-    <a class="item" href="./english-listening/">
-      <div class="name">大学英语听力</div>
-      <div class="desc">单选题，120题（六单元各20题） · 错题本 / 练习记录 / 题目总览</div>
-    </a>
-    <a class="item" href="./english-reading/">
-      <div class="name">大学英语阅读与选词填空</div>
-      <div class="desc">填空+单选混合，66题（六单元：选词填空6篇每篇10空＋阅读理解60题） · 错题本 / 练习记录 / 题目总览</div>
-    </a>
-    <a class="item" href="./english-vocab/">
-      <div class="name">大学英语课后选词填空</div>
-      <div class="desc">填空题，6题共93空（六单元课后例句选词，含词表） · 错题本 / 练习记录 / 题目总览</div>
-    </a>
-    <a class="item" href="./english-translation/">
-      <div class="name">大学英语汉译英翻译练习</div>
-      <div class="desc">翻译题，48题（六单元各8句，汉译英，关键词判分＋完整参考译文） · 错题本 / 练习记录 / 题目总览</div>
-    </a>
-  </div>
+  <div class="list" id="list"></div>
   <div class="empty-note">以后新增科目会持续加在这里</div>
 </div>
+
+<script>
+const SUBJECTS = [
+  { key:'web-design',         href:'./web-design/',          defaultName:'WEB程序设计',           desc:'单选+填空混合，90题 · 错题本 / 练习记录 / 题目总览' },
+  { key:'os',                 href:'./os/',                  defaultName:'操作系统',               desc:'填空题，85题 · 错题本 / 练习记录 / 题目总览' },
+  { key:'software-engineering',href:'./software-engineering/',defaultName:'软件工程',              desc:'单选+填空混合，156题（6章节填空+6套模拟题） · 错题本 / 练习记录 / 题目总览' },
+  { key:'mobile-app',         href:'./mobile-app/',          defaultName:'移动应用开发',           desc:'单选题，10题（第1次+第2次作业） · 错题本 / 练习记录 / 题目总览' },
+  { key:'english-listening',  href:'./english-listening/',   defaultName:'大学英语听力',           desc:'单选题，120题（六单元各20题） · 错题本 / 练习记录 / 题目总览' },
+  { key:'english-reading',    href:'./english-reading/',     defaultName:'大学英语阅读与选词填空', desc:'填空+单选混合，66题（六单元：选词填空6篇每篇10空＋阅读理解60题） · 错题本 / 练习记录 / 题目总览' },
+  { key:'english-vocab',      href:'./english-vocab/',       defaultName:'大学英语课后选词填空',   desc:'填空题，6题共93空（六单元课后例句选词，含词表） · 错题本 / 练习记录 / 题目总览' },
+  { key:'english-translation',href:'./english-translation/', defaultName:'大学英语汉译英翻译练习', desc:'翻译题，48题（六单元各8句，汉译英，关键词判分＋完整参考译文） · 错题本 / 练习记录 / 题目总览' },
+];
+
+const STORAGE_KEY = 'tiku_custom_names';
+
+function loadNames() {
+  try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}'); } catch(e) { return {}; }
+}
+function saveName(key, name) {
+  const names = loadNames();
+  names[key] = name;
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(names));
+}
+function deleteName(key) {
+  const names = loadNames();
+  delete names[key];
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(names));
+}
+
+function buildList() {
+  const names = loadNames();
+  const list = document.getElementById('list');
+  list.innerHTML = '';
+
+  SUBJECTS.forEach(subj => {
+    const customName = names[subj.key];
+    const displayName = customName || subj.defaultName;
+    const isCustom = !!customName;
+
+    const a = document.createElement('a');
+    a.className = 'item';
+    a.href = subj.href;
+
+    const nameRow = document.createElement('div');
+    nameRow.className = 'name-row';
+
+    const nameSpan = document.createElement('span');
+    nameSpan.className = 'name';
+    nameSpan.textContent = displayName;
+
+    const renameBtn = document.createElement('button');
+    renameBtn.className = 'rename-btn';
+    renameBtn.title = '重命名';
+    renameBtn.innerHTML = '✏️';
+
+    const resetBtn = document.createElement('button');
+    resetBtn.className = 'reset-btn' + (isCustom ? ' visible' : '');
+    resetBtn.title = '恢复原名';
+    resetBtn.textContent = '还原';
+
+    const desc = document.createElement('div');
+    desc.className = 'desc';
+    desc.textContent = subj.desc;
+
+    nameRow.appendChild(nameSpan);
+    nameRow.appendChild(renameBtn);
+    nameRow.appendChild(resetBtn);
+    a.appendChild(nameRow);
+    a.appendChild(desc);
+    list.appendChild(a);
+
+    // 点击铅笔：进入编辑
+    renameBtn.addEventListener('click', function(e) {
+      e.preventDefault();
+      e.stopPropagation();
+      startEdit(subj, nameSpan, renameBtn, resetBtn);
+    });
+
+    // 点击还原
+    resetBtn.addEventListener('click', function(e) {
+      e.preventDefault();
+      e.stopPropagation();
+      deleteName(subj.key);
+      nameSpan.textContent = subj.defaultName;
+      resetBtn.classList.remove('visible');
+    });
+  });
+}
+
+function startEdit(subj, nameSpan, renameBtn, resetBtn) {
+  const currentText = nameSpan.textContent;
+
+  const input = document.createElement('input');
+  input.type = 'text';
+  input.className = 'name-input';
+  input.value = currentText;
+  // 宽度自适应内容
+  input.style.width = Math.max(currentText.length * 18, 120) + 'px';
+
+  nameSpan.replaceWith(input);
+  renameBtn.style.display = 'none';
+  input.focus();
+  input.select();
+
+  function commit() {
+    const newName = input.value.trim();
+    const finalName = newName || subj.defaultName;
+    nameSpan.textContent = finalName;
+    input.replaceWith(nameSpan);
+    renameBtn.style.display = '';
+    if (finalName !== subj.defaultName) {
+      saveName(subj.key, finalName);
+      resetBtn.classList.add('visible');
+    } else {
+      deleteName(subj.key);
+      resetBtn.classList.remove('visible');
+    }
+  }
+
+  input.addEventListener('blur', commit);
+  input.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') { e.preventDefault(); input.blur(); }
+    if (e.key === 'Escape') { input.value = currentText; input.blur(); }
+  });
+}
+
+buildList();
+</script>
 </body>
 </html>
