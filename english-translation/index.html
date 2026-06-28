@@ -1,0 +1,732 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>英语汉译英翻译练习</title>
+<style>
+  :root{
+    --primary:#3b82f6; --primary-dark:#2563eb; --green:#16a34a; --red:#dc2626;
+    --bg:#f3f4f6; --card:#ffffff; --text:#1f2937; --muted:#6b7280; --border:#e5e7eb;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:"Microsoft YaHei",Segoe UI,Arial,sans-serif;background:var(--bg);color:var(--text);}
+  .app{max-width:780px;margin:0 auto;min-height:100vh;background:var(--bg);display:flex;flex-direction:column;}
+  .topbar{position:sticky;top:0;z-index:10;}
+  header{background:linear-gradient(135deg,var(--primary),var(--primary-dark));color:#fff;padding:18px 16px;text-align:center;}
+  header h1{margin:0;font-size:19px;word-break:break-word;}
+  header p{margin:4px 0 0;font-size:12px;opacity:.85;}
+  nav{display:flex;background:#fff;border-bottom:1px solid var(--border);}
+  nav button{flex:1;border:none;background:none;padding:11px 4px;font-size:14px;color:var(--muted);cursor:pointer;border-bottom:3px solid transparent;}
+  nav button.active{color:var(--primary-dark);font-weight:bold;border-bottom-color:var(--primary);}
+  main{flex:1;padding:14px;}
+  .screen{display:none;}
+  .screen.active{display:block;}
+  .card{background:var(--card);border-radius:10px;padding:16px;margin-bottom:12px;box-shadow:0 1px 3px rgba(0,0,0,.08);}
+  .cat-list label{display:flex;align-items:center;gap:8px;padding:9px 4px;border-bottom:1px solid var(--border);font-size:14px;}
+  .cat-list label:last-child{border-bottom:none;}
+  .cat-count{color:var(--muted);font-size:12px;margin-left:auto;}
+  .btn{display:inline-block;border:none;border-radius:8px;padding:11px 18px;font-size:15px;cursor:pointer;background:var(--primary);color:#fff;text-align:center;}
+  .btn:active{transform:scale(.98);}
+  .btn.secondary{background:#fff;color:var(--primary-dark);border:1px solid var(--primary);}
+  .btn.green{background:var(--green);}
+  .btn.gray{background:#9ca3af;}
+  .btn:disabled{opacity:.4;cursor:not-allowed;}
+  .btn-row{display:flex;gap:10px;margin-top:14px;flex-wrap:wrap;}
+  .btn-row .btn{flex:1;}
+  .mode-row{display:flex;gap:10px;margin:10px 0;}
+  .mode-row label{flex:1;border:1px solid var(--border);border-radius:8px;padding:8px;text-align:center;font-size:13px;cursor:pointer;}
+  .mode-row input{margin-right:4px;}
+  .toplinks{display:flex;justify-content:space-between;margin-bottom:8px;font-size:13px;}
+  .toplinks span{color:var(--primary-dark);cursor:pointer;}
+  .progress-wrap{display:flex;align-items:center;gap:10px;margin-bottom:10px;font-size:13px;color:var(--muted);}
+  .progress-bar{flex:1;height:7px;background:var(--border);border-radius:4px;overflow:hidden;}
+  .progress-bar-fill{height:100%;background:var(--primary);transition:width .25s;}
+  .q-tag{display:inline-block;background:#eef2ff;color:var(--primary-dark);font-size:12px;padding:2px 8px;border-radius:10px;margin-bottom:8px;}
+  .q-text{font-size:16px;line-height:1.8;margin-bottom:10px;white-space:pre-wrap;overflow-x:auto;word-break:break-word;}
+  .q-code{font-family:Consolas,"Courier New",monospace;font-size:13.5px;background:#f8fafc;border:1px solid var(--border);border-radius:8px;padding:10px;margin:8px 0;line-height:1.7;white-space:pre-wrap;overflow-x:auto;}
+  .opt-list{display:flex;flex-direction:column;margin:10px 0;}
+  .opt-row{padding:13px 6px;border-bottom:1px solid var(--border);cursor:pointer;border-radius:6px;}
+  .opt-row:last-child{border-bottom:none;}
+  .opt-row .opt-label{font-size:13px;color:var(--muted);margin-bottom:3px;}
+  .opt-row .opt-text{font-size:14.5px;white-space:pre-wrap;font-family:Consolas,"Microsoft YaHei",monospace;line-height:1.6;}
+  .opt-row.selected{background:#eef2ff;}
+  .opt-row.selected .opt-label{color:var(--primary-dark);font-weight:bold;}
+  .opt-row.disabled{cursor:default;}
+  .answer-box .my-ans{font-weight:bold;}
+  .answer-box .my-ans.wrong-color{color:var(--red);}
+  .answer-box .correct-ans{color:var(--green);font-weight:bold;}
+  /* 自己画完整边框方框，不依赖各平台原生input外观（原生样式在不同浏览器/系统下表现差异很大，不可靠） */
+  .blank-input{-webkit-appearance:none;appearance:none;border:1.5px solid var(--primary);border-radius:6px;background:#f8fafc;padding:4px 8px;font-size:14.5px;min-width:90px;text-align:center;margin:2px;font-family:Consolas,monospace;color:var(--text);box-shadow:none;}
+.trans-area{-webkit-appearance:none;appearance:none;width:100%;min-width:0;box-sizing:border-box;border:1.5px solid var(--primary);border-radius:6px;background:#f8fafc;padding:8px 10px;font-size:14.5px;font-family:"Microsoft YaHei",Segoe UI,Arial,sans-serif;color:var(--text);resize:vertical;display:block;margin:8px 0;line-height:1.6;}.trans-area:disabled{opacity:1;-webkit-text-fill-color:var(--text);}.trans-area.correct{border-color:var(--success);background:#f0fdf4;-webkit-text-fill-color:var(--success);}.trans-area.wrong{border-color:var(--danger);background:#fff1f2;-webkit-text-fill-color:var(--danger);}
+  .blank-input.correct{border-color:var(--green);background:#ecfdf3;color:var(--green);}
+  .blank-input.wrong{border-color:var(--red);background:#fef2f2;color:var(--red);}
+  /* iOS Safari会强制改变disabled输入框的颜色和透明度，必须用-webkit-text-fill-color覆盖，否则手机上看不出方框和颜色 */
+  .blank-input:disabled{opacity:1;-webkit-text-fill-color:var(--text);background:#f8fafc;}
+  .blank-input.correct:disabled{-webkit-text-fill-color:var(--green);background:#ecfdf3;border-color:var(--green);}
+  .blank-input.wrong:disabled{-webkit-text-fill-color:var(--red);background:#fef2f2;border-color:var(--red);}
+  .blank-row{margin:6px 0;font-size:13px;color:var(--muted);}
+  .blank-row b{color:var(--text);font-weight:normal;}
+  .answer-box{margin-top:10px;font-size:14px;padding:10px;border-radius:8px;display:none;}
+  .answer-box.show{display:block;}
+  .answer-box.right{background:#ecfdf3;color:#15803d;}
+  .answer-box.wrong{background:#fef2f2;color:#b91c1c;}
+  .answer-box .real{font-weight:bold;}
+  footer.qfoot{display:flex;gap:10px;margin-top:14px;}
+  footer.qfoot .btn{flex:1;}
+  .stat-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;text-align:center;margin:10px 0;}
+  .stat-grid div b{display:block;font-size:22px;}
+  .stat-grid div span{font-size:12px;color:var(--muted);}
+  .stat-click{cursor:pointer;border-radius:8px;padding:6px 2px;transition:background .15s;}
+  .stat-click:hover{background:#f3f4f6;}
+  .review-item{border-bottom:1px solid var(--border);padding:12px 0;font-size:14px;}
+  .review-item:last-child{border-bottom:none;}
+  .review-item .qtext{margin-bottom:6px;line-height:1.6;white-space:pre-wrap;}
+  .review-item .your-ans{font-size:13px;margin-bottom:2px;}
+  .review-item .correct-ans-line{font-size:13px;color:var(--green);}
+  .history-item, .wrong-item{border-bottom:1px solid var(--border);padding:10px 0;font-size:14px;}
+  .history-item:last-child, .wrong-item:last-child{border-bottom:none;}
+  .history-item .top, .wrong-item .top{display:flex;justify-content:space-between;color:var(--muted);font-size:12px;margin-bottom:4px;}
+  .empty{text-align:center;color:var(--muted);padding:40px 0;font-size:14px;}
+  .wrong-item .qtext{margin-bottom:4px;}
+  .wrong-item .ans{color:var(--green);font-size:13px;}
+  .badge-cnt{background:#fee2e2;color:#b91c1c;border-radius:10px;font-size:11px;padding:1px 7px;}
+  .note{font-size:12px;color:var(--muted);margin-top:6px;}
+  .ov-link{font-size:13px;color:var(--primary-dark);cursor:pointer;white-space:nowrap;}
+  .ov-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;}
+  .ov-item{position:relative;aspect-ratio:1;border-radius:8px;border:1.5px solid var(--primary);display:flex;align-items:center;justify-content:center;font-size:14px;cursor:pointer;color:var(--primary-dark);background:#fff;}
+  .ov-item.cur{background:var(--primary);color:#fff;border-color:var(--primary);}
+  .ov-item.right{background:#ecfdf3;border-color:var(--green);color:#15803d;}
+  .ov-item.wrong{background:#fef2f2;border-color:var(--red);color:#b91c1c;}
+  .ov-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:49;display:none;}
+  .ov-backdrop.show{display:block;}
+  #screen-overview.active{
+    display:block;position:fixed;top:0;right:0;height:100vh;width:320px;max-width:88vw;
+    background:#fff;z-index:50;overflow-y:auto;box-shadow:-6px 0 20px rgba(0,0,0,.18);
+    padding:16px;animation:ovSlideIn .18s ease;
+  }
+  @keyframes ovSlideIn{from{transform:translateX(100%);}to{transform:translateX(0);}}
+  .ov-section-title{font-size:14px;font-weight:bold;color:var(--text);margin:14px 0 10px;padding-bottom:6px;border-bottom:1px solid var(--border);}
+  .ov-section-title:first-child{margin-top:0;}
+  .ov-header-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;}
+  .ov-header-row .ov-close{cursor:pointer;color:var(--muted);font-size:20px;line-height:1;padding:0 4px;}
+  .ov-legend{display:flex;gap:14px;font-size:12px;color:var(--muted);margin-bottom:12px;flex-wrap:wrap;}
+  .ov-legend span{display:inline-flex;align-items:center;gap:5px;}
+  .ov-dot{width:11px;height:11px;border-radius:3px;display:inline-block;border:1.5px solid var(--primary);}
+  .ov-dot.right{background:#ecfdf3;border-color:var(--green);}
+  .ov-dot.wrong{background:#fef2f2;border-color:var(--red);}
+  .ov-dot.cur{background:var(--primary);border-color:var(--primary);}
+  @media (max-width:380px){
+    .ov-grid{grid-template-columns:repeat(4,1fr);}
+    .blank-input{min-width:64px;font-size:13.5px;}
+    header h1{font-size:17px;}
+    .opt-row .opt-text{font-size:13.5px;}
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="topbar">
+  <header>
+    <h1>英语汉译英翻译练习</h1>
+    <p>六单元 · 汉译英 · 关键词判分+参考译文 · 错题本</p>
+  </header>
+  <nav>
+    <button data-screen="home" class="active">开始练习</button>
+    <button data-screen="wrongbook">错题本</button>
+    <button data-screen="history">练习记录</button>
+  </nav>
+  </div>
+  <main>
+
+    <section class="screen active" id="screen-home">
+      <div class="card">
+        <div class="toplinks">
+          <span id="selAll">全选</span>
+          <span id="selNone">清空</span>
+          <span id="selWrongOnly">仅选有错题章节</span>
+        </div>
+        <div class="cat-list" id="catList"></div>
+      </div>
+      <div class="card">
+        <div style="font-size:14px;font-weight:bold;margin-bottom:6px;">出题方式</div>
+        <div class="mode-row">
+          <label><input type="radio" name="order" value="random" checked>随机顺序</label>
+          <label><input type="radio" name="order" value="seq">原始顺序</label>
+        </div>
+        <div class="btn-row">
+          <button class="btn" id="startBtn">开始练习</button>
+        </div>
+      </div>
+      <div class="card" style="font-size:12px;color:var(--muted);text-align:center;">
+        题库共 <b id="totalQCount">0</b> 题（六单元汉译英，含关键词提示和完整参考译文）
+      </div>
+    </section>
+
+    <section class="screen" id="screen-quiz">
+      <div class="progress-wrap">
+        <span id="quizProgressText">1/10</span>
+        <div class="progress-bar"><div class="progress-bar-fill" id="quizProgressFill"></div></div>
+        <span id="quizScoreText">对0 错0</span>
+        <span class="ov-link" id="overviewLink">题目总览</span>
+      </div>
+      <div class="card">
+        <div class="q-tag" id="qTag"></div>
+        <div class="q-text" id="qText"></div>
+        <div id="qCode" class="q-code" style="display:none;"></div>
+        <div id="qBody"></div>
+        <div class="answer-box" id="answerBox"></div>
+        <footer class="qfoot">
+          <button class="btn secondary" id="prevBtn">上一题</button>
+          <button class="btn secondary" id="checkBtn">提交答案</button>
+          <button class="btn" id="nextBtn" style="display:none;">下一题</button>
+        </footer>
+      </div>
+      <div class="btn-row">
+        <button class="btn gray" id="quitQuizBtn">结束并查看结果</button>
+      </div>
+    </section>
+
+    <!-- 题目总览 -->
+    <div class="ov-backdrop" id="ovBackdrop"></div>
+    <section class="screen" id="screen-overview">
+      <div class="ov-header-row">
+        <div style="font-size:16px;font-weight:bold;">题目总览</div>
+        <span class="ov-close" id="ovCloseBtn">&times;</span>
+      </div>
+      <div class="ov-legend">
+        <span><span class="ov-dot cur"></span>当前</span>
+        <span><span class="ov-dot right"></span>已答对</span>
+        <span><span class="ov-dot wrong"></span>已答错</span>
+        <span><span class="ov-dot"></span>未作答</span>
+      </div>
+      <div id="ovContent"></div>
+      <div class="btn-row">
+        <button class="btn gray" id="ovBackBtn">返回答题</button>
+      </div>
+    </section>
+
+    <section class="screen" id="screen-result">
+      <div class="card">
+        <div style="text-align:center;font-size:16px;font-weight:bold;">本次练习结果</div>
+        <div class="stat-grid">
+          <div><b id="resTotal">0</b><span>总题数</span></div>
+          <div class="stat-click" id="resCorrectBox"><b id="resCorrect" style="color:var(--green)">0</b><span>答对（点击查看）</span></div>
+          <div class="stat-click" id="resWrongBox"><b id="resWrong" style="color:var(--red)">0</b><span>答错（点击查看）</span></div>
+        </div>
+        <div style="text-align:center;color:var(--muted);font-size:13px;">正确率 <b id="resRate">0%</b> · 用时 <b id="resTime">0分0秒</b></div>
+        <div class="btn-row">
+          <button class="btn secondary" id="backToQuizBtn">返回本次练习（继续查看/作答）</button>
+        </div>
+        <div class="btn-row">
+          <button class="btn" id="retryAllBtn">重新练习（同范围）</button>
+          <button class="btn secondary" id="retryWrongBtn">只练本次错题</button>
+        </div>
+        <div class="btn-row">
+          <button class="btn gray" id="backHomeBtn">返回首页</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- 答对/答错题目明细 -->
+    <section class="screen" id="screen-resultlist">
+      <div class="card">
+        <div style="font-size:16px;font-weight:bold;margin-bottom:10px;" id="resultListTitle"></div>
+        <div id="resultListBody"></div>
+      </div>
+      <div class="btn-row">
+        <button class="btn gray" id="resultListBackBtn">返回结果</button>
+      </div>
+    </section>
+
+    <section class="screen" id="screen-wrongbook">
+      <div class="card" id="wrongbookSummary"></div>
+      <div class="card" id="wrongbookList"></div>
+    </section>
+
+    <section class="screen" id="screen-history">
+      <div class="card" id="historyList"></div>
+      <div class="card" style="text-align:center;">
+        <button class="btn gray" id="clearHistoryBtn">清空历史记录</button>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<script>
+/* ===================== 题库数据 ===================== */
+// 汉译英翻译题，vocab字段为关键词匹配，ans字段为完整参考译文
+const QUESTIONS = [
+{type:"blank", cat:"第一单元-汉译英", text:"1. 杰克是个如此勤奋的学生，他无论走到哪里身边总是带着本书。(diligent)\n\n请将上面的句子译成英语：\n{{}}", ans:["Jack is so diligent a student that he never goes anywhere without a book."], ordered:true, vocab:["diligent"]},
+{type:"blank", cat:"第一单元-汉译英", text:"2. 这是我的论文(paper)提纲(outline)，对于你的任何建议，我将不胜感激。(appreciate)\n\n请将上面的句子译成英语：\n{{}}", ans:["This is an outline of my paper; any of your suggestions will be truly appreciated."], ordered:true, vocab:["appreciate"]},
+{type:"blank", cat:"第一单元-汉译英", text:"3. 无论是买还是租，你都得弄清楚什么样的房产最适合你和你的生活方式。(property)\n\n请将上面的句子译成英语：\n{{}}", ans:["Whether you’re buying or renting, you’ll need to be fully aware what kind of property best suits you and your lifestyle."], ordered:true, vocab:["property"]},
+{type:"blank", cat:"第一单元-汉译英", text:"4. 在冰路上骑车是很危险的，因此我们必须用车闸(brake)减慢自行车的速度。(slow down)\n\n请将上面的句子译成英语：\n{{}}", ans:["It is dangerous to ride a bicycle on an icy road, so we have to use the brake to slow it down."], ordered:true, vocab:["slow down"]},
+{type:"blank", cat:"第一单元-汉译英", text:"5. 如果我们把所有精力和努力投入进去，再过几个月，我们肯定能完成这个项目。(accomplish)\n\n请将上面的句子译成英语：\n{{}}", ans:["If we put all our energy and effort into this project, we will definitely accomplish it in a few more months."], ordered:true, vocab:["accomplish"]},
+{type:"blank", cat:"第一单元-汉译英", text:"6. 我打算搬入一座位于镇中心附近三居室的房子。而且，它离火车站也很近，走走就到。(locate, in addition)\n\n请将上面的句子译成英语：\n{{}}", ans:["I am thinking about moving to a three-bedroom house located near the town center. In addition, it is within walking distance to the train station."], ordered:true, vocab:["locate|in addition"]},
+{type:"blank", cat:"第一单元-汉译英", text:"7. 我们想当然地认为是垃圾的很多东西，比如报纸、杂志、旧电脑和手机，实际上可以通过这样或那样的方式再循环、再利用。(take ... for granted, trash, recycle)\n\n请将上面的句子译成英语：\n{{}}", ans:["A lot of the things we take for granted as trash, such as newspapers, magazines, old computers and cellphones, can actually be recycled or reused in one way or another."], ordered:true, vocab:["take for granted|trash|recycle"]},
+{type:"blank", cat:"第一单元-汉译英", text:"8. —在询问一份工作的时候，我能问一些什么问题？\n—你可以问，这个职位(position)是否还有，要等多久才能知道你是否有面试机会。(inquire, available)\n\n请将上面的对话译成英语：\n{{}}", ans:["— What questions can I ask when inquiring about a job? — You may ask if the position is still available and how long you have to wait before getting to know if you will be given an interview."], ordered:true, vocab:["inquire|available"]},
+{type:"blank", cat:"第二单元-汉译英", text:"1. 乔治渴望有机会见她，可是却又不愿将此事告诉她。(long for, bring oneself to do sth.)\n\n请将上面的句子译成英语：\n{{}}", ans:["George longs for a chance to meet her, but he can’t bring himself to tell her about it."], ordered:true, vocab:["long for|longed for|bring himself|bring herself|bring oneself"]},
+{type:"blank", cat:"第二单元-汉译英", text:"2. 许多人聪明能干，但一辈子成就甚少，因为他们害怕可能不得不承受的种种艰难。(endure, hardship)\n\n请将上面的句子译成英语：\n{{}}", ans:["Many smart and capable people do not achieve a lot in their life because they are afraid of the hardships they may have to endure."], ordered:true, vocab:["endure|hardship"]},
+{type:"blank", cat:"第二单元-汉译英", text:"3. 我记得小时候住在乡下非常开心，那里春天时节花儿盛开。(enjoyment, bloom)\n\n请将上面的句子译成英语：\n{{}}", ans:["I remember that in my childhood I had great enjoyment in living in the countryside where all the flowers were blooming in spring."], ordered:true, vocab:["enjoyment|bloom"]},
+{type:"blank", cat:"第二单元-汉译英", text:"4. 近来暴力犯罪增加，政府肯定会采取对策。(growth, react to)\n\n请将上面的句子译成英语：\n{{}}", ans:["The government is sure to react to the recent growth in violent crime."], ordered:true, vocab:["growth|react to"]},
+{type:"blank", cat:"第二单元-汉译英", text:"5. 不少人退休后会有失落感，我们应该帮助、关心他们。(retire, undergo)\n\n请将上面的句子译成英语：\n{{}}", ans:["Quite a lot of people can undergo feelings of loss after they retire, and we may help them with our care and concern."], ordered:true, vocab:["retire|undergo"]},
+{type:"blank", cat:"第二单元-汉译英", text:"6. 90年代他们在硅谷时，经常聚在一起，交换想法、讨论碰到的问题。(exchange)\n\n请将上面的句子译成英语：\n{{}}", ans:["They would get together exchanging ideas and discussing the problems they were confronted with when they stayed in Silicon Valley in the 90’s."], ordered:true, vocab:["exchange"]},
+{type:"blank", cat:"第二单元-汉译英", text:"7. 老太太望着在诺曼底登陆日阵亡的孙子的照片，满心悲伤。(gaze upon, fill with)\n\n请将上面的句子译成英语：\n{{}}", ans:["Gazing upon the picture of her grandson who lost his life on D-Day, the elderly lady was filled with sorrow."], ordered:true, vocab:["gaze|gazing|filled with|sorrow"]},
+{type:"blank", cat:"第二单元-汉译英", text:"8. 有人担心机器人(robot)有一天会成为世界上的主宰力量。(someday, dominate)\n\n请将上面的句子译成英语：\n{{}}", ans:["Some people worry that robots may someday become the dominating force in the world."], ordered:true, vocab:["someday|dominate"]},
+{type:"blank", cat:"第三单元-汉译英", text:"1. 这篇文章有助于我们深刻了解该问题的性质。(insight)\n\n请将上面的句子译成英语：\n{{}}", ans:["The article/essay helps us get a deep insight into the nature of the problem."], ordered:true, vocab:["insight"]},
+{type:"blank", cat:"第三单元-汉译英", text:"2. 在相互尊重的基础上，友谊会蓬勃发展。(mutual, flourish)\n\n请将上面的句子译成英语：\n{{}}", ans:["Based on mutual respect, friendship will flourish."], ordered:true, vocab:["mutual|flourish"]},
+{type:"blank", cat:"第三单元-汉译英", text:"3. 友谊就像一棵植物，如果被忽视了，它就会凋谢。(neglect, wither)\n\n请将上面的句子译成英语：\n{{}}", ans:["Like a plant, friendship will wither if neglected."], ordered:true, vocab:["neglect|wither"]},
+{type:"blank", cat:"第三单元-汉译英", text:"4. 不论发生什么情况，我们一定会尽全力将其克服。(no matter what, overcome)\n\n请将上面的句子译成英语：\n{{}}", ans:["No matter what may happen, we will do our best to overcome it."], ordered:true, vocab:["no matter what|overcome"]},
+{type:"blank", cat:"第三单元-汉译英", text:"5. 没有双方不断的关心，友谊将以分手告终。(end up with)\n\n请将上面的句子译成英语：\n{{}}", ans:["A friendship without constant care from both sides will end up with a breakup."], ordered:true, vocab:["end up with"]},
+{type:"blank", cat:"第三单元-汉译英", text:"6. 今年寒冷的天气已严重影响北方地区的庄稼。(affect)\n\n请将上面的句子译成英语：\n{{}}", ans:["This year cold weather has seriously affected the crops in the northern region."], ordered:true, vocab:["affect"]},
+{type:"blank", cat:"第三单元-汉译英", text:"7. 虽然我痛恨这么做，但是我必须按计划完成任务。(as much as)\n\n请将上面的句子译成英语：\n{{}}", ans:["As much as I hate to do it, I must finish the task as planned."], ordered:true, vocab:["as much as"]},
+{type:"blank", cat:"第三单元-汉译英", text:"8. 那意味着这一新法律也适用于私营企业(private businesses)。(apply to)\n\n请将上面的句子译成英语：\n{{}}", ans:["That means the new law also applies to private businesses."], ordered:true, vocab:["apply to"]},
+{type:"blank", cat:"第四单元-汉译英", text:"1. 我根本来不及害怕就从老虎手中夺回了我的孩子。我想这是母亲的本能。(grab, instinct)\n\n请将上面的句子译成英语：\n{{}}", ans:["I grabbed my baby from the tiger before I had time to feel afraid. I guess it was a mother’s natural instinct."], ordered:true, vocab:["grab|instinct"]},
+{type:"blank", cat:"第四单元-汉译英", text:"2. 现代旅游者渴望去像西藏(Tibet)这样神秘的地方。你要早点去，否则那里也会人满为患。(yearn for, mysterious, be flooded with)\n\n请将上面的句子译成英语：\n{{}}", ans:["Modern tourists yearn for mysterious places like Tibet. You should go there before it is flooded with visitors."], ordered:true, vocab:["yearn for|mysterious|be flooded with"]},
+{type:"blank", cat:"第四单元-汉译英", text:"3. 现在我女儿会爬了。家里没有什么地方她没爬到过。我得时时跟在她后面捡玩具，烦死了。(spot, be tired of)\n\n请将上面的句子译成英语：\n{{}}", ans:["Now that my daughter can crawl, there is not a spot in the house she hasn’t reached. I’m just tired of picking up toys constantly after her."], ordered:true, vocab:["spot|be tired of"]},
+{type:"blank", cat:"第四单元-汉译英", text:"4. 最近，又要工作，又要照顾生病的孩子，我感到分身乏术。这份业务计划我能推迟点交吗？(pull apart, turn in)\n\n请将上面的句子译成英语：\n{{}}", ans:["I felt pulled apart of late by work and taking care of my sick child. Can I postpone turning in the business plan?"], ordered:true, vocab:["pulled apart|pull apart|turn in|turning in|turned in|submit"]},
+{type:"blank", cat:"第四单元-汉译英", text:"5.  我不是有意引发争议，但我真觉得我们公司还是分拆成两个公司为好。(provocative, split)\n\n请将上面的句子译成英语：\n{{}}", ans:["I don’t mean to be provocative, but I do think it’s better for our company to split into two."], ordered:true, vocab:["provocative|split"]},
+{type:"blank", cat:"第四单元-汉译英", text:"6. 美国政府有义务优先购买在美国制造的产品，但外国公司仍有可能成为美国政府的供应商。例如，某产品在美国没有生产，这时美国政府将向海外购买。(feel obligated to, for instance)\n\n请将上面的句子译成英语：\n{{}}", ans:["The US government feels obligated to prefer US-made products, but it’s still possible for a foreign company to be its supplier. For instance, if a product is not made in the US, then the US government will buy abroad."], ordered:true, vocab:["feel obligated to|for instance"]},
+{type:"blank", cat:"第四单元-汉译英", text:"7. 我们得不断分析环境变化，看是否有必要改变原来的计划。(analyze, original, program)\n\n请将上面的句子译成英语：\n{{}}", ans:["We must constantly analyze changes in the environment to see if there is a need to change the original program."], ordered:true, vocab:["analyze|original|program"]},
+{type:"blank", cat:"第四单元-汉译英", text:"8. 你怎么解读中国政府的新“二孩”政策？这个政策是不是为了填补中国未来年轻人口的不足(shortage)？(interpretation, make up for)\n\n请将上面的句子译成英语：\n{{}}", ans:["What’s your interpretation of the Chinese government’s new policy of allowing two children per family? Is it to make up for the shortage of young people in the future in China?"], ordered:true, vocab:["interpretation|make up for"]},
+{type:"blank", cat:"第五单元-汉译英", text:"1. 如何控制住火箭的动力，是成功发射宇宙飞船的一个关键。(harness)\n\n请将上面的句子译成英语：\n{{}}", ans:["How to harness the power of the rockets is the key to the successful launch of a spaceship."], ordered:true, vocab:["harness"]},
+{type:"blank", cat:"第五单元-汉译英", text:"2. 二十世纪见证了航空工业的成长。(witness)\n\n请将上面的句子译成英语：\n{{}}", ans:["The 20th century witnessed the growth of the aviation industry."], ordered:true, vocab:["witness"]},
+{type:"blank", cat:"第五单元-汉译英", text:"3. 第二次世界大战期间，美国需要大型运输机运送战争物资。(transportation)\n\n请将上面的句子译成英语：\n{{}}", ans:["During World War II, the United States needed giant cargo planes for transportation of war materials."], ordered:true, vocab:["transportation"]},
+{type:"blank", cat:"第五单元-汉译英", text:"4. 电影《飞行者》(The Aviator)是根据霍华德·休斯的生平创作的。(base ... on)\n\n请将上面的句子译成英语：\n{{}}", ans:["The film The Aviator is based on the life of Howard Hughes."], ordered:true, vocab:["based on|base on"]},
+{type:"blank", cat:"第五单元-汉译英", text:"5. 这位教授认为投入能效(energy efficiency)领域研究的钱应再多些。(in the field of)\n\n请将上面的句子译成英语：\n{{}}", ans:["The professor thinks that more money should be invested in/put into research in the field of energy efficiency."], ordered:true, vocab:["in the field of"]},
+{type:"blank", cat:"第五单元-汉译英", text:"6. 他们正在执行一项秘密任务。(mission)\n\n请将上面的句子译成英语：\n{{}}", ans:["They are carrying out a secret mission."], ordered:true, vocab:["mission"]},
+{type:"blank", cat:"第五单元-汉译英", text:"7. “着重注意文章的内容，别担心单个词汇。”老师对学生们说。(focus on, individual)\n\n请将上面的句子译成英语：\n{{}}", ans:["“Focus on the content of the article. Don’t worry about individual words,” said the teacher to the students."], ordered:true, vocab:["focus on|individual"]},
+{type:"blank", cat:"第五单元-汉译英", text:"8. 万户的方案太冒险太原始了，不可能成功的。(risky, primitive)\n\n请将上面的句子译成英语：\n{{}}", ans:["Wan Hu’s plan was too risky and too primitive to be successful."], ordered:true, vocab:["risky|primitive"]},
+{type:"blank", cat:"第六单元-汉译英", text:"1. 纽约的创客集市汇聚了各年龄层次的发明者。(get together)\n\n请将上面的句子译成英语：\n{{}}", ans:["The Maker Faire in New York got together inventors of all ages."], ordered:true, vocab:["get together"]},
+{type:"blank", cat:"第六单元-汉译英", text:"2. 创客们展示了他们最新的作品。(exhibit, creation)\n\n请将上面的句子译成英语：\n{{}}", ans:["Makers exhibited their latest creations."], ordered:true, vocab:["exhibit|creation"]},
+{type:"blank", cat:"第六单元-汉译英", text:"3. 工业化国家必须带头减少碳排放量(emissions)。(industrialize)\n\n请将上面的句子译成英语：\n{{}}", ans:["Industrialized nations must take the lead in reducing their carbon emissions."], ordered:true, vocab:["industrialize"]},
+{type:"blank", cat:"第六单元-汉译英", text:"4. 如果有适当的工具和灵感(inspiration)，创客们有能力改变这个世界。(capacity)\n\n请将上面的句子译成英语：\n{{}}", ans:["With the right tools and inspiration, makers have the capacity to change the world."], ordered:true, vocab:["capacity"]},
+{type:"blank", cat:"第六单元-汉译英", text:"5. 据我所知，他们正在秘密地制定一项计划。(work on, in secret)\n\n请将上面的句子译成英语：\n{{}}", ans:["As far as I know, they are working on a project in secret."], ordered:true, vocab:["work on|in secret"]},
+{type:"blank", cat:"第六单元-汉译英", text:"6. 这个小镇有着蓬勃发展的旅游产业和房地产市场。(boom)\n\n请将上面的句子译成英语：\n{{}}", ans:["This town has a booming tourist industry and (a flourishing) real estate market."], ordered:true, vocab:["boom"]},
+{type:"blank", cat:"第六单元-汉译英", text:"7. 过去十年的数字化革命以一种前所未有的方式激发(stimulate)了人们的创造力。(in a(n) ... way)\n\n请将上面的句子译成英语：\n{{}}", ans:["In the last decade, the digital revolution has stimulated people’s creativity in an unprecedented way."], ordered:true, vocab:["unprecedented|in a way"]},
+{type:"blank", cat:"第六单元-汉译英", text:"8. 在中国第一家正式的创客空间“新车间”里，创客们正鼓捣着各种各样的材料，如金属、塑料、电子元件等等。(formal, tinker with, electronic component)\n\n请将上面的句子译成英语：\n{{}}", ans:["At Xinchejian, China’s first formal makerspace, makers are tinkering with all types of materials, such as metals, plastics and electronic components."], ordered:true, vocab:["formal|tinker with|electronic component"]},
+];
+QUESTIONS.forEach((q,i)=>q.id="q"+i);
+const CATS = [...new Set(QUESTIONS.map(q=>q.cat))];
+
+/* ===================== 本地存储 ===================== */
+const LS_HISTORY="engtranslation_history", LS_WRONGBOOK="engtranslation_wrongbook";
+function loadJSON(key,def){ try{ return JSON.parse(localStorage.getItem(key)) || def; }catch(e){ return def; } }
+function saveJSON(key,val){ localStorage.setItem(key, JSON.stringify(val)); }
+let history = loadJSON(LS_HISTORY, []);
+let wrongbook = loadJSON(LS_WRONGBOOK, {});
+
+/* ===================== 工具函数 ===================== */
+function normalize(s){
+  return (s||"").trim().toLowerCase().replace(/[\s;；]/g,"");
+}
+function isCorrect(userInput, acceptStr){
+  const options = acceptStr.split("|");
+  const u = normalize(userInput);
+  if(!u) return false;
+  for(const opt of options){
+    const o = normalize(opt);
+    if(u===o) return true;
+    // 只允许"用户答案包含完整正确答案"（容忍多写了无关字），
+    // 不允许反向（正确答案包含用户答案）——否则用户答了不完整/截断的内容也会被判对
+    if(o.length>=4 && u.includes(o)) return true;
+    // 顺序无关匹配：对原始字符串按"和/、/，/,"拆分，各部分分别normalize后排序比较
+    const splitRe = /[和、，,]/;
+    const oParts = opt.split(splitRe).map(normalize).filter(Boolean).sort();
+    const uParts = userInput.split(splitRe).map(normalize).filter(Boolean).sort();
+    if(oParts.length>1 && oParts.length===uParts.length && oParts.every((p,i)=>p===uParts[i])) return true;
+  }
+  return false;
+}
+function gradeBlanksSet(userInputs, expectedList){
+  const n = expectedList.length;
+  const used = new Array(n).fill(false);
+  const assignment = new Array(n).fill(-1);
+  for(let i=0;i<userInputs.length;i++){
+    for(let j=0;j<n;j++){
+      if(!used[j] && isCorrect(userInputs[i], expectedList[j])){ used[j]=true; assignment[i]=j; break; }
+    }
+  }
+  const allCorrect = assignment.every(a=>a!==-1);
+  return {allCorrect, assignment};
+}
+function gradeOrdered(userInputs, expectedList){
+  const assignment = expectedList.map((exp,i)=> isCorrect(userInputs[i]||'',exp) ? i : -1);
+  const allCorrect = assignment.every(a=>a!==-1);
+  return {allCorrect, assignment};
+}
+function fmtTime(sec){ const m=Math.floor(sec/60), s=sec%60; return m+"分"+s+"秒"; }
+function fmtDate(ts){ const d=new Date(ts); return `${d.getMonth()+1}/${d.getDate()} ${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`; }
+function escapeHtml(s){ return (s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+
+/* ===================== 屏幕切换 ===================== */
+function showScreen(name){
+  document.querySelectorAll(".screen").forEach(s=>s.classList.remove("active"));
+  document.getElementById("ovBackdrop").classList.remove("show");
+  document.getElementById("screen-"+name).classList.add("active");
+  document.querySelectorAll("nav button").forEach(b=>b.classList.remove("active"));
+  const navBtn = document.querySelector(`nav button[data-screen="${name}"]`);
+  if(navBtn) navBtn.classList.add("active");
+  if(name==="wrongbook") renderWrongbook();
+  if(name==="history") renderHistory();
+}
+document.querySelectorAll("nav button").forEach(b=>b.addEventListener("click", ()=>showScreen(b.dataset.screen)));
+
+/* ===================== 首页：章节选择 ===================== */
+function renderCatList(){
+  const wb = wrongbook;
+  const list = document.getElementById("catList");
+  list.innerHTML = CATS.map(cat=>{
+    const cnt = QUESTIONS.filter(q=>q.cat===cat).length;
+    const wcnt = Object.values(wb).filter(w=>w.cat===cat).length;
+    return `<label>
+      <input type="checkbox" class="catChk" value="${cat}" checked>
+      ${cat}
+      <span class="cat-count">${cnt}题${wcnt?` · <span class="badge-cnt">${wcnt}错</span>`:""}</span>
+    </label>`;
+  }).join("");
+  document.getElementById("totalQCount").textContent = QUESTIONS.length;
+}
+document.getElementById("selAll").onclick=()=>document.querySelectorAll(".catChk").forEach(c=>c.checked=true);
+document.getElementById("selNone").onclick=()=>document.querySelectorAll(".catChk").forEach(c=>c.checked=false);
+document.getElementById("selWrongOnly").onclick=()=>{
+  const wrongCats = new Set(Object.values(wrongbook).map(w=>w.cat));
+  document.querySelectorAll(".catChk").forEach(c=>c.checked=wrongCats.has(c.value));
+};
+
+/* ===================== 答题逻辑 ===================== */
+let session = null; // {queue, idx, answers[], startTime, scopeLabel}
+let selectedOpt = null;
+
+function startQuiz(questionPool, scopeLabel){
+  const order = document.querySelector('input[name="order"]:checked').value;
+  let pool = questionPool.slice();
+  if(order==="random"){
+    for(let i=pool.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [pool[i],pool[j]]=[pool[j],pool[i]]; }
+  }
+  session = { queue:pool, idx:0, answers:new Array(pool.length).fill(null), startTime:Date.now(), scopeLabel };
+  showScreen("quiz");
+  renderQuestion();
+}
+function currentQ(){ return session.queue[session.idx]; }
+function sessionStats(){
+  let correct=0, wrong=0;
+  session.answers.forEach(a=>{ if(a){ a.allCorrect? correct++ : wrong++; } });
+  return {correct, wrong};
+}
+
+function renderQuestion(){
+  const q = currentQ();
+  const saved = session.answers[session.idx];
+  selectedOpt = saved && saved.selectedOpt ? saved.selectedOpt : null;
+  const stats = sessionStats();
+  document.getElementById("qTag").textContent = q.cat;
+  document.getElementById("quizProgressText").textContent = `${session.idx+1}/${session.queue.length}`;
+  document.getElementById("quizProgressFill").style.width = `${(session.idx/session.queue.length)*100}%`;
+  document.getElementById("quizScoreText").textContent = `对${stats.correct} 错${stats.wrong}`;
+  document.getElementById("qText").textContent = q.text;
+  document.getElementById("prevBtn").disabled = session.idx===0;
+
+  const codeEl = document.getElementById("qCode");
+  if(q.code){ codeEl.style.display="block"; codeEl.textContent = q.code.replace(/\{\{\}\}/g,"______"); }
+  else { codeEl.style.display="none"; codeEl.textContent=""; }
+
+  const body = document.getElementById("qBody");
+  const box=document.getElementById("answerBox");
+  box.className="answer-box"; box.innerHTML="";
+
+  if(q.type==="mcq"){
+    const letters = Object.keys(q.options);
+    body.innerHTML = `<div class="opt-list">` + letters.map(L=>
+      `<div class="opt-row" data-letter="${L}"><div class="opt-label">${L}.</div><div class="opt-text">${escapeHtml(q.options[L])}</div></div>`
+    ).join("") + `</div>`;
+    if(saved){
+      body.querySelectorAll(".opt-row").forEach(el=>{ el.classList.add("disabled"); });
+      showAnswerBoxMcq(q, saved.allCorrect, saved.selectedOpt);
+      document.getElementById("checkBtn").style.display="none";
+    } else {
+      body.querySelectorAll(".opt-row").forEach(el=>{
+        el.addEventListener("click", ()=>{
+          if(el.classList.contains("disabled")) return;
+          body.querySelectorAll(".opt-row").forEach(o=>o.classList.remove("selected"));
+          el.classList.add("selected");
+          selectedOpt = el.dataset.letter;
+        });
+      });
+      document.getElementById("checkBtn").style.display="inline-block";
+    }
+    updateNextBtn();
+  } else {
+    body.innerHTML = "";
+    let n=0;
+    if(q.text.includes("{{}}")){
+      const safeT = escapeHtml(q.text).replace(/\n/g,'<br>');
+      document.getElementById("qText").innerHTML = safeT.replace(/\{\{\}\}/g, ()=>{
+        const idx=n++;
+        if(q.vocab) return `<textarea class="blank-input trans-area" data-idx="${idx}" rows="3" placeholder="请在此输入英语翻译\u2026"></textarea>`;
+        return `<input type="text" class="blank-input" data-idx="${idx}" autocomplete="off">`;
+      });
+    }
+    if(q.code && q.code.includes("{{}}")){
+      codeEl.innerHTML = escapeHtml(q.code).replace(/\{\{\}\}/g, ()=>{
+        const idx=n++; return `<input type="text" class="blank-input" data-idx="${idx}" autocomplete="off">`;
+      });
+    }
+    const inputs = document.querySelectorAll("#qText .blank-input, #qCode .blank-input");
+    if(saved){
+      inputs.forEach((inp,i)=>{
+        inp.value = saved.userInputs[i] || "";
+        inp.classList.add(saved.assignment[i]!==-1 ? "correct" : "wrong");
+        inp.disabled = true;
+      });
+      showAnswerBoxBlank(q, saved.allCorrect);
+      document.getElementById("checkBtn").style.display="none";
+    } else {
+      inputs.forEach((inp,i)=>{
+        inp.addEventListener("keydown",(e)=>{
+          if(e.key==="Enter"){
+            if(i<inputs.length-1) inputs[i+1].focus();
+            else document.getElementById("checkBtn").click();
+          }
+        });
+      });
+      if(inputs[0]) inputs[0].focus();
+      document.getElementById("checkBtn").style.display="inline-block";
+    }
+    updateNextBtn();
+  }
+}
+
+function updateNextBtn(){
+  const nextBtnEl = document.getElementById("nextBtn");
+  const isLast = session.idx === session.queue.length-1;
+  nextBtnEl.style.display = "inline-block";
+  nextBtnEl.textContent = isLast ? "已是最后一题" : "下一题";
+  nextBtnEl.disabled = isLast;
+}
+
+function showAnswerBoxMcq(q, allCorrect, userOpt){
+  const box=document.getElementById("answerBox");
+  box.classList.add("show", allCorrect?"right":"wrong");
+  box.innerHTML = `<b>我的答案：</b><span class="my-ans${allCorrect?"":" wrong-color"}">${userOpt||"未作答"}</span>`
+    + `　　<b>正确答案：</b><span class="correct-ans">${q.correct}. ${escapeHtml(q.options[q.correct])}</span>`;
+}
+function showAnswerBoxBlank(q, allCorrect){
+  const box=document.getElementById("answerBox");
+  box.classList.add("show", allCorrect?"right":"wrong");
+  let correctAnsText;
+  if(q.ordered && q.ans.length > 1){
+    correctAnsText = q.ans.map((a,i)=>`(${i+1})${a.split("|")[0]}`).join("　");
+  } else {
+    correctAnsText = q.ans.map(a=>a.split("|")[0]).join("  /  ");
+  }
+  const label = q.vocab ? "参考译文" : "参考答案";
+  const tip = q.vocab ? (allCorrect ? "（关键词✓）" : "（关键词未匹配，请对照）") : "";
+  box.innerHTML = (allCorrect ? `✔ 正确！` : `✘ 有误。`) + tip + ` ${label}：<span class="real">${escapeHtml(correctAnsText)}</span>`;
+}
+
+document.getElementById("checkBtn").onclick=()=>{
+  const q = currentQ();
+  let allCorrect = true;
+  let answerRecord;
+
+  if(q.type==="mcq"){
+    if(!selectedOpt){ alert("请先选择一个选项"); return; }
+    allCorrect = selectedOpt===q.correct;
+    document.querySelectorAll("#qBody .opt-row").forEach(el=>{ el.classList.add("disabled"); });
+    showAnswerBoxMcq(q, allCorrect, selectedOpt);
+    answerRecord = { allCorrect, selectedOpt };
+  } else {
+    const inputs = [...document.querySelectorAll("#qText .blank-input, #qCode .blank-input")];
+    const userInputs = inputs.map(inp=>inp.value);
+    const checkAns = q.vocab ? q.vocab : q.ans;
+    const graded = q.ordered ? gradeOrdered(userInputs, checkAns) : gradeBlanksSet(userInputs, checkAns);
+    allCorrect = graded.allCorrect;
+    inputs.forEach((inp,i)=>{
+      inp.classList.add(graded.assignment[i]!==-1 ? "correct" : "wrong");
+      inp.disabled = true;
+    });
+    showAnswerBoxBlank(q, allCorrect);
+    answerRecord = { allCorrect, userInputs, assignment: graded.assignment };
+  }
+
+  session.answers[session.idx] = answerRecord;
+
+  const MASTER_STREAK = 3;
+  if(allCorrect){
+    if(wrongbook[q.id]){
+      wrongbook[q.id].correctStreak = (wrongbook[q.id].correctStreak||0) + 1;
+      if(wrongbook[q.id].correctStreak >= MASTER_STREAK){ delete wrongbook[q.id]; }
+    }
+  } else {
+    wrongbook[q.id] = { cat:q.cat, type:q.type, text:q.text, code:q.code||"", options:q.options||null, correct:q.correct||null, ans:q.ans||null, wrongCount:(wrongbook[q.id]?.wrongCount||0)+1, correctStreak:0, lastWrongAt:Date.now() };
+  }
+  saveJSON(LS_WRONGBOOK, wrongbook);
+
+  document.getElementById("checkBtn").style.display="none";
+  updateNextBtn();
+  const stats = sessionStats();
+  document.getElementById("quizScoreText").textContent = `对${stats.correct} 错${stats.wrong}`;
+};
+
+document.getElementById("prevBtn").onclick=()=>{
+  if(session.idx>0){ session.idx--; renderQuestion(); }
+};
+document.getElementById("nextBtn").onclick=()=>{
+  if(session.idx < session.queue.length-1){ session.idx++; renderQuestion(); }
+};
+document.getElementById("quitQuizBtn").onclick=()=>{
+  if(confirm("确定结束本次练习并查看结果吗？")) finishQuiz();
+};
+
+function openOverview(){ renderOverview(); document.getElementById("screen-overview").classList.add("active"); document.getElementById("ovBackdrop").classList.add("show"); }
+function closeOverview(){ document.getElementById("screen-overview").classList.remove("active"); document.getElementById("ovBackdrop").classList.remove("show"); }
+document.getElementById("overviewLink").onclick=openOverview;
+document.getElementById("ovBackBtn").onclick=closeOverview;
+document.getElementById("ovCloseBtn").onclick=closeOverview;
+document.getElementById("ovBackdrop").onclick=closeOverview;
+
+function renderOverviewGrid(indices){
+  return `<div class="ov-grid">` + indices.map(i=>{
+    const a = session.answers[i];
+    let cls = "";
+    if(i===session.idx) cls += " cur";
+    if(a) cls += a.allCorrect ? " right" : " wrong";
+    return `<div class="ov-item${cls}" data-idx="${i}">${i+1}</div>`;
+  }).join("") + `</div>`;
+}
+function renderOverview(){
+  const content = document.getElementById("ovContent");
+  const mcqIdx = [], blankIdx = [];
+  session.queue.forEach((q,i)=> (q.type==="mcq" ? mcqIdx : blankIdx).push(i));
+  let html = "";
+  if(mcqIdx.length) html += `<div class="ov-section-title">一、单选题（${mcqIdx.length}题）</div>` + renderOverviewGrid(mcqIdx);
+  if(blankIdx.length) html += `<div class="ov-section-title">二、填空题（${blankIdx.length}题）</div>` + renderOverviewGrid(blankIdx);
+  content.innerHTML = html;
+  content.querySelectorAll(".ov-item").forEach(el=>{
+    el.addEventListener("click", ()=>{
+      session.idx = parseInt(el.dataset.idx, 10);
+      closeOverview();
+      showScreen("quiz");
+      renderQuestion();
+    });
+  });
+}
+
+function finishQuiz(){
+  const stats = sessionStats();
+  const total = session.queue.length;
+  const durationSec = Math.round((Date.now()-session.startTime)/1000);
+  const rate = total? Math.round(stats.correct/total*100):0;
+  history.unshift({ date: Date.now(), scope: session.scopeLabel, total, correct: stats.correct, wrong: stats.wrong, rate, durationSec });
+  if(history.length>100) history = history.slice(0,100);
+  saveJSON(LS_HISTORY, history);
+  document.getElementById("resTotal").textContent = total;
+  document.getElementById("resCorrect").textContent = stats.correct;
+  document.getElementById("resWrong").textContent = stats.wrong;
+  document.getElementById("resRate").textContent = rate+"%";
+  document.getElementById("resTime").textContent = fmtTime(durationSec);
+  showScreen("result");
+}
+
+document.getElementById("backToQuizBtn").onclick=()=>{ showScreen("quiz"); renderQuestion(); };
+document.getElementById("retryAllBtn").onclick=()=>{ startQuiz(session.queue, session.scopeLabel); };
+document.getElementById("retryWrongBtn").onclick=()=>{
+  const wrongList = session.queue.filter((q,i)=>session.answers[i] && !session.answers[i].allCorrect);
+  if(wrongList.length===0){ alert("本次没有错题，太棒了！"); return; }
+  startQuiz(wrongList, "本次错题重练");
+};
+document.getElementById("backHomeBtn").onclick=()=>{ renderCatList(); showScreen("home"); };
+
+function renderResultList(wantCorrect){
+  document.getElementById("resultListTitle").textContent = wantCorrect ? "答对的题目" : "答错的题目";
+  const body = document.getElementById("resultListBody");
+  const items = [];
+  session.queue.forEach((q,i)=>{
+    const a = session.answers[i];
+    if(a && a.allCorrect===wantCorrect) items.push({q,a});
+  });
+  if(items.length===0){ body.innerHTML = `<div class="empty">没有符合条件的题目</div>`; return; }
+  body.innerHTML = items.map(({q,a})=>{
+    const plain = q.text + (q.code? "\n"+q.code.replace(/\{\{\}\}/g,"____") : "");
+    let yourAnsText, correctAnsText;
+    if(q.type==="mcq"){
+      yourAnsText = a.selectedOpt ? `${a.selectedOpt}. ${q.options[a.selectedOpt]}` : "未作答";
+      correctAnsText = `${q.correct}. ${q.options[q.correct]}`;
+    } else {
+      yourAnsText = a.userInputs.join("、");
+      correctAnsText = q.ans.map(x=>x.split("|")[0]).join("、");
+    }
+    return `<div class="review-item">
+      <div class="qtext">${escapeHtml(plain)}</div>
+      <div class="your-ans" style="color:${a.allCorrect?'var(--green)':'var(--red)'}">你的答案：${escapeHtml(yourAnsText)}</div>
+      <div class="correct-ans-line">正确答案：${escapeHtml(correctAnsText)}</div>
+    </div>`;
+  }).join("");
+}
+document.getElementById("resCorrectBox").onclick=()=>{ renderResultList(true); showScreen("resultlist"); };
+document.getElementById("resWrongBox").onclick=()=>{ renderResultList(false); showScreen("resultlist"); };
+document.getElementById("resultListBackBtn").onclick=()=>{ showScreen("result"); };
+
+document.getElementById("startBtn").onclick=()=>{
+  const checked = [...document.querySelectorAll(".catChk:checked")].map(c=>c.value);
+  if(checked.length===0){ alert("请至少选择一个章节"); return; }
+  const pool = QUESTIONS.filter(q=>checked.includes(q.cat));
+  startQuiz(pool, checked.length===CATS.length? "全部章节" : checked.join("、"));
+};
+
+/* ===================== 错题本 ===================== */
+function renderWrongbook(){
+  const items = Object.entries(wrongbook).map(([id,w])=>({id,...w}));
+  const summary = document.getElementById("wrongbookSummary");
+  const list = document.getElementById("wrongbookList");
+  if(items.length===0){
+    summary.innerHTML = `<div class="empty">暂无错题，继续保持！</div>`;
+    list.innerHTML=""; return;
+  }
+  summary.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;">
+      <div>共 <b>${items.length}</b> 道错题</div>
+      <button class="btn" id="practiceWrongBtn">练习全部错题</button>
+    </div>`;
+  document.getElementById("practiceWrongBtn").onclick=()=>{
+    const pool = items.map(it=>QUESTIONS.find(q=>q.id===it.id)).filter(Boolean);
+    startQuiz(pool, "错题本练习");
+  };
+  items.sort((a,b)=>b.lastWrongAt-a.lastWrongAt);
+  list.innerHTML = items.map(it=>{
+    const plain = it.text.replace(/\{\{\}\}/g,"____");
+    let ansText="";
+    if(it.type==="mcq") ansText = it.correct + "  " + (it.options? it.options[it.correct]:"");
+    else ansText = (it.ans||[]).map(a=>a.split("|")[0]).join("  /  ");
+    const streak = it.correctStreak||0;
+    return `<div class="wrong-item">
+      <div class="top"><span>${it.cat}</span><span>错${it.wrongCount}次 · ${fmtDate(it.lastWrongAt)}</span></div>
+      <div class="qtext">${escapeHtml(plain)}</div>
+      <div class="ans">答案：${escapeHtml(ansText)}</div>
+      <div class="note">已连续答对 ${streak}/3 次${streak>0?"，再连续答对"+(3-streak)+"次将自动从错题本移除":""}</div>
+    </div>`;
+  }).join("");
+}
+
+/* ===================== 历史记录 ===================== */
+function renderHistory(){
+  const list = document.getElementById("historyList");
+  if(history.length===0){ list.innerHTML = `<div class="empty">还没有练习记录，快去开始第一次练习吧～</div>`; return; }
+  list.innerHTML = history.map(h=>`
+    <div class="history-item">
+      <div class="top"><span>${fmtDate(h.date)}</span><span>用时 ${fmtTime(h.durationSec)}</span></div>
+      <div>${h.scope} · 共${h.total}题 · 对<b style="color:var(--green)">${h.correct}</b> 错<b style="color:var(--red)">${h.wrong}</b> · 正确率 <b>${h.rate}%</b></div>
+    </div>
+  `).join("");
+}
+document.getElementById("clearHistoryBtn").onclick=()=>{
+  if(confirm("确定清空所有练习记录吗？此操作不可恢复。")){ history=[]; saveJSON(LS_HISTORY, history); renderHistory(); }
+};
+
+/* ===================== 初始化 ===================== */
+renderCatList();
+</script>
+</body>
+</html>
