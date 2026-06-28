@@ -328,7 +328,12 @@ function showScreen(name){
   if(name==="wrongbook") renderWrongbook();
   if(name==="history") renderHistory();
 }
-document.querySelectorAll("nav button").forEach(b=>b.addEventListener("click", ()=>showScreen(b.dataset.screen)));
+document.querySelectorAll("nav button").forEach(b=>b.addEventListener("click", ()=>{
+  if(typeof session!=="undefined"&&session&&session.answers&&session.answers.some(a=>a!==null)&&document.getElementById("screen-quiz")&&document.getElementById("screen-quiz").classList.contains("active")){
+    if(!confirm("当前练习进度将会丢失，确定要离开吗？"))return;
+  }
+  showScreen(b.dataset.screen);
+}));
 
 /* ===================== 首页：章节选择 ===================== */
 function renderCatList(){
