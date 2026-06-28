@@ -137,11 +137,14 @@
       <div class="card">
         <div style="font-size:14px;font-weight:bold;margin-bottom:6px;">出题方式</div>
         <div class="mode-row">
-          <label><input type="radio" name="order" value="random" checked>随机顺序</label>
-          <label><input type="radio" name="order" value="seq">原始顺序</label>
+          <label><input type="radio" name="order" value="seq" checked>原始顺序</label>
+          <label><input type="radio" name="order" value="random">随机顺序</label>
         </div>
         <div class="btn-row">
           <button class="btn" id="startBtn">开始练习</button>
+        </div>
+        <div style="text-align:center;margin-top:10px;">
+          <a href="../" style="font-size:13px;color:var(--muted);text-decoration:none;padding:4px 8px;border-radius:6px;display:inline-block;" onmouseover="this.style.color='var(--primary)'" onmouseout="this.style.color='var(--muted)'">← 返回刷题主界面</a>
         </div>
       </div>
       <div class="card" style="font-size:12px;color:var(--muted);text-align:center;">
