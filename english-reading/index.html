@@ -1,0 +1,787 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>英语阅读与选词填空练习</title>
+<style>
+  :root{
+    --primary:#3b82f6; --primary-dark:#2563eb; --green:#16a34a; --red:#dc2626;
+    --bg:#f3f4f6; --card:#ffffff; --text:#1f2937; --muted:#6b7280; --border:#e5e7eb;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:"Microsoft YaHei",Segoe UI,Arial,sans-serif;background:var(--bg);color:var(--text);}
+  .app{max-width:780px;margin:0 auto;min-height:100vh;background:var(--bg);display:flex;flex-direction:column;}
+  .topbar{position:sticky;top:0;z-index:10;}
+  header{background:linear-gradient(135deg,var(--primary),var(--primary-dark));color:#fff;padding:18px 16px;text-align:center;}
+  header h1{margin:0;font-size:19px;word-break:break-word;}
+  header p{margin:4px 0 0;font-size:12px;opacity:.85;}
+  nav{display:flex;background:#fff;border-bottom:1px solid var(--border);}
+  nav button{flex:1;border:none;background:none;padding:11px 4px;font-size:14px;color:var(--muted);cursor:pointer;border-bottom:3px solid transparent;}
+  nav button.active{color:var(--primary-dark);font-weight:bold;border-bottom-color:var(--primary);}
+  main{flex:1;padding:14px;}
+  .screen{display:none;}
+  .screen.active{display:block;}
+  .card{background:var(--card);border-radius:10px;padding:16px;margin-bottom:12px;box-shadow:0 1px 3px rgba(0,0,0,.08);}
+  .cat-list label{display:flex;align-items:center;gap:8px;padding:9px 4px;border-bottom:1px solid var(--border);font-size:14px;}
+  .cat-list label:last-child{border-bottom:none;}
+  .cat-count{color:var(--muted);font-size:12px;margin-left:auto;}
+  .btn{display:inline-block;border:none;border-radius:8px;padding:11px 18px;font-size:15px;cursor:pointer;background:var(--primary);color:#fff;text-align:center;}
+  .btn:active{transform:scale(.98);}
+  .btn.secondary{background:#fff;color:var(--primary-dark);border:1px solid var(--primary);}
+  .btn.green{background:var(--green);}
+  .btn.gray{background:#9ca3af;}
+  .btn:disabled{opacity:.4;cursor:not-allowed;}
+  .btn-row{display:flex;gap:10px;margin-top:14px;flex-wrap:wrap;}
+  .btn-row .btn{flex:1;}
+  .mode-row{display:flex;gap:10px;margin:10px 0;}
+  .mode-row label{flex:1;border:1px solid var(--border);border-radius:8px;padding:8px;text-align:center;font-size:13px;cursor:pointer;}
+  .mode-row input{margin-right:4px;}
+  .toplinks{display:flex;justify-content:space-between;margin-bottom:8px;font-size:13px;}
+  .toplinks span{color:var(--primary-dark);cursor:pointer;}
+  .progress-wrap{display:flex;align-items:center;gap:10px;margin-bottom:10px;font-size:13px;color:var(--muted);}
+  .progress-bar{flex:1;height:7px;background:var(--border);border-radius:4px;overflow:hidden;}
+  .progress-bar-fill{height:100%;background:var(--primary);transition:width .25s;}
+  .q-tag{display:inline-block;background:#eef2ff;color:var(--primary-dark);font-size:12px;padding:2px 8px;border-radius:10px;margin-bottom:8px;}
+  .q-text{font-size:16px;line-height:1.8;margin-bottom:10px;white-space:pre-wrap;overflow-x:auto;word-break:break-word;}
+  .q-code{font-family:Consolas,"Courier New",monospace;font-size:13.5px;background:#f8fafc;border:1px solid var(--border);border-radius:8px;padding:10px;margin:8px 0;line-height:1.7;white-space:pre-wrap;overflow-x:auto;}
+  .opt-list{display:flex;flex-direction:column;margin:10px 0;}
+  .opt-row{padding:13px 6px;border-bottom:1px solid var(--border);cursor:pointer;border-radius:6px;}
+  .opt-row:last-child{border-bottom:none;}
+  .opt-row .opt-label{font-size:13px;color:var(--muted);margin-bottom:3px;}
+  .opt-row .opt-text{font-size:14.5px;white-space:pre-wrap;font-family:Consolas,"Microsoft YaHei",monospace;line-height:1.6;}
+  .opt-row.selected{background:#eef2ff;}
+  .opt-row.selected .opt-label{color:var(--primary-dark);font-weight:bold;}
+  .opt-row.disabled{cursor:default;}
+  .answer-box .my-ans{font-weight:bold;}
+  .answer-box .my-ans.wrong-color{color:var(--red);}
+  .answer-box .correct-ans{color:var(--green);font-weight:bold;}
+  /* 自己画完整边框方框，不依赖各平台原生input外观（原生样式在不同浏览器/系统下表现差异很大，不可靠） */
+  .blank-input{-webkit-appearance:none;appearance:none;border:1.5px solid var(--primary);border-radius:6px;background:#f8fafc;padding:4px 8px;font-size:14.5px;min-width:90px;text-align:center;margin:2px;font-family:Consolas,monospace;color:var(--text);box-shadow:none;}
+  .blank-input.correct{border-color:var(--green);background:#ecfdf3;color:var(--green);}
+  .blank-input.wrong{border-color:var(--red);background:#fef2f2;color:var(--red);}
+  /* iOS Safari会强制改变disabled输入框的颜色和透明度，必须用-webkit-text-fill-color覆盖，否则手机上看不出方框和颜色 */
+  .blank-input:disabled{opacity:1;-webkit-text-fill-color:var(--text);background:#f8fafc;}
+  .blank-input.correct:disabled{-webkit-text-fill-color:var(--green);background:#ecfdf3;border-color:var(--green);}
+  .blank-input.wrong:disabled{-webkit-text-fill-color:var(--red);background:#fef2f2;border-color:var(--red);}
+  .blank-row{margin:6px 0;font-size:13px;color:var(--muted);}
+  .blank-row b{color:var(--text);font-weight:normal;}
+  .answer-box{margin-top:10px;font-size:14px;padding:10px;border-radius:8px;display:none;}
+  .answer-box.show{display:block;}
+  .answer-box.right{background:#ecfdf3;color:#15803d;}
+  .answer-box.wrong{background:#fef2f2;color:#b91c1c;}
+  .answer-box .real{font-weight:bold;}
+  footer.qfoot{display:flex;gap:10px;margin-top:14px;}
+  footer.qfoot .btn{flex:1;}
+  .stat-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;text-align:center;margin:10px 0;}
+  .stat-grid div b{display:block;font-size:22px;}
+  .stat-grid div span{font-size:12px;color:var(--muted);}
+  .stat-click{cursor:pointer;border-radius:8px;padding:6px 2px;transition:background .15s;}
+  .stat-click:hover{background:#f3f4f6;}
+  .review-item{border-bottom:1px solid var(--border);padding:12px 0;font-size:14px;}
+  .review-item:last-child{border-bottom:none;}
+  .review-item .qtext{margin-bottom:6px;line-height:1.6;white-space:pre-wrap;}
+  .review-item .your-ans{font-size:13px;margin-bottom:2px;}
+  .review-item .correct-ans-line{font-size:13px;color:var(--green);}
+  .history-item, .wrong-item{border-bottom:1px solid var(--border);padding:10px 0;font-size:14px;}
+  .history-item:last-child, .wrong-item:last-child{border-bottom:none;}
+  .history-item .top, .wrong-item .top{display:flex;justify-content:space-between;color:var(--muted);font-size:12px;margin-bottom:4px;}
+  .empty{text-align:center;color:var(--muted);padding:40px 0;font-size:14px;}
+  .wrong-item .qtext{margin-bottom:4px;}
+  .wrong-item .ans{color:var(--green);font-size:13px;}
+  .badge-cnt{background:#fee2e2;color:#b91c1c;border-radius:10px;font-size:11px;padding:1px 7px;}
+  .note{font-size:12px;color:var(--muted);margin-top:6px;}
+  .ov-link{font-size:13px;color:var(--primary-dark);cursor:pointer;white-space:nowrap;}
+  .ov-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;}
+  .ov-item{position:relative;aspect-ratio:1;border-radius:8px;border:1.5px solid var(--primary);display:flex;align-items:center;justify-content:center;font-size:14px;cursor:pointer;color:var(--primary-dark);background:#fff;}
+  .ov-item.cur{background:var(--primary);color:#fff;border-color:var(--primary);}
+  .ov-item.right{background:#ecfdf3;border-color:var(--green);color:#15803d;}
+  .ov-item.wrong{background:#fef2f2;border-color:var(--red);color:#b91c1c;}
+  .ov-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:49;display:none;}
+  .ov-backdrop.show{display:block;}
+  #screen-overview.active{
+    display:block;position:fixed;top:0;right:0;height:100vh;width:320px;max-width:88vw;
+    background:#fff;z-index:50;overflow-y:auto;box-shadow:-6px 0 20px rgba(0,0,0,.18);
+    padding:16px;animation:ovSlideIn .18s ease;
+  }
+  @keyframes ovSlideIn{from{transform:translateX(100%);}to{transform:translateX(0);}}
+  .ov-section-title{font-size:14px;font-weight:bold;color:var(--text);margin:14px 0 10px;padding-bottom:6px;border-bottom:1px solid var(--border);}
+  .ov-section-title:first-child{margin-top:0;}
+  .ov-header-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;}
+  .ov-header-row .ov-close{cursor:pointer;color:var(--muted);font-size:20px;line-height:1;padding:0 4px;}
+  .ov-legend{display:flex;gap:14px;font-size:12px;color:var(--muted);margin-bottom:12px;flex-wrap:wrap;}
+  .ov-legend span{display:inline-flex;align-items:center;gap:5px;}
+  .ov-dot{width:11px;height:11px;border-radius:3px;display:inline-block;border:1.5px solid var(--primary);}
+  .ov-dot.right{background:#ecfdf3;border-color:var(--green);}
+  .ov-dot.wrong{background:#fef2f2;border-color:var(--red);}
+  .ov-dot.cur{background:var(--primary);border-color:var(--primary);}
+  @media (max-width:380px){
+    .ov-grid{grid-template-columns:repeat(4,1fr);}
+    .blank-input{min-width:64px;font-size:13.5px;}
+    header h1{font-size:17px;}
+    .opt-row .opt-text{font-size:13.5px;}
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="topbar">
+  <header>
+    <h1>英语阅读与选词填空练习</h1>
+    <p>六单元 · 选词填空＋阅读理解 · 错题本</p>
+  </header>
+  <nav>
+    <button data-screen="home" class="active">开始练习</button>
+    <button data-screen="wrongbook">错题本</button>
+    <button data-screen="history">练习记录</button>
+  </nav>
+  </div>
+  <main>
+
+    <section class="screen active" id="screen-home">
+      <div class="card">
+        <div class="toplinks">
+          <span id="selAll">全选</span>
+          <span id="selNone">清空</span>
+          <span id="selWrongOnly">仅选有错题章节</span>
+        </div>
+        <div class="cat-list" id="catList"></div>
+      </div>
+      <div class="card">
+        <div style="font-size:14px;font-weight:bold;margin-bottom:6px;">出题方式</div>
+        <div class="mode-row">
+          <label><input type="radio" name="order" value="random" checked>随机顺序</label>
+          <label><input type="radio" name="order" value="seq">原始顺序</label>
+        </div>
+        <div class="btn-row">
+          <button class="btn" id="startBtn">开始练习</button>
+        </div>
+      </div>
+      <div class="card" style="font-size:12px;color:var(--muted);text-align:center;">
+        题库共 <b id="totalQCount">0</b> 题（选词填空60题 + 阅读理解60题，六单元）
+      </div>
+    </section>
+
+    <section class="screen" id="screen-quiz">
+      <div class="progress-wrap">
+        <span id="quizProgressText">1/10</span>
+        <div class="progress-bar"><div class="progress-bar-fill" id="quizProgressFill"></div></div>
+        <span id="quizScoreText">对0 错0</span>
+        <span class="ov-link" id="overviewLink">题目总览</span>
+      </div>
+      <div class="card">
+        <div class="q-tag" id="qTag"></div>
+        <div class="q-text" id="qText"></div>
+        <div id="qCode" class="q-code" style="display:none;"></div>
+        <div id="qBody"></div>
+        <div class="answer-box" id="answerBox"></div>
+        <footer class="qfoot">
+          <button class="btn secondary" id="prevBtn">上一题</button>
+          <button class="btn secondary" id="checkBtn">提交答案</button>
+          <button class="btn" id="nextBtn" style="display:none;">下一题</button>
+        </footer>
+      </div>
+      <div class="btn-row">
+        <button class="btn gray" id="quitQuizBtn">结束并查看结果</button>
+      </div>
+    </section>
+
+    <!-- 题目总览 -->
+    <div class="ov-backdrop" id="ovBackdrop"></div>
+    <section class="screen" id="screen-overview">
+      <div class="ov-header-row">
+        <div style="font-size:16px;font-weight:bold;">题目总览</div>
+        <span class="ov-close" id="ovCloseBtn">&times;</span>
+      </div>
+      <div class="ov-legend">
+        <span><span class="ov-dot cur"></span>当前</span>
+        <span><span class="ov-dot right"></span>已答对</span>
+        <span><span class="ov-dot wrong"></span>已答错</span>
+        <span><span class="ov-dot"></span>未作答</span>
+      </div>
+      <div id="ovContent"></div>
+      <div class="btn-row">
+        <button class="btn gray" id="ovBackBtn">返回答题</button>
+      </div>
+    </section>
+
+    <section class="screen" id="screen-result">
+      <div class="card">
+        <div style="text-align:center;font-size:16px;font-weight:bold;">本次练习结果</div>
+        <div class="stat-grid">
+          <div><b id="resTotal">0</b><span>总题数</span></div>
+          <div class="stat-click" id="resCorrectBox"><b id="resCorrect" style="color:var(--green)">0</b><span>答对（点击查看）</span></div>
+          <div class="stat-click" id="resWrongBox"><b id="resWrong" style="color:var(--red)">0</b><span>答错（点击查看）</span></div>
+        </div>
+        <div style="text-align:center;color:var(--muted);font-size:13px;">正确率 <b id="resRate">0%</b> · 用时 <b id="resTime">0分0秒</b></div>
+        <div class="btn-row">
+          <button class="btn secondary" id="backToQuizBtn">返回本次练习（继续查看/作答）</button>
+        </div>
+        <div class="btn-row">
+          <button class="btn" id="retryAllBtn">重新练习（同范围）</button>
+          <button class="btn secondary" id="retryWrongBtn">只练本次错题</button>
+        </div>
+        <div class="btn-row">
+          <button class="btn gray" id="backHomeBtn">返回首页</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- 答对/答错题目明细 -->
+    <section class="screen" id="screen-resultlist">
+      <div class="card">
+        <div style="font-size:16px;font-weight:bold;margin-bottom:10px;" id="resultListTitle"></div>
+        <div id="resultListBody"></div>
+      </div>
+      <div class="btn-row">
+        <button class="btn gray" id="resultListBackBtn">返回结果</button>
+      </div>
+    </section>
+
+    <section class="screen" id="screen-wrongbook">
+      <div class="card" id="wrongbookSummary"></div>
+      <div class="card" id="wrongbookList"></div>
+    </section>
+
+    <section class="screen" id="screen-history">
+      <div class="card" id="historyList"></div>
+      <div class="card" style="text-align:center;">
+        <button class="btn gray" id="clearHistoryBtn">清空历史记录</button>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<script>
+/* ===================== 题库数据 ===================== */
+// type: "mcq"（单选题，options+correct为字母） 或 "blank"（填空题，text含{{}}，ans为数组，每空可用|分隔多个可接受答案）
+const QUESTIONS = [
+{type:"blank", cat:"第一单元-选词填空", text:"第1空：Even if you're not a hard-core Greenie, there are small acts you can take every day to save both the earth and your {{}}.", ans:["wallet"]},
+{type:"blank", cat:"第一单元-选词填空", text:"第2空：You can use {{}} at home that won't cost you any extra money — and that work just as well as the store-bought stuff.", ans:["items"]},
+{type:"blank", cat:"第一单元-选词填空", text:"第3空：Vinegar cuts grease on stove tops and oven doors, and can even whiten your {{}} and remove stains from clothes.", ans:["laundry"]},
+{type:"blank", cat:"第一单元-选词填空", text:"第4空：In the kitchen, going green can save you money and keep you {{}}.", ans:["healthier"]},
+{type:"blank", cat:"第一单元-选词填空", text:"第5空：Buying produce and other raw foods cuts down on {{}} that ends up in landfills.", ans:["packaging"]},
+{type:"blank", cat:"第一单元-选词填空", text:"第6空：You can also look for products that use {{}} or bio-degradable packaging.", ans:["recyclable"]},
+{type:"blank", cat:"第一单元-选词填空", text:"第7空：You can even use some of the items you {{}} in the trash to upcycle.", ans:["toss"]},
+{type:"blank", cat:"第一单元-选词填空", text:"第8空：You can {{}} large appliances and other devices that aren't being used.", ans:["unplug"]},
+{type:"blank", cat:"第一单元-选词填空", text:"第9空：CFL light bulbs are more {{}} at first, but they use much less energy than incandescent light bulbs, and last at least eight times longer than regular bulbs.", ans:["expensive"]},
+{type:"blank", cat:"第一单元-选词填空", text:"第10空：{{}} on natural light is another way to make your light bulbs last longer — so open your blinds and enjoy the sunlight!", ans:["relying"]},
+{type:"mcq", cat:"第一单元-阅读理解", text:"21. In 2013", options:{"A": "over 39 million cars generated 186 million metric tons of carbon dioxide", "B": "over 39 million cars didn't hit the road to reduce carbon emissions", "C": "recycling and composting reduced carbon dioxide by a large amount", "D": "recycling and composting reduced sharply the carbon dioxide by cars"}, correct:"C"},
+{type:"mcq", cat:"第一单元-阅读理解", text:"22. Mixing waste with recyclables leads to a", options:{"A": "stream contamination", "B": "high processing costs", "C": "high recycling rate", "D": "more profits of recycling"}, correct:"B"},
+{type:"mcq", cat:"第一单元-阅读理解", text:"23. \"Wishful recycling\" happens when people", options:{"A": "put the waste i n recycling bins", "B": "know the waste can be recycled", "C": "don't know if the waste can be recycled", "D": "express their wish for recycling"}, correct:"C"},
+{type:"mcq", cat:"第一单元-阅读理解", text:"24. Which o f the following can be recycled?", options:{"A": "Styrofoam.", "B": "PVC.", "C": "Water bottles.", "D": "Batteries."}, correct:"C"},
+{type:"mcq", cat:"第一单元-阅读理解", text:"25. What's the passage mainly about?", options:{"A": "The importance of sorting trash.", "D": "The controversy of recycling"}, correct:"A"},
+{type:"mcq", cat:"第一单元-阅读理解", text:"26. What's the meaning of the clause \"the joy comes with a dollar sign attached\" in Paragraph 1?", options:{"A": "Installing solar panels at home saves money for consumers.", "B": "Consumers will be paid to install solar panels.", "C": "Solar panels will bring financial gains to consumers.", "D": "The environmental benefit means financial gains."}, correct:"A"},
+{type:"mcq", cat:"第一单元-阅读理解", text:"27. Which benefit is guaranteed?", options:{"A": "The federal government's tax credit.", "B": "The state's incentives.", "C": "The utility's help somewhere.", "D": "The installer's services."}, correct:"A"},
+{type:"mcq", cat:"第一单元-阅读理解", text:"28. Which is NOT true o f a good solar panels installer?", options:{"A": "He has the necessary permits.", "B": "He'll connect the solar energy system to your home.", "C": "He'll sell your solar electricity to the grid.", "D": "He'll apply for incentives for you."}, correct:"C"},
+{type:"mcq", cat:"第一单元-阅读理解", text:"29. Which is the cheapest option for a solar system?", options:{"A": "Pay for it completely.", "B": "Lease it somehow.", "C": "Sell all the electricity generated", "D": "Get bank loans for it."}, correct:"A"},
+{type:"mcq", cat:"第一单元-阅读理解", text:"30. If you lease the solar system, you will", options:{"A": "use the electricity for free", "B": "pay more than the local utility charges you", "C": "pay the maintenance fees", "D": "sign a power purchase agreement"}, correct:"D"},
+{type:"blank", cat:"第二单元-选词填空", text:"第1空：When it comes to a life partner, discomfort between you and your partner can bring about unhappiness {{}}.", ans:["constantly"]},
+{type:"blank", cat:"第二单元-选词填空", text:"第2空：Secrets are poison to a relationship, because they lead to an invisible {{}} inside the relationship, leaving both people somewhat alone in the world.", ans:["separation"]},
+{type:"blank", cat:"第二单元-选词填空", text:"第3空：On the other side of secrets will often be distrust, which is a(n) {{}} factor going against a good relationship.", ans:["impressive"]},
+{type:"blank", cat:"第二单元-选词填空", text:"第4空：The {{}} between you should be easy and natural, energy exerted should be at the same level, and you should both feel enjoyment.", ans:["exchange"]},
+{type:"blank", cat:"第二单元-选词填空", text:"第5空：The exchange between you should be easy and natural, energy exerted should be at the same level, and you should both feel {{}}.", ans:["enjoyment"]},
+{type:"blank", cat:"第二单元-选词填空", text:"第6空：If you put uneven (不均衡的) energy into the relationship, the relationship will {{}} failure someday.", ans:["undergo"]},
+{type:"blank", cat:"第二单元-选词填空", text:"第7空：{{}} of weaknesses is helpful to a relationship.", ans:["realization"]},
+{type:"blank", cat:"第二单元-选词填空", text:"第8空：And one of the worst fates would be to spend most of your life {{}} by criticisms for your weaknesses and have to endure them.", ans:["overwhelmed"]},
+{type:"blank", cat:"第二单元-选词填空", text:"第9空：And one of the worst fates would be to spend most of your life overwhelmed by criticisms for your weaknesses and have to {{}} them.", ans:["endure"]},
+{type:"blank", cat:"第二单元-选词填空", text:"第10空：\" This is the attitude you should hold in order to have the relationship {{}}.", ans:["bloom"]},
+{type:"mcq", cat:"第二单元-阅读理解", text:"18. What's known about online dating?", options:{"A": "It has become the most popular way of forming relationships.", "B": "It costs no money to become a member online.", "C": "It provides false pictures and information for users.", "D": "It is rarely criticized for its own sake."}, correct:"D"},
+{type:"mcq", cat:"第二单元-阅读理解", text:"19. What's the reason for online dating being introduced?", options:{"A": "To help users make rational choices.", "B": "To provide users with many choices.", "C": "To ask users to do shopping online.", "D": "To help users to try the product before buying."}, correct:"A"},
+{type:"mcq", cat:"第二单元-阅读理解", text:"20. How does online dating influence human interactions?", options:{"A": "It measures human interactions objectively.", "B": "It makes human interactions objective.", "C": "It can't reflect the real human interactions.", "D": "It can correct human interactions."}, correct:"C"},
+{type:"mcq", cat:"第二单元-阅读理解", text:"21. What is \"love\" according to Alain Badiou?", options:{"A": "Love is reasonable.", "B": "Love is irrational.", "C": "Love is disappointing.", "D": "Love is surprising."}, correct:"B"},
+{type:"mcq", cat:"第二单元-阅读理解", text:"22. What's the writer's attitude towards online dating?", options:{"A": "Disapproving.", "B": "Encouraging.", "C": "Faithful.", "D": "Extreme."}, correct:"A"},
+{type:"mcq", cat:"第二单元-阅读理解", text:"23. Which of the following best describes Chinese marriage?", options:{"A": "It is practiced with romance.", "B": "It is based on practical aspects.", "C": "It depends on Chinese economy.", "D": "It is associated with parents’ introduction."}, correct:"B"},
+{type:"mcq", cat:"第二单元-阅读理解", text:"24. What’s the influence of the one-child policy?", options:{"A": "It puts societal duty before individual desire.", "B": "It drives people to find partners of good resources.", "C": "It makes the young generation develop a sense of responsibility.", "D": "It helps improve the welfare system in China."}, correct:"B"},
+{type:"mcq", cat:"第二单元-阅读理解", text:"25. What’s known about children of the 1980s and 1990s?", options:{"A": "They are less anxious about marriage.", "B": "They are from economically good families.", "C": "They learn a lot about pop music and movies.", "D": "They follow the tradition of their parents’ marriage."}, correct:"A"},
+{type:"mcq", cat:"第二单元-阅读理解", text:"26. What can be drawn from the passage?", options:{"A": "More rural women will be singles in the near future.", "B": "More urban women will be singles in the near future.", "C": "More urban men will be singles in the near future.", "D": "More rural men will be singles in the near future."}, correct:"D"},
+{type:"mcq", cat:"第二单元-阅读理解", text:"27. What’s the writer’s attitude towards Chinese marriage?", options:{"A": "Critical.", "B": "Positive.", "C": "Neutral.", "D": "Negative."}, correct:"C"},
+{type:"blank", cat:"第三单元-选词填空", text:"第1空：{{}} friendship, it is possible that we know what it is but can’t define it.", ans:["when it comes to"]},
+{type:"blank", cat:"第三单元-选词填空", text:"第2空：It’s not a {{}}, but something we can feel.", ans:["mystery"]},
+{type:"blank", cat:"第三单元-选词填空", text:"第3空：It is {{}} because it involves time and energy on both sides.", ans:["mutual"]},
+{type:"blank", cat:"第三单元-选词填空", text:"第4空：It is mutual because it {{}} time and energy on both sides.", ans:["involves"]},
+{type:"blank", cat:"第三单元-选词填空", text:"第5空：Once it is developed, a friendship will not grow {{}}, just as in the case of flowers which would not survive without enough sunlight and water.", ans:["on its own"]},
+{type:"blank", cat:"第三单元-选词填空", text:"第6空：Once it is developed, a friendship will not grow on its own, just as in the case of flowers which would not {{}} without enough sunlight and water.", ans:["survive"]},
+{type:"blank", cat:"第三单元-选词填空", text:"第7空：Just as we treat a flower garden, so we are supposed to take care of a friendship so that it can {{}}.", ans:["flourish"]},
+{type:"blank", cat:"第三单元-选词填空", text:"第8空：However, the problem is that anything can {{}} a friendship.", ans:["affect"]},
+{type:"blank", cat:"第三单元-选词填空", text:"第9空：How is it that some friendships {{}} a breakup in a particular form no matter how long we want them to last?", ans:["end up with"]},
+{type:"blank", cat:"第三单元-选词填空", text:"第10空：How is it that some friendships end up with a breakup in a particular form {{}} long we want them to last?", ans:["no matter how"]},
+{type:"mcq", cat:"第三单元-阅读理解", text:"21. The disadvantages to friendships the author implies in the story are ______.", options:{"A": "impatience and non-confidence", "B": "misunderstanding and distance", "C": "explanation and apology", "D": "the bad things in life"}, correct:"B"},
+{type:"mcq", cat:"第三单元-阅读理解", text:"22. What do “the good things in life” most probably refer to in the story?", options:{"A": "Friendship.", "B": "Reassurance.", "C": "Conversation.", "D": "Concentration."}, correct:"A"},
+{type:"mcq", cat:"第三单元-阅读理解", text:"23. Their response to the respective apology in the two incidents is ______.", options:{"A": "the silence of the heart", "B": "a quick explanation", "C": "a loving expression", "D": "the catch phrase"}, correct:"D"},
+{type:"mcq", cat:"第三单元-阅读理解", text:"24. What can we learn from the series of questions raised by the story teller?", options:{"A": "They are confident of a sustainable friendship.", "B": "They cannot help but break their friendship.", "C": "They are worried about their friendship.", "D": "They find it hard to define friendship."}, correct:"C"},
+{type:"mcq", cat:"第三单元-阅读理解", text:"25. The story tells us that ______.", options:{"A": "a real friendship can last despite unfavorable things", "B": "miscommunication is an enemy of friendship", "C": "communication is the key to a friendship", "D": "not every friend is worth the wait"}, correct:"A"},
+{type:"mcq", cat:"第三单元-阅读理解", text:"26. In her first email, the reader asked for ______.", options:{"A": "the skill of making friends in life", "B": "the information about distance friendship", "C": "a permission to read an article about friendship", "D": "an answer to the question of changeable friendship"}, correct:"B"},
+{type:"mcq", cat:"第三单元-阅读理解", text:"27. The author does not seem ______.", options:{"A": "to have much experience with long-term friendships", "B": "to have any long-term friendship of the opposite sex", "C": "to believe in a friendship that lasts a lifetime", "D": "to think of answering the reader’s email"}, correct:"A"},
+{type:"mcq", cat:"第三单元-阅读理解", text:"28. In terms of long-term friendships, the author ______.", options:{"A": "is unfortunate enough to have one", "B": "met her longest close friend", "C": "is not professionally alone", "D": "invited emails of opinion"}, correct:"D"},
+{type:"mcq", cat:"第三单元-阅读理解", text:"29. What, according to the passage, can happen to a long-distance friendship when you do not think much of the friend living far away?", options:{"A": "It cannot last long.", "B": "It must be irregular.", "C": "It is fairly unpredictable.", "D": "It is just of physical distance."}, correct:"A"},
+{type:"mcq", cat:"第三单元-阅读理解", text:"30. What does the author’s friend imply in saying that “Physical distance does create more distance in frequency of thought and emotion”?", options:{"A": "A friendship has nothing to do with the saying: out of sight, out of mind.", "B": "A friendship can be significantly affected by physical distance.", "C": "There is no such thing as a lifelong friendship in the real world.", "D": "No doubt the years of a friendship vary with individuals."}, correct:"B"},
+{type:"blank", cat:"第四单元-选词填空", text:"第1空：Tony Tang, a resident of Shanghai, wanders among the stalls (摊位) of foreign universities and middle schools at the Shanghai East Asia Exhibition Hall, looking for an ideal {{}} for his 13-year-old son to study abroad.", ans:["destination"]},
+{type:"blank", cat:"第四单元-选词填空", text:"第2空：“My son is a student of the {{}} Shanghai Foreign Language School.", ans:["distinguished"]},
+{type:"blank", cat:"第四单元-选词填空", text:"第3空：He spends all of his time on his studies and the school puts great {{}} on its students.", ans:["pressure"]},
+{type:"blank", cat:"第四单元-选词填空", text:"第4空：Our family hopes to send him to a school where he does not need to worry so much about his {{}} scores,” the man said.", ans:["academic"]},
+{type:"blank", cat:"第四单元-选词填空", text:"第5空：Nowadays, {{}} of an education system that focuses on academic scores but not pupils’ overall development, a growing number of Chinese families are making preparations to send their children abroad, even at a young age, for the sake of a broader education.", ans:["tired"]},
+{type:"blank", cat:"第四单元-选词填空", text:"第6空：Nowadays, tired of an education system that focuses on academic scores but not pupils’ overall development, a growing number of Chinese families are making {{}} to send their children abroad, even at a young age, for the sake of a broader education.", ans:["preparations"]},
+{type:"blank", cat:"第四单元-选词填空", text:"第7空：Andy Wang from Guangdong said her 16-year-old daughter was happy {{}} high school in Montreal and the family was planning to send her to university in Canada or the US in the future.", ans:["attending"]},
+{type:"blank", cat:"第四单元-选词填空", text:"第8空：“At first, my daughter was {{}} to go,” she said.", ans:["reluctant"]},
+{type:"blank", cat:"第四单元-选词填空", text:"第9空：But we {{}} to our decision and told her that studying abroad would be good for her future.", ans:["stuck"]},
+{type:"blank", cat:"第四单元-选词填空", text:"第10空：She felt {{}} to obey our instructions for her future.", ans:["obligated"]},
+{type:"mcq", cat:"第四单元-阅读理解", text:"21. What is the passage mainly about?", options:{"A": "Causes of culture shock.", "B": "Problems of culture shock.", "C": "Stages of culture shock.", "D": "Solutions to culture shock."}, correct:"C"},
+{type:"mcq", cat:"第四单元-阅读理解", text:"22. What does the first paragraph tell us about culture shock?", options:{"A": "Its length can differ from one person to person.", "B": "It can be avoided if one can speak the language.", "C": "The reactions to culture shock are the same.", "D": "The five stages involve every person in the same length."}, correct:"A"},
+{type:"mcq", cat:"第四单元-阅读理解", text:"23. How do new comers usually feel when they first arrive in a new country?", options:{"A": "They are pleased by all the new things.", "B": "They are disappointed at what they see.", "C": "They miss their family and friends at home.", "D": "They cannot help feeling irritated or frustrated."}, correct:"A"},
+{type:"mcq", cat:"第四单元-阅读理解", text:"24. What do foreigners tend to do in the regression stage of culture shock?", options:{"A": "To enjoy the delicious new food.", "B": "To complain about their home country.", "C": "To make friends with the local people.", "D": "To watch videos from their home country."}, correct:"D"},
+{type:"mcq", cat:"第四单元-阅读理解", text:"25. Why do people experience reverse culture shock?", options:{"A": "Their taste has changed when they are away.", "B": "They have got used to the foreign culture.", "C": "They have become more critical than before.", "D": "New problems have developed in their country."}, correct:"B"},
+{type:"mcq", cat:"第四单元-阅读理解", text:"26. What is the passage mainly about?", options:{"A": "How to improve American education.", "B": "How to enter a top-ranking master’s program in America.", "C": "How to apply for a master’s program without any trouble.", "D": "How to attract more international students to America."}, correct:"B"},
+{type:"mcq", cat:"第四单元-阅读理解", text:"27. What does the first paragraph tell us?", options:{"A": "American universities enroll more students than before.", "B": "It is not easy to get a place in a good master’s program.", "C": "Competition is much tougher than before at college.", "D": "Americans don’t want to work as teachers or administrators."}, correct:"B"},
+{type:"mcq", cat:"第四单元-阅读理解", text:"28. What Mary Poplin says in the second paragraph mainly emphasizes the importance of ______.", options:{"A": "solid grades", "B": "continuing education", "C": "past experience", "D": "social network"}, correct:"C"},
+{type:"mcq", cat:"第四单元-阅读理解", text:"29. What does the passage tell us about the Curry school at the University of Virginia?", options:{"A": "It does not have very high requirements for students.", "B": "It encourages its students to question the system.", "C": "It values students’ experience and goals more than their GPA.", "D": "It gives no chance to unimpressive undergraduates."}, correct:"C"},
+{type:"mcq", cat:"第四单元-阅读理解", text:"30. What is the last paragraph mainly about?", options:{"A": "How to choose a suitable master’s program in education schools.", "B": "What to know about the differences between the master’s programs.", "C": "Why to choose a school like the University of Connecticut.", "D": "Where to locate the popular master’s programs in the USA."}, correct:"A"},
+{type:"blank", cat:"第五单元-选词填空", text:"第1空：How long have {{}} industrialists been dreaming about flying cars?", ans:["aviation"]},
+{type:"blank", cat:"第五单元-选词填空", text:"第2空：And while the {{}} for success of such roadable aircrafts are still in doubt, that doesn’t mean the concept of the flying vehicle is dead.", ans:["chances"]},
+{type:"blank", cat:"第五单元-选词填空", text:"第3空：And while the chances for success of such roadable aircrafts are still in doubt, that doesn’t mean the {{}} of the flying vehicle is dead.", ans:["concept"]},
+{type:"blank", cat:"第五单元-选词填空", text:"第4空：One such new {{}} is the PAL-V (personal air land vehicle [车辆]) formed in Europe that changes from a road-going three-wheel motorcycle into a gyrocopter (旋翼机) that appears to fly as well as it drives — which is to say very well in both regards.", ans:["approach"]},
+{type:"blank", cat:"第五单元-选词填空", text:"第5空：Where the flying cars have suffered from a lack of lateral stability (横向稳定性) in flight and mechanical {{}} on the ground, the PAL-V flies as well as any gyrocopter you’re likely to see and, thanks to its wonderful suspension (悬浮) system, drives like one of the best three-wheel motorcycles in the streets.", ans:["complexity"]},
+{type:"blank", cat:"第五单元-选词填空", text:"第6空：Where the flying cars have suffered from a lack of lateral stability (横向稳定性) in flight and mechanical complexity on the ground, the PAL-V flies as well as any gyrocopter you’re likely to see and, thanks {{}} its wonderful suspension (悬浮) system, drives like one of the best three-wheel motorcycles in the streets.", ans:["to"]},
+{type:"blank", cat:"第五单元-选词填空", text:"第7空：The Dutch company behind the project has completed first testing of the PAL-V One prototype (样品) and {{}} that it could travel through the air over a distance of up to 275 nautical miles (海里) at a speed of 95 knots (节).", ans:["confirmed"]},
+{type:"blank", cat:"第五单元-选词填空", text:"第8空：The Dutch company behind the project has completed first testing of the PAL-V One prototype (样品) and confirmed that it could travel through the air over a distance of up to 275 nautical miles (海里) at a {{}} of 95 knots (节).", ans:["speed"]},
+{type:"blank", cat:"第五单元-选词填空", text:"第9空：The company recently announced it will begin production of the PAL-V with a limited {{}} of 45 vehicles priced at around $400,000 apiece.", ans:["number"]},
+{type:"blank", cat:"第五单元-选词填空", text:"第10空：So while the flying car might not have a place in immediate {{}}, perhaps a flying, three-wheeled gyrocopter will.", ans:["future"]},
+{type:"mcq", cat:"第五单元-阅读理解", text:"21. What do futurists dream of?", options:{"A": "Owning a personal airplane.", "B": "Attending to the duties of a pilot.", "C": "Making planes with automatic piloting.", "D": "Flying an airplane by themselves."}, correct:"C"},
+{type:"mcq", cat:"第五单元-阅读理解", text:"22. What is the main characteristic of the new kind of traveler?", options:{"A": "They have considerable interest in learning to fly.", "B": "They like owning and flying a personal airplane.", "C": "They like to speak to the flight computer.", "D": "They want to fly an airplane with minimal efforts."}, correct:"D"},
+{type:"mcq", cat:"第五单元-阅读理解", text:"23. Which of the following is true of the virtual pilot on such futuristic airplanes?", options:{"A": "It is not as good as a human pilot.", "B": "It knows everything about aerodynamics.", "C": "It can easily replace a human pilot.", "D": "It can take over in times of emergency."}, correct:"A"},
+{type:"mcq", cat:"第五单元-阅读理解", text:"24. It is still necessary for human pilots on the ground to control such a plane because ______.", options:{"A": "such a plane is no more than an unmanned aerial vehicle", "B": "the virtual pilot cannot handle an emergency", "C": "human pilots can make more money for this", "D": "there is a datalink connection to the controls"}, correct:"B"},
+{type:"mcq", cat:"第五单元-阅读理解", text:"25. Which of the following can serve as a proper title for the passage?", options:{"A": "The New Kind of Traveler", "C": "The Virtual Pilot", "B": "The Fully Automated Airplane", "D": "The Removed Human Pilot"}, correct:"B"},
+{type:"mcq", cat:"第五单元-阅读理解", text:"26. What is NASA trying to do?", options:{"A": "To make carbon nanotubes.", "B": "To protect astronauts from ions.", "C": "To make a new discovery.", "D": "To build a super spaceship."}, correct:"D"},
+{type:"mcq", cat:"第五单元-阅读理解", text:"27. Carbon nanotubes could be used to make the skins of spacecraft because ______.", options:{"A": "they are much lighter than metal", "B": "they are 600 times stronger than steel", "C": "they can shield the spacecraft from radiation", "D": "they can break ions in space rays"}, correct:"C"},
+{type:"mcq", cat:"第五单元-阅读理解", text:"28. What will happen when ions hit the metal on a spaceship?", options:{"A": "Some worse radiation will be produced.", "B": "All radiation will be blocked out.", "C": "The metal on the spaceship will break up.", "D": "The ions will move at high speeds."}, correct:"A"},
+{type:"mcq", cat:"第五单元-阅读理解", text:"29. Tiny sensors will be built into the new spaceship so that ______.", options:{"A": "the computer brain can feel the smallest pinpricks", "B": "the spaceship can have human sensations", "C": "the sensors can send signals to the spaceship", "D": "the spaceship will be capable of repairing itself"}, correct:"D"},
+{type:"mcq", cat:"第五单元-阅读理解", text:"30. What is the passage mainly about?", options:{"A": "How to build a future spaceship.", "B": "How to make use of carbon nanotubes.", "C": "How to protect astronauts in space.", "D": "How to block out radiation."}, correct:"A"},
+{type:"blank", cat:"第六单元-选词填空", text:"第1空：As {{}} by the dictionary, to innovate is to do something in a new way, and creation is about making or bringing into existence something new.", ans:["defined"]},
+{type:"blank", cat:"第六单元-选词填空", text:"第2空：As defined by the dictionary, to innovate is to do something {{}}, and creation is about making or bringing into existence something new.", ans:["in a new way"]},
+{type:"blank", cat:"第六单元-选词填空", text:"第3空：Believe it or not, anybody can be a(n) {{}} for such an ability.", ans:["candidate"]},
+{type:"blank", cat:"第六单元-选词填空", text:"第4空：You will most probably ask for an emphasis to be placed on the training of innovation and creativity in {{}} education, because you don’t want to be trained to be the passive recipients of knowledge, but to be transformed into active users of the knowledge you have learned.", ans:["formal"]},
+{type:"blank", cat:"第六单元-选词填空", text:"第5空：You will most probably ask for an emphasis to be placed on the training of innovation and creativity in formal education, because you don’t want to be trained to be the passive recipients of knowledge, but to be {{}} into active users of the knowledge you have learned.", ans:["transformed"]},
+{type:"blank", cat:"第六单元-选词填空", text:"第6空：This {{}} DIY, a(n) experimental experience that involves putting your hands on something new.", ans:["calls for"]},
+{type:"blank", cat:"第六单元-选词填空", text:"第7空：This calls for DIY, a(n) {{}} experience that involves putting your hands on something new.", ans:["experimental"]},
+{type:"blank", cat:"第六单元-选词填空", text:"第8空：When you {{}} a new project, you need to get together for a brainstorm (集思广益).", ans:["work on"]},
+{type:"blank", cat:"第六单元-选词填空", text:"第9空：When you work on a new project, you need to {{}} for a brainstorm (集思广益).", ans:["get together"]},
+{type:"blank", cat:"第六单元-选词填空", text:"第10空：Are you ready to get involved to {{}} something new in the near future?", ans:["manufacture"]},
+{type:"mcq", cat:"第六单元-阅读理解", text:"21. For college students, the most important thing about finding a summer job ______.", options:{"A": "is to be armed with a well-written resume", "B": "is not the job itself but the money to make", "C": "is to know the importance of independence", "D": "is a chance to get working experience"}, correct:"B"},
+{type:"mcq", cat:"第六单元-阅读理解", text:"22. What is the author mainly trying to say to college students?", options:{"A": "Not to take the summer job seriously.", "B": "To keep next semester in mind.", "C": "To take a short-term view on summer jobs.", "D": "Not just simply to find a summer job."}, correct:"D"},
+{type:"mcq", cat:"第六单元-阅读理解", text:"23. The piece of advice from the author is ______.", options:{"A": "to look for a serious romantic partner", "B": "to pursue a well-directed career", "C": "to have startup capital(启动资金)", "D": "to have a good credit score"}, correct:"D"},
+{type:"mcq", cat:"第六单元-阅读理解", text:"24. What, as suggested by the author, are college students supposed to do?", options:{"A": "To make the interest rate affordable.", "B": "To get a bank loan to prove their credit.", "C": "To have a history of good credit habits.", "D": "To have the job done in just a couple of years."}, correct:"C"},
+{type:"mcq", cat:"第六单元-阅读理解", text:"25. Which of the following can most probably refer to the credit report?", options:{"A": "ASAP.", "B": "BTW.", "C": "FYR.", "D": "DIY."}, correct:"D"},
+{type:"mcq", cat:"第六单元-阅读理解", text:"26. First of all, according to the passage, finding a new job ______.", options:{"A": "requires preparation", "B": "needs professional experience", "C": "can be extremely easy for someone at the senior level", "D": "takes time"}, correct:"D"},
+{type:"mcq", cat:"第六单元-阅读理解", text:"27. Finding a new job can be tough; it is important ______.", options:{"A": "to have your idea of the perfect job", "B": "to be physically and mentally healthy", "C": "to build your network", "D": "to make it effective, one way or another"}, correct:"B"},
+{type:"mcq", cat:"第六单元-阅读理解", text:"28. Speaking of your past achievements and unique talents, what is the author most probably trying to say?", options:{"A": "Maintain a healthy balance in your life.", "B": "Don’t let job search consume you.", "C": "Look for a job that suits you.", "D": "Know yourself."}, correct:"D"},
+{type:"mcq", cat:"第六单元-阅读理解", text:"29. Which of the following can most probably refer to the things you can control in your job search?", options:{"A": "Making a call to the potential employer.", "B": "Ignoring your potential employer.", "C": "Building and improving yourself.", "D": "Worrying about the things in hand."}, correct:"C"},
+{type:"mcq", cat:"第六单元-阅读理解", text:"30. In practice, to keep your job search organized most probably means ______.", options:{"A": "to have a set routine and structure your day", "B": "to keep a record on a daily basis", "C": "to have a sense of accomplishment", "D": "to never give it up anytime"}, correct:"A"},
+];
+QUESTIONS.forEach((q,i)=>q.id="q"+i);
+const CATS = [...new Set(QUESTIONS.map(q=>q.cat))];
+
+/* ===================== 本地存储 ===================== */
+const LS_HISTORY="engreadingquiz_history", LS_WRONGBOOK="engreadingquiz_wrongbook";
+function loadJSON(key,def){ try{ return JSON.parse(localStorage.getItem(key)) || def; }catch(e){ return def; } }
+function saveJSON(key,val){ localStorage.setItem(key, JSON.stringify(val)); }
+let history = loadJSON(LS_HISTORY, []);
+let wrongbook = loadJSON(LS_WRONGBOOK, {});
+
+/* ===================== 工具函数 ===================== */
+function normalize(s){
+  return (s||"").trim().toLowerCase().replace(/[\s;；]/g,"");
+}
+function isCorrect(userInput, acceptStr){
+  const options = acceptStr.split("|");
+  const u = normalize(userInput);
+  if(!u) return false;
+  for(const opt of options){
+    const o = normalize(opt);
+    if(u===o) return true;
+    // 只允许"用户答案包含完整正确答案"（容忍多写了无关字），
+    // 不允许反向（正确答案包含用户答案）——否则用户答了不完整/截断的内容也会被判对
+    if(o.length>=4 && u.includes(o)) return true;
+    // 顺序无关匹配：对原始字符串按"和/、/，/,"拆分，各部分分别normalize后排序比较
+    const splitRe = /[和、，,]/;
+    const oParts = opt.split(splitRe).map(normalize).filter(Boolean).sort();
+    const uParts = userInput.split(splitRe).map(normalize).filter(Boolean).sort();
+    if(oParts.length>1 && oParts.length===uParts.length && oParts.every((p,i)=>p===uParts[i])) return true;
+  }
+  return false;
+}
+function gradeBlanksSet(userInputs, expectedList){
+  const n = expectedList.length;
+  const used = new Array(n).fill(false);
+  const assignment = new Array(n).fill(-1);
+  for(let i=0;i<userInputs.length;i++){
+    for(let j=0;j<n;j++){
+      if(!used[j] && isCorrect(userInputs[i], expectedList[j])){ used[j]=true; assignment[i]=j; break; }
+    }
+  }
+  const allCorrect = assignment.every(a=>a!==-1);
+  return {allCorrect, assignment};
+}
+function fmtTime(sec){ const m=Math.floor(sec/60), s=sec%60; return m+"分"+s+"秒"; }
+function fmtDate(ts){ const d=new Date(ts); return `${d.getMonth()+1}/${d.getDate()} ${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`; }
+function escapeHtml(s){ return (s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+
+/* ===================== 屏幕切换 ===================== */
+function showScreen(name){
+  document.querySelectorAll(".screen").forEach(s=>s.classList.remove("active"));
+  document.getElementById("ovBackdrop").classList.remove("show");
+  document.getElementById("screen-"+name).classList.add("active");
+  document.querySelectorAll("nav button").forEach(b=>b.classList.remove("active"));
+  const navBtn = document.querySelector(`nav button[data-screen="${name}"]`);
+  if(navBtn) navBtn.classList.add("active");
+  if(name==="wrongbook") renderWrongbook();
+  if(name==="history") renderHistory();
+}
+document.querySelectorAll("nav button").forEach(b=>b.addEventListener("click", ()=>showScreen(b.dataset.screen)));
+
+/* ===================== 首页：章节选择 ===================== */
+function renderCatList(){
+  const wb = wrongbook;
+  const list = document.getElementById("catList");
+  list.innerHTML = CATS.map(cat=>{
+    const cnt = QUESTIONS.filter(q=>q.cat===cat).length;
+    const wcnt = Object.values(wb).filter(w=>w.cat===cat).length;
+    return `<label>
+      <input type="checkbox" class="catChk" value="${cat}" checked>
+      ${cat}
+      <span class="cat-count">${cnt}题${wcnt?` · <span class="badge-cnt">${wcnt}错</span>`:""}</span>
+    </label>`;
+  }).join("");
+  document.getElementById("totalQCount").textContent = QUESTIONS.length;
+}
+document.getElementById("selAll").onclick=()=>document.querySelectorAll(".catChk").forEach(c=>c.checked=true);
+document.getElementById("selNone").onclick=()=>document.querySelectorAll(".catChk").forEach(c=>c.checked=false);
+document.getElementById("selWrongOnly").onclick=()=>{
+  const wrongCats = new Set(Object.values(wrongbook).map(w=>w.cat));
+  document.querySelectorAll(".catChk").forEach(c=>c.checked=wrongCats.has(c.value));
+};
+
+/* ===================== 答题逻辑 ===================== */
+let session = null; // {queue, idx, answers[], startTime, scopeLabel}
+let selectedOpt = null;
+
+function startQuiz(questionPool, scopeLabel){
+  const order = document.querySelector('input[name="order"]:checked').value;
+  let pool = questionPool.slice();
+  if(order==="random"){
+    for(let i=pool.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [pool[i],pool[j]]=[pool[j],pool[i]]; }
+  }
+  session = { queue:pool, idx:0, answers:new Array(pool.length).fill(null), startTime:Date.now(), scopeLabel };
+  showScreen("quiz");
+  renderQuestion();
+}
+function currentQ(){ return session.queue[session.idx]; }
+function sessionStats(){
+  let correct=0, wrong=0;
+  session.answers.forEach(a=>{ if(a){ a.allCorrect? correct++ : wrong++; } });
+  return {correct, wrong};
+}
+
+function renderQuestion(){
+  const q = currentQ();
+  const saved = session.answers[session.idx];
+  selectedOpt = saved && saved.selectedOpt ? saved.selectedOpt : null;
+  const stats = sessionStats();
+  document.getElementById("qTag").textContent = q.cat;
+  document.getElementById("quizProgressText").textContent = `${session.idx+1}/${session.queue.length}`;
+  document.getElementById("quizProgressFill").style.width = `${(session.idx/session.queue.length)*100}%`;
+  document.getElementById("quizScoreText").textContent = `对${stats.correct} 错${stats.wrong}`;
+  document.getElementById("qText").textContent = q.text;
+  document.getElementById("prevBtn").disabled = session.idx===0;
+
+  const codeEl = document.getElementById("qCode");
+  if(q.code){ codeEl.style.display="block"; codeEl.textContent = q.code.replace(/\{\{\}\}/g,"______"); }
+  else { codeEl.style.display="none"; codeEl.textContent=""; }
+
+  const body = document.getElementById("qBody");
+  const box=document.getElementById("answerBox");
+  box.className="answer-box"; box.innerHTML="";
+
+  if(q.type==="mcq"){
+    const letters = Object.keys(q.options);
+    body.innerHTML = `<div class="opt-list">` + letters.map(L=>
+      `<div class="opt-row" data-letter="${L}"><div class="opt-label">${L}.</div><div class="opt-text">${escapeHtml(q.options[L])}</div></div>`
+    ).join("") + `</div>`;
+    if(saved){
+      body.querySelectorAll(".opt-row").forEach(el=>{ el.classList.add("disabled"); });
+      showAnswerBoxMcq(q, saved.allCorrect, saved.selectedOpt);
+      document.getElementById("checkBtn").style.display="none";
+    } else {
+      body.querySelectorAll(".opt-row").forEach(el=>{
+        el.addEventListener("click", ()=>{
+          if(el.classList.contains("disabled")) return;
+          body.querySelectorAll(".opt-row").forEach(o=>o.classList.remove("selected"));
+          el.classList.add("selected");
+          selectedOpt = el.dataset.letter;
+        });
+      });
+      document.getElementById("checkBtn").style.display="inline-block";
+    }
+    updateNextBtn();
+  } else {
+    body.innerHTML = "";
+    let n=0;
+    if(q.text.includes("{{}}")){
+      document.getElementById("qText").innerHTML = q.text.replace(/\{\{\}\}/g, ()=>{
+        const idx=n++; return `<input type="text" class="blank-input" data-idx="${idx}" autocomplete="off">`;
+      });
+    }
+    if(q.code && q.code.includes("{{}}")){
+      codeEl.innerHTML = escapeHtml(q.code).replace(/\{\{\}\}/g, ()=>{
+        const idx=n++; return `<input type="text" class="blank-input" data-idx="${idx}" autocomplete="off">`;
+      });
+    }
+    const inputs = document.querySelectorAll("#qText .blank-input, #qCode .blank-input");
+    if(saved){
+      inputs.forEach((inp,i)=>{
+        inp.value = saved.userInputs[i] || "";
+        inp.classList.add(saved.assignment[i]!==-1 ? "correct" : "wrong");
+        inp.disabled = true;
+      });
+      showAnswerBoxBlank(q, saved.allCorrect);
+      document.getElementById("checkBtn").style.display="none";
+    } else {
+      inputs.forEach((inp,i)=>{
+        inp.addEventListener("keydown",(e)=>{
+          if(e.key==="Enter"){
+            if(i<inputs.length-1) inputs[i+1].focus();
+            else document.getElementById("checkBtn").click();
+          }
+        });
+      });
+      if(inputs[0]) inputs[0].focus();
+      document.getElementById("checkBtn").style.display="inline-block";
+    }
+    updateNextBtn();
+  }
+}
+
+function updateNextBtn(){
+  const nextBtnEl = document.getElementById("nextBtn");
+  const isLast = session.idx === session.queue.length-1;
+  nextBtnEl.style.display = "inline-block";
+  nextBtnEl.textContent = isLast ? "已是最后一题" : "下一题";
+  nextBtnEl.disabled = isLast;
+}
+
+function showAnswerBoxMcq(q, allCorrect, userOpt){
+  const box=document.getElementById("answerBox");
+  box.classList.add("show", allCorrect?"right":"wrong");
+  box.innerHTML = `<b>我的答案：</b><span class="my-ans${allCorrect?"":" wrong-color"}">${userOpt||"未作答"}</span>`
+    + `　　<b>正确答案：</b><span class="correct-ans">${q.correct}. ${escapeHtml(q.options[q.correct])}</span>`;
+}
+function showAnswerBoxBlank(q, allCorrect){
+  const box=document.getElementById("answerBox");
+  box.classList.add("show", allCorrect?"right":"wrong");
+  const correctAnsText = q.ans.map(a=>a.split("|")[0]).join("  /  ");
+  box.innerHTML = (allCorrect ? `✔ 回答正确！` : `✘ 回答有误。`) + ` 参考答案：<span class="real">${escapeHtml(correctAnsText)}</span>`;
+}
+
+document.getElementById("checkBtn").onclick=()=>{
+  const q = currentQ();
+  let allCorrect = true;
+  let answerRecord;
+
+  if(q.type==="mcq"){
+    if(!selectedOpt){ alert("请先选择一个选项"); return; }
+    allCorrect = selectedOpt===q.correct;
+    document.querySelectorAll("#qBody .opt-row").forEach(el=>{ el.classList.add("disabled"); });
+    showAnswerBoxMcq(q, allCorrect, selectedOpt);
+    answerRecord = { allCorrect, selectedOpt };
+  } else {
+    const inputs = [...document.querySelectorAll("#qText .blank-input, #qCode .blank-input")];
+    const userInputs = inputs.map(inp=>inp.value);
+    const graded = gradeBlanksSet(userInputs, q.ans);
+    allCorrect = graded.allCorrect;
+    inputs.forEach((inp,i)=>{
+      inp.classList.add(graded.assignment[i]!==-1 ? "correct" : "wrong");
+      inp.disabled = true;
+    });
+    showAnswerBoxBlank(q, allCorrect);
+    answerRecord = { allCorrect, userInputs, assignment: graded.assignment };
+  }
+
+  session.answers[session.idx] = answerRecord;
+
+  const MASTER_STREAK = 3;
+  if(allCorrect){
+    if(wrongbook[q.id]){
+      wrongbook[q.id].correctStreak = (wrongbook[q.id].correctStreak||0) + 1;
+      if(wrongbook[q.id].correctStreak >= MASTER_STREAK){ delete wrongbook[q.id]; }
+    }
+  } else {
+    wrongbook[q.id] = { cat:q.cat, type:q.type, text:q.text, code:q.code||"", options:q.options||null, correct:q.correct||null, ans:q.ans||null, wrongCount:(wrongbook[q.id]?.wrongCount||0)+1, correctStreak:0, lastWrongAt:Date.now() };
+  }
+  saveJSON(LS_WRONGBOOK, wrongbook);
+
+  document.getElementById("checkBtn").style.display="none";
+  updateNextBtn();
+  const stats = sessionStats();
+  document.getElementById("quizScoreText").textContent = `对${stats.correct} 错${stats.wrong}`;
+};
+
+document.getElementById("prevBtn").onclick=()=>{
+  if(session.idx>0){ session.idx--; renderQuestion(); }
+};
+document.getElementById("nextBtn").onclick=()=>{
+  if(session.idx < session.queue.length-1){ session.idx++; renderQuestion(); }
+};
+document.getElementById("quitQuizBtn").onclick=()=>{
+  if(confirm("确定结束本次练习并查看结果吗？")) finishQuiz();
+};
+
+function openOverview(){ renderOverview(); document.getElementById("screen-overview").classList.add("active"); document.getElementById("ovBackdrop").classList.add("show"); }
+function closeOverview(){ document.getElementById("screen-overview").classList.remove("active"); document.getElementById("ovBackdrop").classList.remove("show"); }
+document.getElementById("overviewLink").onclick=openOverview;
+document.getElementById("ovBackBtn").onclick=closeOverview;
+document.getElementById("ovCloseBtn").onclick=closeOverview;
+document.getElementById("ovBackdrop").onclick=closeOverview;
+
+function renderOverviewGrid(indices){
+  return `<div class="ov-grid">` + indices.map(i=>{
+    const a = session.answers[i];
+    let cls = "";
+    if(i===session.idx) cls += " cur";
+    if(a) cls += a.allCorrect ? " right" : " wrong";
+    return `<div class="ov-item${cls}" data-idx="${i}">${i+1}</div>`;
+  }).join("") + `</div>`;
+}
+function renderOverview(){
+  const content = document.getElementById("ovContent");
+  const mcqIdx = [], blankIdx = [];
+  session.queue.forEach((q,i)=> (q.type==="mcq" ? mcqIdx : blankIdx).push(i));
+  let html = "";
+  if(mcqIdx.length) html += `<div class="ov-section-title">一、单选题（${mcqIdx.length}题）</div>` + renderOverviewGrid(mcqIdx);
+  if(blankIdx.length) html += `<div class="ov-section-title">二、填空题（${blankIdx.length}题）</div>` + renderOverviewGrid(blankIdx);
+  content.innerHTML = html;
+  content.querySelectorAll(".ov-item").forEach(el=>{
+    el.addEventListener("click", ()=>{
+      session.idx = parseInt(el.dataset.idx, 10);
+      closeOverview();
+      showScreen("quiz");
+      renderQuestion();
+    });
+  });
+}
+
+function finishQuiz(){
+  const stats = sessionStats();
+  const total = session.queue.length;
+  const durationSec = Math.round((Date.now()-session.startTime)/1000);
+  const rate = total? Math.round(stats.correct/total*100):0;
+  history.unshift({ date: Date.now(), scope: session.scopeLabel, total, correct: stats.correct, wrong: stats.wrong, rate, durationSec });
+  if(history.length>100) history = history.slice(0,100);
+  saveJSON(LS_HISTORY, history);
+  document.getElementById("resTotal").textContent = total;
+  document.getElementById("resCorrect").textContent = stats.correct;
+  document.getElementById("resWrong").textContent = stats.wrong;
+  document.getElementById("resRate").textContent = rate+"%";
+  document.getElementById("resTime").textContent = fmtTime(durationSec);
+  showScreen("result");
+}
+
+document.getElementById("backToQuizBtn").onclick=()=>{ showScreen("quiz"); renderQuestion(); };
+document.getElementById("retryAllBtn").onclick=()=>{ startQuiz(session.queue, session.scopeLabel); };
+document.getElementById("retryWrongBtn").onclick=()=>{
+  const wrongList = session.queue.filter((q,i)=>session.answers[i] && !session.answers[i].allCorrect);
+  if(wrongList.length===0){ alert("本次没有错题，太棒了！"); return; }
+  startQuiz(wrongList, "本次错题重练");
+};
+document.getElementById("backHomeBtn").onclick=()=>{ renderCatList(); showScreen("home"); };
+
+function renderResultList(wantCorrect){
+  document.getElementById("resultListTitle").textContent = wantCorrect ? "答对的题目" : "答错的题目";
+  const body = document.getElementById("resultListBody");
+  const items = [];
+  session.queue.forEach((q,i)=>{
+    const a = session.answers[i];
+    if(a && a.allCorrect===wantCorrect) items.push({q,a});
+  });
+  if(items.length===0){ body.innerHTML = `<div class="empty">没有符合条件的题目</div>`; return; }
+  body.innerHTML = items.map(({q,a})=>{
+    const plain = q.text + (q.code? "\n"+q.code.replace(/\{\{\}\}/g,"____") : "");
+    let yourAnsText, correctAnsText;
+    if(q.type==="mcq"){
+      yourAnsText = a.selectedOpt ? `${a.selectedOpt}. ${q.options[a.selectedOpt]}` : "未作答";
+      correctAnsText = `${q.correct}. ${q.options[q.correct]}`;
+    } else {
+      yourAnsText = a.userInputs.join("、");
+      correctAnsText = q.ans.map(x=>x.split("|")[0]).join("、");
+    }
+    return `<div class="review-item">
+      <div class="qtext">${escapeHtml(plain)}</div>
+      <div class="your-ans" style="color:${a.allCorrect?'var(--green)':'var(--red)'}">你的答案：${escapeHtml(yourAnsText)}</div>
+      <div class="correct-ans-line">正确答案：${escapeHtml(correctAnsText)}</div>
+    </div>`;
+  }).join("");
+}
+document.getElementById("resCorrectBox").onclick=()=>{ renderResultList(true); showScreen("resultlist"); };
+document.getElementById("resWrongBox").onclick=()=>{ renderResultList(false); showScreen("resultlist"); };
+document.getElementById("resultListBackBtn").onclick=()=>{ showScreen("result"); };
+
+document.getElementById("startBtn").onclick=()=>{
+  const checked = [...document.querySelectorAll(".catChk:checked")].map(c=>c.value);
+  if(checked.length===0){ alert("请至少选择一个章节"); return; }
+  const pool = QUESTIONS.filter(q=>checked.includes(q.cat));
+  startQuiz(pool, checked.length===CATS.length? "全部章节" : checked.join("、"));
+};
+
+/* ===================== 错题本 ===================== */
+function renderWrongbook(){
+  const items = Object.entries(wrongbook).map(([id,w])=>({id,...w}));
+  const summary = document.getElementById("wrongbookSummary");
+  const list = document.getElementById("wrongbookList");
+  if(items.length===0){
+    summary.innerHTML = `<div class="empty">暂无错题，继续保持！</div>`;
+    list.innerHTML=""; return;
+  }
+  summary.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;">
+      <div>共 <b>${items.length}</b> 道错题</div>
+      <button class="btn" id="practiceWrongBtn">练习全部错题</button>
+    </div>`;
+  document.getElementById("practiceWrongBtn").onclick=()=>{
+    const pool = items.map(it=>QUESTIONS.find(q=>q.id===it.id)).filter(Boolean);
+    startQuiz(pool, "错题本练习");
+  };
+  items.sort((a,b)=>b.lastWrongAt-a.lastWrongAt);
+  list.innerHTML = items.map(it=>{
+    const plain = it.text.replace(/\{\{\}\}/g,"____");
+    let ansText="";
+    if(it.type==="mcq") ansText = it.correct + "  " + (it.options? it.options[it.correct]:"");
+    else ansText = (it.ans||[]).map(a=>a.split("|")[0]).join("  /  ");
+    const streak = it.correctStreak||0;
+    return `<div class="wrong-item">
+      <div class="top"><span>${it.cat}</span><span>错${it.wrongCount}次 · ${fmtDate(it.lastWrongAt)}</span></div>
+      <div class="qtext">${escapeHtml(plain)}</div>
+      <div class="ans">答案：${escapeHtml(ansText)}</div>
+      <div class="note">已连续答对 ${streak}/3 次${streak>0?"，再连续答对"+(3-streak)+"次将自动从错题本移除":""}</div>
+    </div>`;
+  }).join("");
+}
+
+/* ===================== 历史记录 ===================== */
+function renderHistory(){
+  const list = document.getElementById("historyList");
+  if(history.length===0){ list.innerHTML = `<div class="empty">还没有练习记录，快去开始第一次练习吧～</div>`; return; }
+  list.innerHTML = history.map(h=>`
+    <div class="history-item">
+      <div class="top"><span>${fmtDate(h.date)}</span><span>用时 ${fmtTime(h.durationSec)}</span></div>
+      <div>${h.scope} · 共${h.total}题 · 对<b style="color:var(--green)">${h.correct}</b> 错<b style="color:var(--red)">${h.wrong}</b> · 正确率 <b>${h.rate}%</b></div>
+    </div>
+  `).join("");
+}
+document.getElementById("clearHistoryBtn").onclick=()=>{
+  if(confirm("确定清空所有练习记录吗？此操作不可恢复。")){ history=[]; saveJSON(LS_HISTORY, history); renderHistory(); }
+};
+
+/* ===================== 初始化 ===================== */
+renderCatList();
+</script>
+</body>
+</html>
