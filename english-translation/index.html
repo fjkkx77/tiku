@@ -77,6 +77,7 @@
   footer.qfoot{display:flex;gap:10px;margin-top:14px;}
   footer.qfoot .btn{flex:1;}
   .stat-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;text-align:center;margin:10px 0;}
+  .stat-grid.cols2{grid-template-columns:repeat(2,1fr);}
   .stat-grid div b{display:block;font-size:22px;}
   .stat-grid div span{font-size:12px;color:var(--muted);}
   .stat-click{cursor:pointer;border-radius:8px;padding:6px 2px;transition:background .15s;}
@@ -217,6 +218,11 @@
         <div style="text-align:center;font-size:16px;font-weight:bold;">本次练习结果</div>
         <div class="stat-grid">
           <div><b id="resTotal">0</b><span>总题数</span></div>
+          <div><b id="resAnswered">0</b><span>已答</span></div>
+          <div><b id="resUnanswered">0</b><span>未答</span></div>
+
+        </div>
+        <div class="stat-grid cols2">
           <div class="stat-click" id="resCorrectBox"><b id="resCorrect" style="color:var(--green)">0</b><span>答对（点击查看）</span></div>
           <div class="stat-click" id="resWrongBox"><b id="resWrong" style="color:var(--red)">0</b><span>答错（点击查看）</span></div>
         </div>
@@ -633,6 +639,8 @@ function finishQuiz(){
   if(history.length>100) history = history.slice(0,100);
   saveJSON(LS_HISTORY, history);
   document.getElementById("resTotal").textContent = total;
+  document.getElementById("resAnswered").textContent = stats.correct+stats.wrong;
+  document.getElementById("resUnanswered").textContent = total-(stats.correct+stats.wrong);
   document.getElementById("resCorrect").textContent = stats.correct;
   document.getElementById("resWrong").textContent = stats.wrong;
   document.getElementById("resRate").textContent = rate+"%";
