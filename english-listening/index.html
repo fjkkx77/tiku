@@ -13,9 +13,10 @@
   body{margin:0;font-family:"Microsoft YaHei",Segoe UI,Arial,sans-serif;background:var(--bg);color:var(--text);}
   .app{max-width:780px;margin:0 auto;min-height:100vh;background:var(--bg);display:flex;flex-direction:column;}
   .topbar{position:sticky;top:0;z-index:10;}
-  header{background:linear-gradient(135deg,var(--primary),var(--primary-dark));color:#fff;padding:18px 16px;text-align:center;}
+  header{background:linear-gradient(135deg,var(--primary),var(--primary-dark));color:#fff;padding:18px 16px;text-align:center;position:relative;}
   header h1{margin:0;font-size:19px;word-break:break-word;}
   header p{margin:4px 0 0;font-size:12px;opacity:.85;}
+  .home-btn{position:absolute;left:10px;top:50%;transform:translateY(-50%);width:40px;height:40px;border-radius:50%;background:rgba(255,255,255,.15);display:flex;align-items:center;justify-content:center;font-size:19px;text-decoration:none;color:#fff;}
   nav{display:flex;background:#fff;border-bottom:1px solid var(--border);}
   nav button{flex:1;border:none;background:none;padding:11px 4px;font-size:14px;color:var(--muted);cursor:pointer;border-bottom:3px solid transparent;}
   nav button.active{color:var(--primary-dark);font-weight:bold;border-bottom-color:var(--primary);}
@@ -114,6 +115,7 @@
 <div class="app">
   <div class="topbar">
   <header>
+    <a class="home-btn" href="../" title="返回主页" aria-label="返回主页">🏠</a>
     <h1>大学英语听力练习</h1>
     <p>六单元共120题 · 错题本 · 练习记录</p>
   </header>
