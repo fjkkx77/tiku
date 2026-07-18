@@ -383,7 +383,7 @@ document.getElementById("modeToggleBtn").onclick=()=>{
   applyModeToggleUI();
   const saved = session.answers && session.answers[session.idx];
   const q = session.queue && session.queue[session.idx];
-  if(!saved && q && q.type==="mcq") document.getElementById("checkBtn").style.display = examMode?"none":"inline-block";
+  if(!saved && q && q.type==="mcq") document.getElementById("checkBtn").style.display = "inline-block";
 };
 applyModeToggleUI();
 
@@ -540,7 +540,7 @@ function renderQuestion(){
           }
         });
       });
-      document.getElementById("checkBtn").style.display = examMode ? "none" : "inline-block";
+      document.getElementById("checkBtn").style.display = "inline-block";
     }
     updateNextBtn();
   } else {

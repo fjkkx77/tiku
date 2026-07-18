@@ -431,7 +431,7 @@ document.getElementById("modeToggleBtn").onclick=()=>{
   localStorage.setItem(LS_EXAMMODE,examMode?"true":"false");
   applyModeToggleUI();
   const saved=session.answers&&session.answers[session.idx];
-  if(!saved)document.getElementById("checkBtn").style.display=examMode?"none":"inline-block";
+  if(!saved)document.getElementById("checkBtn").style.display="inline-block";
 };
 applyModeToggleUI();
 
@@ -538,7 +538,7 @@ function renderQuestion(){
         }
       });
     });
-    document.getElementById("checkBtn").style.display=examMode?"none":"inline-block";
+    document.getElementById("checkBtn").style.display="inline-block";
   }
   updateNextBtn();
 }
