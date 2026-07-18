@@ -40,7 +40,9 @@
   .mode-row input{margin-right:4px;}
   .toplinks{display:flex;justify-content:space-between;margin-bottom:8px;font-size:13px;}
   .toplinks span{color:var(--primary-dark);cursor:pointer;}
-  .progress-wrap{display:flex;align-items:center;gap:10px;margin-bottom:10px;font-size:13px;color:var(--muted);}
+  .progress-wrap{display:flex;align-items:center;gap:10px;margin-bottom:10px;font-size:13px;color:var(--muted);flex-wrap:wrap;row-gap:6px;}
+  .mode-toggle{display:inline-flex;align-items:center;gap:3px;font-size:12px;font-weight:bold;padding:3px 10px;border-radius:12px;cursor:pointer;white-space:nowrap;background:#eef2ff;color:var(--primary-dark);border:1px solid var(--primary);}
+  .mode-toggle.manual{background:#f3f4f6;color:var(--muted);border-color:var(--border);}
   .progress-bar{flex:1;height:7px;background:var(--border);border-radius:4px;overflow:hidden;}
   .progress-bar-fill{height:100%;background:var(--primary);transition:width .25s;}
   .q-tag{display:inline-block;background:#eef2ff;color:var(--primary-dark);font-size:12px;padding:2px 8px;border-radius:10px;margin-bottom:8px;}
@@ -171,6 +173,7 @@
         <span id="quizProgressText">1/10</span>
         <div class="progress-bar"><div class="progress-bar-fill" id="quizProgressFill"></div></div>
         <span id="quizScoreText">对0 错0</span>
+        <span class="mode-toggle" id="modeToggleBtn">⚡考试宝模式</span>
         <span class="ov-link" id="overviewLink">题目总览</span>
       </div>
       <div class="card">
@@ -450,11 +453,40 @@ QUESTIONS.forEach((q,i)=>q.id="q"+i);
 const CATS = [...new Set(QUESTIONS.map(q=>q.cat))];
 
 /* ===================== 本地存储 ===================== */
-const LS_HISTORY="rjgcquiz_history", LS_WRONGBOOK="rjgcquiz_wrongbook";
+const LS_HISTORY="rjgcquiz_history", LS_WRONGBOOK="rjgcquiz_wrongbook", LS_EXAMMODE="rjgcquiz_exammode";
 function loadJSON(key,def){ try{ return JSON.parse(localStorage.getItem(key)) || def; }catch(e){ return def; } }
 function saveJSON(key,val){ localStorage.setItem(key, JSON.stringify(val)); }
 let history = loadJSON(LS_HISTORY, []);
 let wrongbook = loadJSON(LS_WRONGBOOK, {});
+
+/* ===================== 考试宝模式（选对自动跳题，仅对单选题生效） ===================== */
+const EXAM_AUTOADVANCE_DELAY = 550;
+let examMode = (localStorage.getItem(LS_EXAMMODE) ?? "true") === "true";
+let autoAdvanceTimer = null;
+function applyModeToggleUI(){
+  const btn = document.getElementById("modeToggleBtn");
+  btn.textContent = examMode ? "⚡考试宝模式" : "✍️手动模式";
+  btn.classList.toggle("manual", !examMode);
+}
+function scheduleAutoAdvance(idxAtSubmit){
+  if(autoAdvanceTimer) clearTimeout(autoAdvanceTimer);
+  autoAdvanceTimer = setTimeout(()=>{
+    autoAdvanceTimer = null;
+    if(session.idx === idxAtSubmit && session.idx < session.queue.length-1){
+      session.idx++;
+      renderQuestion();
+    }
+  }, EXAM_AUTOADVANCE_DELAY);
+}
+document.getElementById("modeToggleBtn").onclick=()=>{
+  examMode = !examMode;
+  localStorage.setItem(LS_EXAMMODE, examMode?"true":"false");
+  applyModeToggleUI();
+  const saved = session.answers && session.answers[session.idx];
+  const q = session.queue && session.queue[session.idx];
+  if(!saved && q && q.type==="mcq") document.getElementById("checkBtn").style.display = examMode?"none":"inline-block";
+};
+applyModeToggleUI();
 
 /* ===================== 工具函数 ===================== */
 function normalize(s){
@@ -562,6 +594,7 @@ function sessionStats(){
 }
 
 function renderQuestion(){
+  if(autoAdvanceTimer){ clearTimeout(autoAdvanceTimer); autoAdvanceTimer=null; }
   const q = currentQ();
   const saved = session.answers[session.idx];
   selectedOpt = saved && saved.selectedOpt ? saved.selectedOpt : null;
@@ -597,9 +630,14 @@ function renderQuestion(){
           body.querySelectorAll(".opt-row").forEach(o=>o.classList.remove("selected"));
           el.classList.add("selected");
           selectedOpt = el.dataset.letter;
+          if(examMode){
+            const isRight = selectedOpt===q.correct;
+            document.getElementById("checkBtn").click();
+            if(isRight) scheduleAutoAdvance(session.idx);
+          }
         });
       });
-      document.getElementById("checkBtn").style.display="inline-block";
+      document.getElementById("checkBtn").style.display = examMode ? "none" : "inline-block";
     }
     updateNextBtn();
   } else {
@@ -750,6 +788,7 @@ function renderOverview(){
 }
 
 function finishQuiz(){
+  if(autoAdvanceTimer){ clearTimeout(autoAdvanceTimer); autoAdvanceTimer=null; }
   const stats = sessionStats();
   const total = session.queue.length;
   const durationSec = Math.round((Date.now()-session.startTime)/1000);
