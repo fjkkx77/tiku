@@ -408,7 +408,7 @@ let history=loadJSON(LS_HISTORY,[]);
 let wrongbook=loadJSON(LS_WRONGBOOK,{});
 
 /* ===== 考试宝模式（选对自动跳题） ===== */
-const EXAM_AUTOADVANCE_DELAY=550;
+const EXAM_AUTOADVANCE_DELAY = 350;
 let examMode=(localStorage.getItem(LS_EXAMMODE) ?? "true")==="true";
 let autoAdvanceTimer=null;
 function applyModeToggleUI(){
