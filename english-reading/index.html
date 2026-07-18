@@ -49,13 +49,18 @@
   .q-text{font-size:16px;line-height:1.8;margin-bottom:10px;white-space:pre-wrap;overflow-x:auto;word-break:break-word;}
   .q-code{font-family:Consolas,"Courier New",monospace;font-size:13.5px;background:#f8fafc;border:1px solid var(--border);border-radius:8px;padding:10px;margin:8px 0;line-height:1.7;white-space:pre-wrap;overflow-x:auto;}
   .opt-list{display:flex;flex-direction:column;margin:10px 0;}
-  .opt-row{padding:13px 6px;border-bottom:1px solid var(--border);cursor:pointer;border-radius:6px;}
+  .opt-row{position:relative;padding:13px 6px;border-bottom:1px solid var(--border);cursor:pointer;border-radius:6px;}
   .opt-row:last-child{border-bottom:none;}
   .opt-row .opt-label{font-size:13px;color:var(--muted);margin-bottom:3px;}
   .opt-row .opt-text{font-size:14.5px;white-space:pre-wrap;font-family:Consolas,"Microsoft YaHei",monospace;line-height:1.6;}
   .opt-row.selected{background:#eef2ff;}
   .opt-row.selected .opt-label{color:var(--primary-dark);font-weight:bold;}
   .opt-row.disabled{cursor:default;}
+  .opt-row.opt-correct{background:#ecfdf3;padding-right:34px;}
+  .opt-row.opt-wrongpick{background:#fef2f2;padding-right:34px;}
+  .opt-row.opt-correct::after{content:"✅";position:absolute;right:10px;top:50%;font-size:17px;animation:markPop .3s ease forwards;}
+  .opt-row.opt-wrongpick::after{content:"❌";position:absolute;right:10px;top:50%;font-size:17px;animation:markPop .3s ease forwards;}
+  @keyframes markPop{0%{transform:translateY(-50%) scale(0);opacity:0;}60%{transform:translateY(-50%) scale(1.25);opacity:1;}100%{transform:translateY(-50%) scale(1);opacity:1;}}
   .answer-box .my-ans{font-weight:bold;}
   .answer-box .my-ans.wrong-color{color:var(--red);}
   .answer-box .correct-ans{color:var(--green);font-weight:bold;}
@@ -175,7 +180,7 @@
         <span id="quizProgressText">1/10</span>
         <div class="progress-bar"><div class="progress-bar-fill" id="quizProgressFill"></div></div>
         <span id="quizScoreText">对0 错0</span>
-        <span class="mode-toggle" id="modeToggleBtn">⚡考试宝模式</span>
+        <span class="mode-toggle" id="modeToggleBtn">⚡快速模式</span>
         <span class="ov-link" id="overviewLink">题目总览</span>
       </div>
       <div class="card">
@@ -354,7 +359,7 @@ let examMode = (localStorage.getItem(LS_EXAMMODE) ?? "true") === "true";
 let autoAdvanceTimer = null;
 function applyModeToggleUI(){
   const btn = document.getElementById("modeToggleBtn");
-  btn.textContent = examMode ? "⚡考试宝模式" : "✍️手动模式";
+  btn.textContent = examMode ? "⚡快速模式" : "✍️手动模式";
   btn.classList.toggle("manual", !examMode);
 }
 function scheduleAutoAdvance(idxAtSubmit){
@@ -508,8 +513,13 @@ function renderQuestion(){
       `<div class="opt-row" data-letter="${L}"><div class="opt-label">${L}.</div><div class="opt-text">${escapeHtml(q.options[L])}</div></div>`
     ).join("") + `</div>`;
     if(saved){
-      body.querySelectorAll(".opt-row").forEach(el=>{ el.classList.add("disabled"); });
-      showAnswerBoxMcq(q, saved.allCorrect, saved.selectedOpt);
+      body.querySelectorAll(".opt-row").forEach(el=>{
+        el.classList.add("disabled");
+        if(el.dataset.letter===saved.selectedOpt) el.classList.add("selected");
+        if(el.dataset.letter===q.correct) el.classList.add("opt-correct");
+        else if(el.dataset.letter===saved.selectedOpt) el.classList.add("opt-wrongpick");
+      });
+      if(!(examMode && saved.allCorrect)) showAnswerBoxMcq(q, saved.allCorrect, saved.selectedOpt);
       document.getElementById("checkBtn").style.display="none";
     } else {
       body.querySelectorAll(".opt-row").forEach(el=>{
@@ -600,8 +610,12 @@ document.getElementById("checkBtn").onclick=()=>{
 
   if(q.type==="mcq"){
     allCorrect = selectedOpt===q.correct;
-    document.querySelectorAll("#qBody .opt-row").forEach(el=>{ el.classList.add("disabled"); });
-    showAnswerBoxMcq(q, allCorrect, selectedOpt);
+    document.querySelectorAll("#qBody .opt-row").forEach(el=>{
+      el.classList.add("disabled");
+      if(el.dataset.letter===q.correct) el.classList.add("opt-correct");
+      else if(el.dataset.letter===selectedOpt) el.classList.add("opt-wrongpick");
+    });
+    if(!(examMode && allCorrect)) showAnswerBoxMcq(q, allCorrect, selectedOpt);
     answerRecord = { allCorrect, selectedOpt };
   } else {
     const inputs = [...document.querySelectorAll("#qText .blank-input, #qCode .blank-input")];
