@@ -55,11 +55,11 @@
   .opt-row.selected{background:#eef2ff;}
   .opt-row.selected .opt-label{color:var(--primary-dark);font-weight:bold;}
   .opt-row.disabled{cursor:default;}
-  .opt-row.opt-correct{background:#ecfdf3;padding-right:34px;}
-  .opt-row.opt-wrongpick{background:#fef2f2;padding-right:34px;}
-  .opt-row.opt-correct::after{content:"✅";position:absolute;right:10px;top:50%;font-size:17px;animation:markPop .3s ease forwards;}
-  .opt-row.opt-wrongpick::after{content:"❌";position:absolute;right:10px;top:50%;font-size:17px;animation:markPop .3s ease forwards;}
-  @keyframes markPop{0%{transform:translateY(-50%) scale(0);opacity:0;}60%{transform:translateY(-50%) scale(1.25);opacity:1;}100%{transform:translateY(-50%) scale(1);opacity:1;}}
+  .opt-row.opt-correct{background:#ecfdf3;}
+  .opt-row.opt-wrongpick{background:#fef2f2;}
+  .opt-row.opt-correct .opt-label::after{content:"✅";display:inline-block;margin-left:6px;font-size:14px;animation:markPop .3s ease;}
+  .opt-row.opt-wrongpick .opt-label::after{content:"❌";display:inline-block;margin-left:6px;font-size:14px;animation:markPop .3s ease;}
+  @keyframes markPop{0%{transform:scale(0);opacity:0;}60%{transform:scale(1.3);opacity:1;}100%{transform:scale(1);opacity:1;}}
   .answer-box{margin-top:10px;font-size:14px;padding:10px;border-radius:8px;display:none;}
   .answer-box.show{display:block;}
   .answer-box.right{background:#ecfdf3;color:#15803d;}
@@ -73,6 +73,8 @@
   .stat-grid.cols2{grid-template-columns:repeat(2,1fr);}
   .stat-grid div b{display:block;font-size:22px;}
   .stat-grid div span{font-size:12px;color:var(--muted);}
+  .stat-grid.stat-highlight{background:#eef2ff;border-radius:10px;padding:14px 8px;margin:12px 0;}
+  .stat-grid.stat-highlight div b{font-size:28px;color:var(--primary-dark);}
   .stat-click{cursor:pointer;border-radius:8px;padding:6px 2px;transition:background .15s;}
   .stat-click:hover{background:#f3f4f6;}
   .review-item{border-bottom:1px solid var(--border);padding:12px 0;font-size:14px;}
@@ -217,7 +219,10 @@
           <div class="stat-click" id="resCorrectBox"><b id="resCorrect" style="color:var(--green)">0</b><span>答对（点击查看）</span></div>
           <div class="stat-click" id="resWrongBox"><b id="resWrong" style="color:var(--red)">0</b><span>答错（点击查看）</span></div>
         </div>
-        <div style="text-align:center;color:var(--muted);font-size:13px;">正确率 <b id="resRate">0%</b> · 用时 <b id="resTime">0分0秒</b></div>
+        <div class="stat-grid cols2 stat-highlight">
+          <div><b id="resRate">0%</b><span>正确率</span></div>
+          <div><b id="resTime">0分0秒</b><span>用时</span></div>
+        </div>
         <div class="btn-row">
           <button class="btn secondary" id="backToQuizBtn">返回本次练习（继续查看/作答）</button>
         </div>
