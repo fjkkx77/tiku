@@ -511,12 +511,12 @@ document.getElementById("ovBackdrop").onclick=closeOverview;
 
 // indices: 该题型在队列中的绝对位置列表；localPos: 组内序号（从1开始），避免混合时出现跳号
 function renderOverviewGrid(indices){
-  return `<div class="ov-grid">`+indices.map((absIdx,localPos)=>{
+  return `<div class="ov-grid">`+indices.map(absIdx=>{
     const a=session.answers[absIdx];
     let cls="";
     if(absIdx===session.idx) cls+=" cur";
     if(a) cls+=a.allCorrect?" right":" wrong";
-    return `<div class="ov-item${cls}" data-idx="${absIdx}">${localPos+1}</div>`;
+    return `<div class="ov-item${cls}" data-idx="${absIdx}">${absIdx+1}</div>`;
   }).join("")+`</div>`;
 }
 function renderOverview(){

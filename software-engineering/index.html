@@ -778,14 +778,12 @@ document.getElementById("ovCloseBtn").onclick=closeOverview;
 document.getElementById("ovBackdrop").onclick=closeOverview;
 
 function renderOverviewGrid(indices){
-  // 题号显示该题在"本题型"内的顺序号（从1开始），不是在整个队列里的绝对位置，
-  // 这样单选题永远是1~N、填空题永远是1~M，不会因为两种题型穿插而显得题号乱跳。
-  return `<div class="ov-grid">` + indices.map((i,localIdx)=>{
+  return `<div class="ov-grid">` + indices.map(i=>{
     const a = session.answers[i];
     let cls = "";
     if(i===session.idx) cls += " cur";
     if(a) cls += a.allCorrect ? " right" : " wrong";
-    return `<div class="ov-item${cls}" data-idx="${i}">${localIdx+1}</div>`;
+    return `<div class="ov-item${cls}" data-idx="${i}">${i+1}</div>`;
   }).join("") + `</div>`;
 }
 function renderOverview(){
