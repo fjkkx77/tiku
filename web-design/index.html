@@ -47,12 +47,12 @@
   .progress-bar-fill{height:100%;background:var(--primary);transition:width .25s;}
   .q-tag{display:inline-block;background:#eef2ff;color:var(--primary-dark);font-size:12px;padding:2px 8px;border-radius:10px;margin-bottom:8px;}
   .q-text{font-size:16px;line-height:1.8;margin-bottom:10px;white-space:pre-wrap;overflow-x:auto;word-break:break-word;}
-  .q-code{font-family:"SF Mono",Menlo,Consolas,"Cascadia Mono","Roboto Mono","Droid Sans Mono","Courier New",monospace;font-size:14.5px;font-weight:500;letter-spacing:.2px;color:#111827;background:#f8fafc;border:1px solid var(--border);border-radius:8px;padding:10px;margin:8px 0;line-height:1.75;white-space:pre-wrap;overflow-x:auto;}
+  .q-code{font-family:"SF Mono",Menlo,Consolas,"Cascadia Mono","Roboto Mono","Droid Sans Mono","Courier New",monospace;font-size:14.5px;font-weight:700;letter-spacing:.2px;-webkit-text-stroke:.35px currentColor;color:#111827;background:#f8fafc;border:1px solid var(--border);border-radius:8px;padding:10px;margin:8px 0;line-height:1.75;white-space:pre-wrap;overflow-x:auto;}
   .opt-list{display:flex;flex-direction:column;margin:10px 0;}
   .opt-row{position:relative;padding:13px 6px;border-bottom:1px solid var(--border);cursor:pointer;border-radius:6px;}
   .opt-row:last-child{border-bottom:none;}
   .opt-row .opt-label{font-size:13px;color:var(--muted);margin-bottom:3px;}
-  .opt-row .opt-text{font-size:14.5px;font-weight:500;letter-spacing:.2px;white-space:pre-wrap;font-family:"SF Mono",Menlo,Consolas,"Roboto Mono","Microsoft YaHei",monospace;line-height:1.6;}
+  .opt-row .opt-text{font-size:14.5px;font-weight:700;letter-spacing:.2px;-webkit-text-stroke:.3px currentColor;white-space:pre-wrap;font-family:"SF Mono",Menlo,Consolas,"Roboto Mono","Microsoft YaHei",monospace;line-height:1.6;}
   .opt-row.selected{background:#eef2ff;}
   .opt-row.selected .opt-label{color:var(--primary-dark);font-weight:bold;}
   .opt-row.disabled{cursor:default;}
@@ -65,7 +65,7 @@
   .answer-box .my-ans.wrong-color{color:var(--red);}
   .answer-box .correct-ans{color:var(--green);font-weight:bold;}
   /* 自己画完整边框方框，不依赖各平台原生input外观（原生样式在不同浏览器/系统下表现差异很大，不可靠） */
-  .blank-input{-webkit-appearance:none;appearance:none;border:1.5px solid var(--primary);border-radius:6px;background:#f8fafc;padding:4px 8px;font-size:15px;font-weight:600;letter-spacing:.3px;min-width:90px;text-align:center;margin:2px;font-family:"SF Mono",Menlo,Consolas,"Roboto Mono",monospace;color:var(--text);box-shadow:none;}
+  .blank-input{-webkit-appearance:none;appearance:none;border:1.5px solid var(--primary);border-radius:6px;background:#f8fafc;padding:4px 8px;font-size:15px;font-weight:700;letter-spacing:.3px;-webkit-text-stroke:.35px currentColor;min-width:90px;text-align:center;margin:2px;font-family:"SF Mono",Menlo,Consolas,"Roboto Mono",monospace;color:var(--text);box-shadow:none;}
   .blank-input.correct{border-color:var(--green);background:#ecfdf3;color:var(--green);}
   .blank-input.wrong{border-color:var(--red);background:#fef2f2;color:var(--red);}
   /* iOS Safari会强制改变disabled输入框的颜色和透明度，必须用-webkit-text-fill-color覆盖，否则手机上看不出方框和颜色 */
