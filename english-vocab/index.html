@@ -45,7 +45,8 @@
   .progress-bar-fill{height:100%;background:var(--primary);transition:width .25s;}
   .q-tag{display:inline-block;background:#eef2ff;color:var(--primary-dark);font-size:12px;padding:2px 8px;border-radius:10px;margin-bottom:8px;}
   .q-text{font-size:16px;line-height:1.8;margin-bottom:10px;white-space:pre-wrap;overflow-x:auto;word-break:break-word;}
-  .q-code{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,"PingFang SC","Microsoft YaHei",sans-serif;font-size:15.5px;font-weight:600;letter-spacing:normal;color:#111827;background:#f8fafc;border:1px solid var(--border);border-radius:8px;padding:10px;margin:8px 0;line-height:1.75;white-space:pre-wrap;overflow-x:auto;}
+  .q-code{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,"PingFang SC","Microsoft YaHei",sans-serif;font-size:15.5px;font-weight:400;letter-spacing:normal;color:#111827;background:#f8fafc;border:1px solid var(--border);border-radius:8px;padding:10px;margin:8px 0;line-height:1.75;white-space:pre-wrap;overflow-x:auto;}
+  .q-code .wl-bold{font-weight:600;}
   .opt-list{display:flex;flex-direction:column;margin:10px 0;}
   .opt-row{padding:13px 6px;border-bottom:1px solid var(--border);cursor:pointer;border-radius:6px;}
   .opt-row:last-child{border-bottom:none;}
@@ -329,6 +330,20 @@ function gradeOrdered(userInputs, expectedList){
 function fmtTime(sec){ const m=Math.floor(sec/60), s=sec%60; return m+"分"+s+"秒"; }
 function fmtDate(ts){ const d=new Date(ts); return `${d.getMonth()+1}/${d.getDate()} ${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`; }
 function escapeHtml(s){ return (s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+// 词表框专用：只给英文单词/字母（含词表标题【...】）加粗，中文释义保持正常字重，
+// 避免"Microsoft YaHei"没有600字重、被浏览器就近取整成700 Bold，导致中文比英文更粗的视觉失衡。
+function styleWordlist(raw){
+  let out = "", lastIndex = 0;
+  const re = /(【[^】]*】)|([A-Za-z][A-Za-z'-]*)/g;
+  let m;
+  while((m = re.exec(raw))){
+    out += escapeHtml(raw.slice(lastIndex, m.index));
+    out += `<span class="wl-bold">${escapeHtml(m[0])}</span>`;
+    lastIndex = re.lastIndex;
+  }
+  out += escapeHtml(raw.slice(lastIndex));
+  return out;
+}
 
 /* ===================== 屏幕切换 ===================== */
 function showScreen(name){
@@ -404,7 +419,7 @@ function renderQuestion(){
   document.getElementById("prevBtn").disabled = session.idx===0;
 
   const codeEl = document.getElementById("qCode");
-  if(q.code){ codeEl.style.display="block"; codeEl.textContent = q.code.replace(/\{\{\}\}/g,"______"); }
+  if(q.code){ codeEl.style.display="block"; codeEl.innerHTML = styleWordlist(q.code.replace(/\{\{\}\}/g,"______")); }
   else { codeEl.style.display="none"; codeEl.textContent=""; }
 
   const body = document.getElementById("qBody");
