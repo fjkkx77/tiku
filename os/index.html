@@ -39,6 +39,9 @@
   .mode-row label{flex:1;border:1px solid var(--border);border-radius:8px;padding:8px;text-align:center;font-size:13px;cursor:pointer;}
   .mode-row input{margin-right:4px;}
   select-all{display:flex;justify-content:space-between;margin-bottom:8px;font-size:13px;color:var(--primary-dark);}
+  .resume-card{background:#eef2ff;border:1.5px solid var(--primary);}
+  .resume-title{font-size:15px;font-weight:bold;color:var(--primary-dark);margin-bottom:4px;}
+  .resume-sub{font-size:13px;color:var(--muted);margin-bottom:10px;}
   .toplinks{display:flex;justify-content:space-between;margin-bottom:8px;font-size:13px;}
   .toplinks span{color:var(--primary-dark);cursor:pointer;}
   .progress-wrap{display:flex;align-items:center;gap:10px;margin-bottom:10px;font-size:13px;color:var(--muted);}
@@ -126,6 +129,14 @@
 
     <!-- 首页：选择章节与模式 -->
     <section class="screen active" id="screen-home">
+      <div class="card resume-card" id="resumeCard" style="display:none;">
+        <div class="resume-title">📖 继续上次练习</div>
+        <div class="resume-sub" id="resumeSub"></div>
+        <div class="btn-row">
+          <button class="btn secondary" id="resumeRestartBtn">重新练习</button>
+          <button class="btn" id="resumeContinueBtn">继续练习</button>
+        </div>
+      </div>
       <div class="card">
         <div class="toplinks">
           <span id="selAll">全选</span>
@@ -362,7 +373,7 @@ QUESTIONS.forEach((q,i)=>q.id="q"+i);
 const CATS = [...new Set(QUESTIONS.map(q=>q.cat))];
 
 /* ===================== 本地存储 ===================== */
-const LS_HISTORY="osquiz_history", LS_WRONGBOOK="osquiz_wrongbook";
+const LS_HISTORY="osquiz_history", LS_WRONGBOOK="osquiz_wrongbook", LS_INPROGRESS="osquiz_inprogress";
 function loadJSON(key,def){ try{ return JSON.parse(localStorage.getItem(key)) || def; }catch(e){ return def; } }
 function saveJSON(key,val){ localStorage.setItem(key, JSON.stringify(val)); }
 let history = loadJSON(LS_HISTORY, []);
@@ -429,9 +440,7 @@ function showScreen(name){
   if(name==="history") renderHistory();
 }
 document.querySelectorAll("nav button").forEach(b=>b.addEventListener("click", ()=>{
-  if(typeof session!=="undefined"&&session&&session.answers&&session.answers.some(a=>a!==null)&&document.getElementById("screen-quiz")&&document.getElementById("screen-quiz").classList.contains("active")){
-    if(!confirm("当前练习进度将会丢失，确定要离开吗？"))return;
-  }
+  if(b.dataset.screen==="home") renderResumeCard();
   showScreen(b.dataset.screen);
 }));
 
@@ -450,6 +459,7 @@ function renderCatList(){
     </label>`;
   }).join("");
   document.getElementById("totalQCount").textContent = QUESTIONS.length;
+  renderResumeCard();
 }
 document.getElementById("selAll").onclick=()=>document.querySelectorAll(".catChk").forEach(c=>c.checked=true);
 document.getElementById("selNone").onclick=()=>document.querySelectorAll(".catChk").forEach(c=>c.checked=false);
@@ -460,6 +470,43 @@ document.getElementById("selWrongOnly").onclick=()=>{
 
 /* ===================== 答题逻辑 ===================== */
 let session = null; // {queue, idx, answers[], startTime, scopeLabel}
+
+/* ===================== 继续上次练习（进行中的进度实时存localStorage） ===================== */
+function saveProgress(){
+  if(!session) return;
+  saveJSON(LS_INPROGRESS, {
+    ids: session.queue.map(q=>q.id),
+    answers: session.answers,
+    idx: session.idx,
+    startTime: session.startTime,
+    scopeLabel: session.scopeLabel
+  });
+}
+function clearProgress(){ localStorage.removeItem(LS_INPROGRESS); }
+function rebuildQueueFromIds(ids){
+  const queue = ids.map(id=>QUESTIONS.find(q=>q.id===id)).filter(Boolean);
+  return queue.length===ids.length ? queue : null; // 题库改动过导致对不上，视为失效
+}
+function renderResumeCard(){
+  const saved = loadJSON(LS_INPROGRESS, null);
+  const card = document.getElementById("resumeCard");
+  if(!saved){ card.style.display="none"; return; }
+  const queue = rebuildQueueFromIds(saved.ids);
+  if(!queue || typeof saved.idx!=="number" || saved.idx>=queue.length){
+    clearProgress(); card.style.display="none"; return;
+  }
+  const answeredCnt = saved.answers.filter(a=>a).length;
+  document.getElementById("resumeSub").textContent = `已完成 ${answeredCnt}/${queue.length} 题 · 范围：${saved.scopeLabel}`;
+  card.style.display="block";
+  document.getElementById("resumeContinueBtn").onclick=()=>{
+    session = { queue, idx:saved.idx, answers:saved.answers, startTime:saved.startTime, scopeLabel:saved.scopeLabel };
+    showScreen("quiz");
+    renderQuestion();
+  };
+  document.getElementById("resumeRestartBtn").onclick=()=>{
+    startQuiz(queue, saved.scopeLabel);
+  };
+}
 
 function startQuiz(questionPool, scopeLabel){
   const order = document.querySelector('input[name="order"]:checked').value;
@@ -523,6 +570,7 @@ function renderQuestion(){
     updateNextBtn();
     if(inputs[0]) inputs[0].focus();
   }
+  saveProgress();
 }
 
 function updateNextBtn(){
@@ -569,6 +617,7 @@ document.getElementById("checkBtn").onclick=()=>{
   updateNextBtn();
   const stats = sessionStats();
   document.getElementById("quizScoreText").textContent = `对${stats.correct} 错${stats.wrong}`;
+  saveProgress();
 };
 
 document.getElementById("prevBtn").onclick=()=>{
@@ -612,6 +661,7 @@ function renderOverview(){
 }
 
 function finishQuiz(){
+  clearProgress();
   const stats = sessionStats();
   const total = session.queue.length;
   const durationSec = Math.round((Date.now()-session.startTime)/1000);
