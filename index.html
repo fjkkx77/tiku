@@ -19,16 +19,19 @@
   .item .desc{font-size:13px;color:var(--muted);}
   .empty-note{font-size:12px;color:var(--muted);text-align:center;margin-top:24px;}
 
-  /* 重命名按钮 */
-  .rename-btn{
-    display:none;
+  /* 阻止点击编辑区跳转 */
+  .name-row{pointer-events:none;}
+  .icon-btn,.reset-btn,.name-input{pointer-events:auto;}
+
+  /* 通用小图标按钮（重命名/移入文件夹/文件夹改名/删除文件夹），始终可见，触屏友好 */
+  .icon-btn{
     background:none;border:none;cursor:pointer;
-    padding:2px 4px;border-radius:4px;
+    padding:4px 6px;border-radius:4px;
     color:var(--muted);font-size:14px;line-height:1;
-    flex-shrink:0;
+    flex-shrink:0;opacity:.6;touch-action:manipulation;
   }
-  .rename-btn:hover{color:var(--primary);background:#e0edff;}
-  .item:hover .rename-btn{display:inline-flex;}
+  .icon-btn:hover{color:var(--primary);background:#e0edff;opacity:1;}
+  .icon-btn.danger:hover{color:#ef4444;background:#fee2e2;}
 
   /* 编辑状态输入框 */
   .name-input{
@@ -39,20 +42,47 @@
     min-width:80px;width:auto;
   }
 
-  /* 重置按钮（已自定义名称时显示） */
+  /* 重置按钮（已自定义名称时显示，不再依赖hover，触屏可直接点到） */
   .reset-btn{
     display:none;
     background:none;border:none;cursor:pointer;
     padding:2px 5px;border-radius:4px;
     color:#ef4444;font-size:11px;line-height:1.4;
-    flex-shrink:0;margin-left:2px;
+    flex-shrink:0;margin-left:2px;opacity:.75;touch-action:manipulation;
   }
-  .reset-btn:hover{background:#fee2e2;}
-  .item:hover .reset-btn.visible{display:inline-flex;}
+  .reset-btn:hover{background:#fee2e2;opacity:1;}
+  .reset-btn.visible{display:inline-flex;}
 
-  /* 阻止点击编辑区跳转 */
-  .name-row{pointer-events:none;}
-  .rename-btn,.reset-btn,.name-input{pointer-events:auto;}
+  /* 文件夹卡片 */
+  .folder-card{background:#fff;border-radius:10px;box-shadow:0 1px 3px rgba(0,0,0,.08);}
+  .folder-header{display:flex;align-items:center;gap:6px;padding:14px 16px;cursor:pointer;touch-action:manipulation;}
+  .folder-header .chevron{font-size:11px;color:var(--muted);width:14px;flex-shrink:0;transition:transform .15s;}
+  .folder-header .folder-icon{font-size:16px;}
+  .folder-header .folder-name{font-size:16px;font-weight:bold;}
+  .folder-header .folder-count{font-size:13px;color:var(--muted);}
+  .folder-header .icon-btn:first-of-type{margin-left:auto;}
+  .folder-body{display:flex;flex-direction:column;gap:10px;padding:10px 12px 14px;background:#f8f9fb;border-radius:0 0 10px 10px;}
+  .folder-body .item{border:1px solid var(--border);}
+  .folder-empty-note{font-size:12px;color:var(--muted);text-align:center;padding:10px 0;}
+
+  /* 移入文件夹 - 下拉菜单 */
+  .item-menu{
+    position:absolute;right:10px;top:44px;z-index:20;
+    background:#fff;border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,.18);
+    min-width:170px;display:flex;flex-direction:column;padding:6px;
+  }
+  .menu-row{padding:11px 14px;font-size:13px;cursor:pointer;border-radius:6px;touch-action:manipulation;}
+  .menu-row:hover{background:#f3f4f6;}
+  .menu-row.accent{color:var(--primary);font-weight:bold;}
+  .menu-row.danger{color:#ef4444;}
+  .item-menu .menu-input{
+    font-size:14px;border:1.5px solid var(--primary);border-radius:6px;
+    padding:8px 10px;outline:none;margin:4px;font-family:inherit;
+  }
+  .item-menu .menu-confirm-btn{
+    background:var(--primary);color:#fff;border:none;border-radius:6px;
+    padding:8px 10px;margin:0 4px 4px;font-size:13px;cursor:pointer;
+  }
 </style>
 </head>
 <body>
@@ -78,6 +108,13 @@ const SUBJECTS = [
 ];
 
 const STORAGE_KEY = 'tiku_custom_names';
+const FOLDERS_KEY = 'tiku_folders';
+const SUBJECT_FOLDER_KEY = 'tiku_subject_folder';
+
+// 当前页面会话内的"文件夹展开"状态（不持久化，符合"默认折叠"设计）
+const expandedFolders = new Set();
+// 当前打开的移入文件夹下拉菜单
+let openMenu = null;
 
 function loadNames() {
   try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}'); } catch(e) { return {}; }
@@ -93,64 +130,121 @@ function deleteName(key) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(names));
 }
 
+function loadFolders() {
+  try { return JSON.parse(localStorage.getItem(FOLDERS_KEY) || '[]'); } catch(e) { return []; }
+}
+function saveFolders(folders) {
+  localStorage.setItem(FOLDERS_KEY, JSON.stringify(folders));
+}
+function loadSubjectFolderMap() {
+  try { return JSON.parse(localStorage.getItem(SUBJECT_FOLDER_KEY) || '{}'); } catch(e) { return {}; }
+}
+function saveSubjectFolderMap(map) {
+  localStorage.setItem(SUBJECT_FOLDER_KEY, JSON.stringify(map));
+}
+
+function closeOpenMenu() {
+  if (openMenu && openMenu.parentNode) openMenu.parentNode.removeChild(openMenu);
+  openMenu = null;
+}
+
+document.addEventListener('click', function(e) {
+  if (openMenu && !openMenu.contains(e.target) && !e.target.closest('.folder-btn')) {
+    closeOpenMenu();
+  }
+});
+
 function buildList() {
+  openMenu = null; // 即将整体重建列表，旧菜单节点会被一起清掉
   const names = loadNames();
+  const folders = loadFolders();
+  const subjectFolderMap = loadSubjectFolderMap();
   const list = document.getElementById('list');
   list.innerHTML = '';
 
-  SUBJECTS.forEach(subj => {
-    const customName = names[subj.key];
-    const displayName = customName || subj.defaultName;
-    const isCustom = !!customName;
-
-    const a = document.createElement('a');
-    a.className = 'item';
-    a.href = subj.href;
-
-    const nameRow = document.createElement('div');
-    nameRow.className = 'name-row';
-
-    const nameSpan = document.createElement('span');
-    nameSpan.className = 'name';
-    nameSpan.textContent = displayName;
-
-    const renameBtn = document.createElement('button');
-    renameBtn.className = 'rename-btn';
-    renameBtn.title = '重命名';
-    renameBtn.innerHTML = '✏️';
-
-    const resetBtn = document.createElement('button');
-    resetBtn.className = 'reset-btn' + (isCustom ? ' visible' : '');
-    resetBtn.title = '恢复原名';
-    resetBtn.textContent = '还原';
-
-    const desc = document.createElement('div');
-    desc.className = 'desc';
-    desc.textContent = subj.desc;
-
-    nameRow.appendChild(nameSpan);
-    nameRow.appendChild(renameBtn);
-    nameRow.appendChild(resetBtn);
-    a.appendChild(nameRow);
-    a.appendChild(desc);
-    list.appendChild(a);
-
-    // 点击铅笔：进入编辑
-    renameBtn.addEventListener('click', function(e) {
-      e.preventDefault();
-      e.stopPropagation();
-      startEdit(subj, nameSpan, renameBtn, resetBtn);
-    });
-
-    // 点击还原
-    resetBtn.addEventListener('click', function(e) {
-      e.preventDefault();
-      e.stopPropagation();
-      deleteName(subj.key);
-      nameSpan.textContent = subj.defaultName;
-      resetBtn.classList.remove('visible');
-    });
+  const grouped = {};
+  const ungrouped = [];
+  SUBJECTS.forEach(function(subj) {
+    const fid = subjectFolderMap[subj.key];
+    if (fid && folders.some(function(f){ return f.id === fid; })) {
+      (grouped[fid] = grouped[fid] || []).push(subj);
+    } else {
+      ungrouped.push(subj);
+    }
   });
+
+  folders.forEach(function(folder) {
+    list.appendChild(buildFolderCard(folder, grouped[folder.id] || [], names));
+  });
+
+  ungrouped.forEach(function(subj) {
+    list.appendChild(buildSubjectItem(subj, names));
+  });
+}
+
+function buildSubjectItem(subj, names) {
+  const customName = names[subj.key];
+  const displayName = customName || subj.defaultName;
+  const isCustom = !!customName;
+
+  const a = document.createElement('a');
+  a.className = 'item';
+  a.href = subj.href;
+
+  const nameRow = document.createElement('div');
+  nameRow.className = 'name-row';
+
+  const nameSpan = document.createElement('span');
+  nameSpan.className = 'name';
+  nameSpan.textContent = displayName;
+
+  const renameBtn = document.createElement('button');
+  renameBtn.className = 'icon-btn';
+  renameBtn.title = '重命名';
+  renameBtn.innerHTML = '✏️';
+
+  const resetBtn = document.createElement('button');
+  resetBtn.className = 'reset-btn' + (isCustom ? ' visible' : '');
+  resetBtn.title = '恢复原名';
+  resetBtn.textContent = '还原';
+
+  const folderBtn = document.createElement('button');
+  folderBtn.className = 'icon-btn folder-btn';
+  folderBtn.title = '移入文件夹';
+  folderBtn.innerHTML = '📁';
+
+  const desc = document.createElement('div');
+  desc.className = 'desc';
+  desc.textContent = subj.desc;
+
+  nameRow.appendChild(nameSpan);
+  nameRow.appendChild(renameBtn);
+  nameRow.appendChild(resetBtn);
+  nameRow.appendChild(folderBtn);
+  a.appendChild(nameRow);
+  a.appendChild(desc);
+
+  renameBtn.addEventListener('click', function(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    startEdit(subj, nameSpan, renameBtn, resetBtn);
+  });
+
+  resetBtn.addEventListener('click', function(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    deleteName(subj.key);
+    nameSpan.textContent = subj.defaultName;
+    resetBtn.classList.remove('visible');
+  });
+
+  folderBtn.addEventListener('click', function(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    toggleSubjectMenu(subj, a);
+  });
+
+  return a;
 }
 
 function startEdit(subj, nameSpan, renameBtn, resetBtn) {
@@ -160,10 +254,8 @@ function startEdit(subj, nameSpan, renameBtn, resetBtn) {
   input.type = 'text';
   input.className = 'name-input';
   input.value = currentText;
-  // 宽度自适应内容
   input.style.width = Math.max(currentText.length * 18, 120) + 'px';
 
-  // 编辑期间禁用链接跳转
   const a = nameSpan.closest('a');
   const savedHref = a.getAttribute('href');
   a.removeAttribute('href');
@@ -173,7 +265,6 @@ function startEdit(subj, nameSpan, renameBtn, resetBtn) {
   input.focus();
   input.select();
 
-  // 阻止输入框上的所有点击冒泡到父级
   input.addEventListener('click', function(e) { e.stopPropagation(); });
   input.addEventListener('mousedown', function(e) { e.stopPropagation(); });
 
@@ -183,7 +274,6 @@ function startEdit(subj, nameSpan, renameBtn, resetBtn) {
     nameSpan.textContent = finalName;
     input.replaceWith(nameSpan);
     renameBtn.style.display = '';
-    // 恢复链接
     a.setAttribute('href', savedHref);
     if (finalName !== subj.defaultName) {
       saveName(subj.key, finalName);
@@ -192,6 +282,231 @@ function startEdit(subj, nameSpan, renameBtn, resetBtn) {
       deleteName(subj.key);
       resetBtn.classList.remove('visible');
     }
+  }
+
+  input.addEventListener('blur', commit);
+  input.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') { e.preventDefault(); input.blur(); }
+    if (e.key === 'Escape') { input.value = currentText; input.blur(); }
+  });
+}
+
+// ---- 移入文件夹：下拉菜单 ----
+function toggleSubjectMenu(subj, itemEl) {
+  if (openMenu && openMenu.dataset.forKey === subj.key) {
+    closeOpenMenu();
+    return;
+  }
+  closeOpenMenu();
+
+  const folders = loadFolders();
+  const map = loadSubjectFolderMap();
+  const currentFid = map[subj.key];
+
+  const menu = document.createElement('div');
+  menu.className = 'item-menu';
+  menu.dataset.forKey = subj.key;
+  menu.addEventListener('click', function(e) { e.stopPropagation(); });
+
+  folders.forEach(function(f) {
+    const row = document.createElement('div');
+    row.className = 'menu-row';
+    row.textContent = '📁 ' + f.name;
+    row.addEventListener('click', function(e) {
+      e.preventDefault();
+      e.stopPropagation();
+      const m = loadSubjectFolderMap();
+      m[subj.key] = f.id;
+      saveSubjectFolderMap(m);
+      expandedFolders.add(f.id);
+      closeOpenMenu();
+      buildList();
+    });
+    menu.appendChild(row);
+  });
+
+  if (currentFid) {
+    const row = document.createElement('div');
+    row.className = 'menu-row danger';
+    row.textContent = '📤 移出文件夹';
+    row.addEventListener('click', function(e) {
+      e.preventDefault();
+      e.stopPropagation();
+      const m = loadSubjectFolderMap();
+      delete m[subj.key];
+      saveSubjectFolderMap(m);
+      closeOpenMenu();
+      buildList();
+    });
+    menu.appendChild(row);
+  }
+
+  const newRow = document.createElement('div');
+  newRow.className = 'menu-row accent';
+  newRow.textContent = '➕ 新建文件夹...';
+  newRow.addEventListener('click', function(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    renderNewFolderInput(menu, subj);
+  });
+  menu.appendChild(newRow);
+
+  itemEl.appendChild(menu);
+  openMenu = menu;
+}
+
+function renderNewFolderInput(menu, subj) {
+  menu.innerHTML = '';
+
+  const input = document.createElement('input');
+  input.type = 'text';
+  input.className = 'menu-input';
+  input.placeholder = '文件夹名称';
+
+  const btn = document.createElement('button');
+  btn.className = 'menu-confirm-btn';
+  btn.textContent = '创建';
+
+  menu.appendChild(input);
+  menu.appendChild(btn);
+
+  function commit() {
+    const name = input.value.trim();
+    if (!name) { closeOpenMenu(); return; }
+    const folders = loadFolders();
+    const newFolder = { id: 'f_' + Date.now(), name: name };
+    folders.push(newFolder);
+    saveFolders(folders);
+    const map = loadSubjectFolderMap();
+    map[subj.key] = newFolder.id;
+    saveSubjectFolderMap(map);
+    expandedFolders.add(newFolder.id);
+    closeOpenMenu();
+    buildList();
+  }
+
+  input.addEventListener('click', function(e) { e.stopPropagation(); });
+  input.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') { e.preventDefault(); commit(); }
+    if (e.key === 'Escape') { closeOpenMenu(); }
+  });
+  btn.addEventListener('click', function(e) { e.preventDefault(); e.stopPropagation(); commit(); });
+  input.focus();
+}
+
+// ---- 文件夹卡片 ----
+function buildFolderCard(folder, members, names) {
+  const card = document.createElement('div');
+  card.className = 'folder-card';
+
+  const header = document.createElement('div');
+  header.className = 'folder-header';
+
+  const isExpanded = expandedFolders.has(folder.id);
+
+  const chevron = document.createElement('span');
+  chevron.className = 'chevron';
+  chevron.textContent = isExpanded ? '▼' : '▶';
+
+  const icon = document.createElement('span');
+  icon.className = 'folder-icon';
+  icon.textContent = '📁';
+
+  const nameSpan = document.createElement('span');
+  nameSpan.className = 'folder-name';
+  nameSpan.textContent = folder.name;
+
+  const countSpan = document.createElement('span');
+  countSpan.className = 'folder-count';
+  countSpan.textContent = '(' + members.length + ')';
+
+  const renameBtn = document.createElement('button');
+  renameBtn.className = 'icon-btn';
+  renameBtn.title = '重命名文件夹';
+  renameBtn.innerHTML = '✏️';
+
+  const deleteBtn = document.createElement('button');
+  deleteBtn.className = 'icon-btn danger';
+  deleteBtn.title = '删除文件夹';
+  deleteBtn.innerHTML = '🗑️';
+
+  header.appendChild(chevron);
+  header.appendChild(icon);
+  header.appendChild(nameSpan);
+  header.appendChild(countSpan);
+  header.appendChild(renameBtn);
+  header.appendChild(deleteBtn);
+
+  const body = document.createElement('div');
+  body.className = 'folder-body';
+  body.style.display = isExpanded ? 'flex' : 'none';
+
+  if (members.length === 0) {
+    const empty = document.createElement('div');
+    empty.className = 'folder-empty-note';
+    empty.textContent = '空文件夹，从科目卡片的📁按钮把科目移进来';
+    body.appendChild(empty);
+  } else {
+    members.forEach(function(subj) {
+      body.appendChild(buildSubjectItem(subj, names));
+    });
+  }
+
+  header.addEventListener('click', function() {
+    if (expandedFolders.has(folder.id)) expandedFolders.delete(folder.id);
+    else expandedFolders.add(folder.id);
+    buildList();
+  });
+
+  renameBtn.addEventListener('click', function(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    startFolderRename(folder, nameSpan);
+  });
+
+  deleteBtn.addEventListener('click', function(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    const remaining = loadFolders().filter(function(f) { return f.id !== folder.id; });
+    saveFolders(remaining);
+    const map = loadSubjectFolderMap();
+    Object.keys(map).forEach(function(k) {
+      if (map[k] === folder.id) delete map[k];
+    });
+    saveSubjectFolderMap(map);
+    expandedFolders.delete(folder.id);
+    buildList();
+  });
+
+  card.appendChild(header);
+  card.appendChild(body);
+  return card;
+}
+
+function startFolderRename(folder, nameSpan) {
+  const currentText = folder.name;
+
+  const input = document.createElement('input');
+  input.type = 'text';
+  input.className = 'name-input';
+  input.value = currentText;
+  input.style.width = Math.max(currentText.length * 18, 100) + 'px';
+
+  nameSpan.replaceWith(input);
+  input.focus();
+  input.select();
+  input.addEventListener('click', function(e) { e.stopPropagation(); });
+  input.addEventListener('mousedown', function(e) { e.stopPropagation(); });
+
+  function commit() {
+    const newName = input.value.trim() || currentText;
+    const folders = loadFolders();
+    const target = folders.find(function(f) { return f.id === folder.id; });
+    if (target) {
+      target.name = newName;
+      saveFolders(folders);
+    }
+    buildList();
   }
 
   input.addEventListener('blur', commit);
