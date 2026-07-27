@@ -32,6 +32,8 @@
   }
   .icon-btn:hover{color:var(--primary);background:#e0edff;opacity:1;}
   .icon-btn.danger:hover{color:#ef4444;background:#fee2e2;}
+  /* 移入文件夹图标固定放在卡片这一行的最右端，跟名字/改名图标分开 */
+  .name-row .folder-btn{margin-left:auto;}
 
   /* 编辑状态输入框 */
   .name-input{
@@ -83,6 +85,39 @@
     background:var(--primary);color:#fff;border:none;border-radius:6px;
     padding:8px 10px;margin:0 4px 4px;font-size:13px;cursor:pointer;
   }
+
+  /* 批量整理 */
+  .toolbar{display:flex;justify-content:flex-end;margin-bottom:10px;}
+  .toolbar-btn{
+    background:#fff;border:1px solid var(--border);color:var(--text);
+    border-radius:8px;padding:8px 14px;font-size:13px;cursor:pointer;touch-action:manipulation;
+  }
+  .toolbar-btn:hover{background:#f3f4f6;}
+
+  .item.batch-active .icon-btn,.item.batch-active .reset-btn{display:none !important;}
+  .item.batch-selected{border:2px solid var(--primary);background:#eef2ff;}
+  .folder-card.batch-active .icon-btn{display:none !important;}
+
+  .batch-checkbox{
+    width:20px;height:20px;border:2px solid var(--border);border-radius:5px;
+    flex-shrink:0;display:flex;align-items:center;justify-content:center;
+    font-size:13px;color:#fff;margin-right:2px;
+  }
+  .batch-checkbox.checked{background:var(--primary);border-color:var(--primary);}
+
+  .batch-bar{
+    position:fixed;left:50%;bottom:16px;transform:translateX(-50%);
+    max-width:730px;width:calc(100% - 28px);
+    background:#1f2937;color:#fff;border-radius:12px;padding:12px 16px;
+    display:none;align-items:center;justify-content:space-between;gap:10px;
+    box-shadow:0 4px 20px rgba(0,0,0,.25);z-index:30;
+  }
+  .batch-bar-btn{
+    background:#fff;color:#1f2937;border:none;border-radius:8px;
+    padding:8px 14px;font-size:13px;font-weight:bold;cursor:pointer;touch-action:manipulation;
+  }
+  .batch-bar-btn.cancel{background:transparent;color:#fff;border:1px solid rgba(255,255,255,.4);}
+  .batch-bar .item-menu{position:absolute;left:16px;right:16px;bottom:56px;top:auto;min-width:0;}
 </style>
 </head>
 <body>
@@ -91,8 +126,19 @@
     <h1>刷题合集</h1>
     <p>各科目练习题网站入口 · 持续更新</p>
   </header>
+  <div class="toolbar">
+    <button class="toolbar-btn" id="batchToggleBtn" type="button">📋 批量整理</button>
+  </div>
   <div class="list" id="list"></div>
   <div class="empty-note">以后新增科目会持续加在这里</div>
+</div>
+
+<div class="batch-bar" id="batchBar">
+  <span id="batchCount"></span>
+  <div style="display:flex;gap:8px;">
+    <button class="batch-bar-btn" id="batchMoveBtn" type="button">移动到文件夹 ▾</button>
+    <button class="batch-bar-btn cancel" id="batchCancelBtn" type="button">取消</button>
+  </div>
 </div>
 
 <script>
@@ -115,6 +161,9 @@ const SUBJECT_FOLDER_KEY = 'tiku_subject_folder';
 const expandedFolders = new Set();
 // 当前打开的移入文件夹下拉菜单
 let openMenu = null;
+// 批量整理模式状态
+let batchMode = false;
+const batchSelected = new Set();
 
 function loadNames() {
   try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}'); } catch(e) { return {}; }
@@ -149,7 +198,7 @@ function closeOpenMenu() {
 }
 
 document.addEventListener('click', function(e) {
-  if (openMenu && !openMenu.contains(e.target) && !e.target.closest('.folder-btn')) {
+  if (openMenu && !openMenu.contains(e.target) && !e.target.closest('.folder-btn') && !e.target.closest('#batchMoveBtn')) {
     closeOpenMenu();
   }
 });
@@ -180,6 +229,22 @@ function buildList() {
   ungrouped.forEach(function(subj) {
     list.appendChild(buildSubjectItem(subj, names));
   });
+
+  renderBatchBar();
+}
+
+function renderToolbar() {
+  document.getElementById('batchToggleBtn').textContent = batchMode ? '✕ 退出整理模式' : '📋 批量整理';
+}
+
+function renderBatchBar() {
+  const bar = document.getElementById('batchBar');
+  if (!batchMode) {
+    bar.style.display = 'none';
+    return;
+  }
+  bar.style.display = 'flex';
+  document.getElementById('batchCount').textContent = '已选 ' + batchSelected.size + ' 项';
 }
 
 function buildSubjectItem(subj, names) {
@@ -193,6 +258,16 @@ function buildSubjectItem(subj, names) {
 
   const nameRow = document.createElement('div');
   nameRow.className = 'name-row';
+
+  if (batchMode) {
+    const isSelected = batchSelected.has(subj.key);
+    a.classList.add('batch-active');
+    if (isSelected) a.classList.add('batch-selected');
+    const checkbox = document.createElement('span');
+    checkbox.className = 'batch-checkbox' + (isSelected ? ' checked' : '');
+    checkbox.textContent = isSelected ? '✓' : '';
+    nameRow.appendChild(checkbox);
+  }
 
   const nameSpan = document.createElement('span');
   nameSpan.className = 'name';
@@ -242,6 +317,14 @@ function buildSubjectItem(subj, names) {
     e.preventDefault();
     e.stopPropagation();
     toggleSubjectMenu(subj, a);
+  });
+
+  a.addEventListener('click', function(e) {
+    if (!batchMode) return;
+    e.preventDefault();
+    if (batchSelected.has(subj.key)) batchSelected.delete(subj.key);
+    else batchSelected.add(subj.key);
+    buildList();
   });
 
   return a;
@@ -397,7 +480,7 @@ function renderNewFolderInput(menu, subj) {
 // ---- 文件夹卡片 ----
 function buildFolderCard(folder, members, names) {
   const card = document.createElement('div');
-  card.className = 'folder-card';
+  card.className = 'folder-card' + (batchMode ? ' batch-active' : '');
 
   const header = document.createElement('div');
   header.className = 'folder-header';
@@ -467,6 +550,8 @@ function buildFolderCard(folder, members, names) {
   deleteBtn.addEventListener('click', function(e) {
     e.preventDefault();
     e.stopPropagation();
+    const confirmMsg = '确定要删除文件夹"' + folder.name + '"吗？\n文件夹里的科目不会被删除，只会移回未分类列表。';
+    if (!window.confirm(confirmMsg)) return;
     const remaining = loadFolders().filter(function(f) { return f.id !== folder.id; });
     saveFolders(remaining);
     const map = loadSubjectFolderMap();
@@ -516,6 +601,109 @@ function startFolderRename(folder, nameSpan) {
   });
 }
 
+// ---- 批量整理：把多个已勾选科目一次性移动到某个文件夹 ----
+function applyBatchMove(folderId) {
+  const map = loadSubjectFolderMap();
+  batchSelected.forEach(function(key) { map[key] = folderId; });
+  saveSubjectFolderMap(map);
+  expandedFolders.add(folderId);
+  batchMode = false;
+  batchSelected.clear();
+  closeOpenMenu();
+  renderToolbar();
+  buildList();
+}
+
+function toggleBatchMoveMenu() {
+  if (batchSelected.size === 0) return;
+  closeOpenMenu();
+
+  const folders = loadFolders();
+  const menu = document.createElement('div');
+  menu.className = 'item-menu';
+  menu.addEventListener('click', function(e) { e.stopPropagation(); });
+
+  folders.forEach(function(f) {
+    const row = document.createElement('div');
+    row.className = 'menu-row';
+    row.textContent = '📁 ' + f.name;
+    row.addEventListener('click', function(e) {
+      e.preventDefault();
+      e.stopPropagation();
+      applyBatchMove(f.id);
+    });
+    menu.appendChild(row);
+  });
+
+  const newRow = document.createElement('div');
+  newRow.className = 'menu-row accent';
+  newRow.textContent = '➕ 新建文件夹...';
+  newRow.addEventListener('click', function(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    renderBatchNewFolderInput(menu);
+  });
+  menu.appendChild(newRow);
+
+  document.getElementById('batchBar').appendChild(menu);
+  openMenu = menu;
+}
+
+function renderBatchNewFolderInput(menu) {
+  menu.innerHTML = '';
+
+  const input = document.createElement('input');
+  input.type = 'text';
+  input.className = 'menu-input';
+  input.placeholder = '文件夹名称';
+
+  const btn = document.createElement('button');
+  btn.className = 'menu-confirm-btn';
+  btn.textContent = '创建';
+
+  menu.appendChild(input);
+  menu.appendChild(btn);
+
+  function commit() {
+    const name = input.value.trim();
+    if (!name) { closeOpenMenu(); return; }
+    const folders = loadFolders();
+    const newFolder = { id: 'f_' + Date.now(), name: name };
+    folders.push(newFolder);
+    saveFolders(folders);
+    applyBatchMove(newFolder.id);
+  }
+
+  input.addEventListener('click', function(e) { e.stopPropagation(); });
+  input.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') { e.preventDefault(); commit(); }
+    if (e.key === 'Escape') { closeOpenMenu(); }
+  });
+  btn.addEventListener('click', function(e) { e.preventDefault(); e.stopPropagation(); commit(); });
+  input.focus();
+}
+
+document.getElementById('batchToggleBtn').addEventListener('click', function() {
+  batchMode = !batchMode;
+  if (!batchMode) batchSelected.clear();
+  renderToolbar();
+  buildList();
+});
+
+document.getElementById('batchCancelBtn').addEventListener('click', function() {
+  batchMode = false;
+  batchSelected.clear();
+  renderToolbar();
+  buildList();
+});
+
+document.getElementById('batchMoveBtn').addEventListener('click', function(e) {
+  e.preventDefault();
+  e.stopPropagation();
+  toggleBatchMoveMenu();
+});
+
+renderToolbar();
 buildList();
 </script>
 </body>
