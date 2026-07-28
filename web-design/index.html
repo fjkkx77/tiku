@@ -495,6 +495,9 @@ function showScreen(name){
   if(name==="history") renderHistory();
 }
 document.querySelectorAll("nav button").forEach(b=>b.addEventListener("click", ()=>{
+  if(document.getElementById("screen-quiz").classList.contains("active")){
+    if(!confirm("你正在刷题中，确定要切换到其他页面吗？\n放心，当前进度已自动保存，可以稍后在「开始练习」页点击「继续上次练习」找回。")) return;
+  }
   if(b.dataset.screen==="home") renderResumeCard();
   showScreen(b.dataset.screen);
 }));
