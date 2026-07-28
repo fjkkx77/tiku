@@ -9,7 +9,12 @@
   *{box-sizing:border-box;}
   body{margin:0;font-family:"Microsoft YaHei",Segoe UI,Arial,sans-serif;background:var(--bg);color:var(--text);}
   .app{max-width:760px;margin:0 auto;min-height:100vh;padding:0 14px;}
-  header{background:linear-gradient(135deg,var(--primary),var(--primary-dark));color:#fff;padding:28px 16px;text-align:center;margin:0 -14px 16px;border-radius:0 0 16px 16px;position:relative;}
+  header{
+    background:linear-gradient(135deg,var(--primary),var(--primary-dark));color:#fff;
+    padding:24px 16px;margin:0 -14px 16px;border-radius:0 0 16px 16px;
+    display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:10px 14px;
+  }
+  .header-text{flex:1 1 auto;min-width:0;text-align:center;}
   header h1{margin:0;font-size:22px;}
   header p{margin:6px 0 0;font-size:13px;opacity:.85;}
   .list{display:flex;flex-direction:column;gap:12px;}
@@ -102,12 +107,12 @@
     padding:8px 10px;margin:0 4px 4px;font-size:13px;cursor:pointer;
   }
 
-  /* 批量整理：放在标题栏右下角，融入蓝色背景 */
+  /* 批量整理：跟标题文字共享标题栏这一行，空间不够会自动换到下一行，不会压字 */
   .toolbar-btn{
-    position:absolute;right:14px;bottom:12px;
+    flex-shrink:0;
     background:rgba(255,255,255,.18);border:1px solid rgba(255,255,255,.35);color:#fff;
     border-radius:8px;padding:9px 12px;font-size:12.5px;cursor:pointer;touch-action:manipulation;
-    backdrop-filter:blur(2px);min-height:36px;
+    backdrop-filter:blur(2px);min-height:36px;white-space:nowrap;
   }
   @media (hover:hover) and (pointer:fine) {
     .toolbar-btn:hover{background:rgba(255,255,255,.3);}
@@ -145,8 +150,10 @@
 <body>
 <div class="app">
   <header>
-    <h1>刷题合集</h1>
-    <p>各科目练习题网站入口 · 持续更新</p>
+    <div class="header-text">
+      <h1>刷题合集</h1>
+      <p>各科目练习题网站入口 · 持续更新</p>
+    </div>
     <button class="toolbar-btn" id="batchToggleBtn" type="button">📋 批量整理</button>
   </header>
   <div class="list" id="list"></div>
