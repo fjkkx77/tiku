@@ -92,15 +92,24 @@
   .menu-row:active{background:#f3f4f6;}
   .menu-row.accent{color:var(--primary);font-weight:bold;}
   .menu-row.danger{color:#ef4444;}
-  .item-menu .menu-input{
+  .menu-input{
     font-size:14px;border:1.5px solid var(--primary);border-radius:6px;
     padding:8px 10px;outline:none;margin:4px;font-family:inherit;
     color:var(--text);background:#fff;
   }
-  .item-menu .menu-confirm-btn{
+  .menu-confirm-btn{
     background:var(--primary);color:#fff;border:none;border-radius:6px;
     padding:8px 10px;margin:0 4px 4px;font-size:13px;cursor:pointer;
   }
+  .menu-confirm-btn.cancel{background:#9ca3af;}
+
+  /* 主界面顶部的"新建文件夹"入口，不依赖批量整理/单个科目菜单也能直接建空文件夹 */
+  .new-folder-row{margin:14px 0 2px;min-height:32px;display:flex;align-items:center;flex-wrap:wrap;gap:6px;}
+  .new-folder-link{
+    font-size:13px;color:var(--primary-dark);font-weight:bold;cursor:pointer;
+    display:inline-flex;align-items:center;gap:4px;padding:6px 4px;touch-action:manipulation;
+  }
+  .new-folder-row .menu-input{margin:0;flex:1;min-width:120px;max-width:220px;}
 
   /* 批量整理：钉在标题栏右下角，不参与文字排版，标题/副标题永远保持真正居中 */
   .toolbar-btn{
@@ -149,6 +158,7 @@
     <p>各科目练习题网站入口 · 持续更新</p>
     <button class="toolbar-btn" id="batchToggleBtn" type="button">📋 批量整理</button>
   </header>
+  <div class="new-folder-row" id="newFolderRow"></div>
   <div class="list" id="list"></div>
   <div class="empty-note">以后新增科目会持续加在这里</div>
 </div>
@@ -273,6 +283,63 @@ function buildList() {
   });
 
   renderBatchBar();
+  renderNewFolderRow();
+}
+
+// ---- 主界面顶部：新建空文件夹（不依赖单个科目菜单/批量整理，直接就能建） ----
+function renderNewFolderRow() {
+  const row = document.getElementById('newFolderRow');
+  if (!row) return;
+  row.innerHTML = '';
+  if (batchMode) { row.style.display = 'none'; return; }
+  row.style.display = '';
+  const link = document.createElement('span');
+  link.className = 'new-folder-link';
+  link.textContent = '➕ 新建文件夹';
+  link.addEventListener('click', startNewFolderRow);
+  row.appendChild(link);
+}
+
+function startNewFolderRow() {
+  const row = document.getElementById('newFolderRow');
+  row.innerHTML = '';
+
+  const input = document.createElement('input');
+  input.type = 'text';
+  input.className = 'menu-input';
+  input.placeholder = '文件夹名称';
+
+  const btn = document.createElement('button');
+  btn.className = 'menu-confirm-btn';
+  btn.textContent = '创建';
+
+  const cancelBtn = document.createElement('button');
+  cancelBtn.className = 'menu-confirm-btn cancel';
+  cancelBtn.textContent = '取消';
+
+  row.appendChild(input);
+  row.appendChild(btn);
+  row.appendChild(cancelBtn);
+  input.focus();
+
+  function commit() {
+    const name = input.value.trim();
+    if (name) {
+      const folders = loadFolders();
+      folders.push({ id: 'f_' + Date.now(), name: name });
+      saveFolders(folders);
+      buildList();
+    } else {
+      renderNewFolderRow();
+    }
+  }
+
+  input.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') { e.preventDefault(); commit(); }
+    if (e.key === 'Escape') { renderNewFolderRow(); }
+  });
+  btn.addEventListener('click', commit);
+  cancelBtn.addEventListener('click', function() { renderNewFolderRow(); });
 }
 
 function renderToolbar() {
