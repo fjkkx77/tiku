@@ -181,6 +181,8 @@ const SUBJECT_FOLDER_KEY = 'tiku_subject_folder';
 const expandedFolders = new Set();
 // 当前打开的移入文件夹下拉菜单
 let openMenu = null;
+// 当前正在编辑（重命名）的输入框，科目卡片/文件夹改名时用来判断"点击别处应该只退出编辑，不触发下面的跳转/其他动作"
+let activeRenameInput = null;
 // 批量整理模式状态
 let batchMode = false;
 const batchSelected = new Set();
@@ -225,6 +227,7 @@ document.addEventListener('click', function(e) {
 
 function buildList() {
   openMenu = null; // 即将整体重建列表，旧菜单节点会被一起清掉
+  activeRenameInput = null; // 旧的编辑框节点也会被一起清掉
   const names = loadNames();
   const folders = loadFolders();
   const subjectFolderMap = loadSubjectFolderMap();
@@ -340,6 +343,14 @@ function buildSubjectItem(subj, names) {
   });
 
   a.addEventListener('click', function(e) {
+    // 正在重命名/有移入文件夹菜单打开时，点击卡片（包括正在编辑的这张卡片自己）只应退出该状态，不跳转进题库
+    if (activeRenameInput || openMenu) {
+      e.preventDefault();
+      e.stopPropagation();
+      if (activeRenameInput) activeRenameInput.blur();
+      if (openMenu) closeOpenMenu();
+      return;
+    }
     if (!batchMode) return;
     e.preventDefault();
     if (batchSelected.has(subj.key)) batchSelected.delete(subj.key);
@@ -367,11 +378,13 @@ function startEdit(subj, nameSpan, renameBtn, resetBtn) {
   renameBtn.style.display = 'none';
   input.focus();
   input.select();
+  activeRenameInput = input;
 
   input.addEventListener('click', function(e) { e.stopPropagation(); });
   input.addEventListener('mousedown', function(e) { e.stopPropagation(); });
 
   function commit() {
+    if (activeRenameInput === input) activeRenameInput = null;
     const newName = input.value.trim();
     const finalName = newName || subj.defaultName;
     nameSpan.textContent = finalName;
@@ -600,10 +613,12 @@ function startFolderRename(folder, nameSpan) {
   nameSpan.replaceWith(input);
   input.focus();
   input.select();
+  activeRenameInput = input;
   input.addEventListener('click', function(e) { e.stopPropagation(); });
   input.addEventListener('mousedown', function(e) { e.stopPropagation(); });
 
   function commit() {
+    if (activeRenameInput === input) activeRenameInput = null;
     const newName = input.value.trim() || currentText;
     const folders = loadFolders();
     const target = folders.find(function(f) { return f.id === folder.id; });
