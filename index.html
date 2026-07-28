@@ -85,7 +85,7 @@
     background:#fff;border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,.18);
     min-width:170px;display:flex;flex-direction:column;padding:6px;
   }
-  .menu-row{padding:12px 14px;font-size:13px;cursor:pointer;border-radius:6px;touch-action:manipulation;}
+  .menu-row{padding:12px 14px;font-size:13px;cursor:pointer;border-radius:6px;touch-action:manipulation;color:var(--text);}
   @media (hover:hover) and (pointer:fine) {
     .menu-row:hover{background:#f3f4f6;}
   }
@@ -658,9 +658,12 @@ function startFolderRename(folder, nameSpan) {
 // ---- 批量整理：把多个已勾选科目一次性移动到某个文件夹 ----
 function applyBatchMove(folderId) {
   const map = loadSubjectFolderMap();
-  batchSelected.forEach(function(key) { map[key] = folderId; });
+  batchSelected.forEach(function(key) {
+    if (folderId) map[key] = folderId;
+    else delete map[key];
+  });
   saveSubjectFolderMap(map);
-  expandedFolders.add(folderId);
+  if (folderId) expandedFolders.add(folderId);
   batchMode = false;
   batchSelected.clear();
   closeOpenMenu();
@@ -673,6 +676,8 @@ function toggleBatchMoveMenu() {
   closeOpenMenu();
 
   const folders = loadFolders();
+  const map = loadSubjectFolderMap();
+  const anyInFolder = Array.from(batchSelected).some(function(key) { return !!map[key]; });
   const menu = document.createElement('div');
   menu.className = 'item-menu';
   menu.addEventListener('click', function(e) { e.stopPropagation(); });
@@ -688,6 +693,18 @@ function toggleBatchMoveMenu() {
     });
     menu.appendChild(row);
   });
+
+  if (anyInFolder) {
+    const outRow = document.createElement('div');
+    outRow.className = 'menu-row danger';
+    outRow.textContent = '📤 移出文件夹';
+    outRow.addEventListener('click', function(e) {
+      e.preventDefault();
+      e.stopPropagation();
+      applyBatchMove(null);
+    });
+    menu.appendChild(outRow);
+  }
 
   const newRow = document.createElement('div');
   newRow.className = 'menu-row accent';
