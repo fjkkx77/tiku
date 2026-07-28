@@ -733,10 +733,17 @@ function renderWrongbook(){
   const summary=document.getElementById("wrongbookSummary");
   const list=document.getElementById("wrongbookList");
   if(items.length===0){summary.innerHTML=`<div class="empty">暂无错题，继续保持！</div>`;list.innerHTML="";return;}
-  summary.innerHTML=`<div style="display:flex;justify-content:space-between;align-items:center;"><div>共 <b>${items.length}</b> 道错题</div><button class="btn" id="practiceWrongBtn">练习全部错题</button></div>`;
+  summary.innerHTML=`<div style="margin-bottom:10px;">共 <b>${items.length}</b> 道错题</div><div class="btn-row"><button class="btn" id="practiceWrongBtn">练习全部错题</button><button class="btn gray" id="clearWrongbookBtn">清空错题本</button></div>`;
   document.getElementById("practiceWrongBtn").onclick=()=>{
     const pool=items.map(it=>QUESTIONS.find(q=>q.id===it.id)).filter(Boolean);
     startQuiz(pool,"错题本练习");
+  };
+  document.getElementById("clearWrongbookBtn").onclick=()=>{
+    if(confirm("确定清空错题本吗？所有错题记录都会被清除，此操作不可恢复。")){
+      wrongbook={};
+      saveJSON(LS_WRONGBOOK,wrongbook);
+      renderWrongbook();
+    }
   };
   items.sort((a,b)=>b.lastWrongAt-a.lastWrongAt);
   list.innerHTML=items.map(it=>{
