@@ -43,7 +43,7 @@
   .resume-sub{font-size:13px;color:var(--muted);margin-bottom:10px;}
   .toplinks{display:flex;justify-content:space-between;margin-bottom:8px;font-size:13px;}
   .toplinks span{color:var(--primary-dark);cursor:pointer;}
-  .progress-wrap{display:flex;align-items:center;gap:10px;margin-bottom:10px;font-size:13px;color:var(--muted);}
+  .progress-wrap{display:flex;align-items:center;gap:10px;margin-bottom:10px;font-size:13px;color:var(--muted);flex-wrap:wrap;row-gap:6px;}
   .progress-bar{flex:1;height:7px;background:var(--border);border-radius:4px;overflow:hidden;}
   .progress-bar-fill{height:100%;background:var(--primary);transition:width .25s;}
   .q-tag{display:inline-block;background:#eef2ff;color:var(--primary-dark);font-size:12px;padding:2px 8px;border-radius:10px;margin-bottom:8px;}
@@ -186,7 +186,7 @@
       <div class="progress-wrap">
         <span id="quizProgressText">1/10</span>
         <div class="progress-bar"><div class="progress-bar-fill" id="quizProgressFill"></div></div>
-        <span id="quizScoreText">对0 错0</span>
+        <span id="quizScoreText">对0 错0 · 已答0 未答0</span>
         <span class="ov-link" id="overviewLink">题目总览</span>
       </div>
       <div class="card">
@@ -464,7 +464,8 @@ function renderQuestion(){
   document.getElementById("qTag").textContent = q.cat;
   document.getElementById("quizProgressText").textContent = `${session.idx+1}/${session.queue.length}`;
   document.getElementById("quizProgressFill").style.width = `${(session.idx/session.queue.length)*100}%`;
-  document.getElementById("quizScoreText").textContent = `对${stats.correct} 错${stats.wrong}`;
+  const answeredCnt = stats.correct + stats.wrong, unansweredCnt = session.queue.length - answeredCnt;
+  document.getElementById("quizScoreText").textContent = `对${stats.correct} 错${stats.wrong} · 已答${answeredCnt} 未答${unansweredCnt}`;
   document.getElementById("qText").textContent = q.text;
   document.getElementById("prevBtn").disabled = session.idx===0;
 
@@ -602,7 +603,8 @@ document.getElementById("checkBtn").onclick=()=>{
   document.getElementById("checkBtn").style.display="none";
   updateNextBtn();
   const stats = sessionStats();
-  document.getElementById("quizScoreText").textContent = `对${stats.correct} 错${stats.wrong}`;
+  const answeredCnt = stats.correct + stats.wrong, unansweredCnt = session.queue.length - answeredCnt;
+  document.getElementById("quizScoreText").textContent = `对${stats.correct} 错${stats.wrong} · 已答${answeredCnt} 未答${unansweredCnt}`;
   saveProgress();
 };
 

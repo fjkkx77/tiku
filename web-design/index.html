@@ -194,7 +194,7 @@
       <div class="progress-wrap">
         <span id="quizProgressText">1/10</span>
         <div class="progress-bar"><div class="progress-bar-fill" id="quizProgressFill"></div></div>
-        <span id="quizScoreText">对0 错0</span>
+        <span id="quizScoreText">对0 错0 · 已答0 未答0</span>
         <span class="mode-toggle" id="modeToggleBtn">⚡快速模式</span>
         <span class="ov-link" id="overviewLink">题目总览</span>
       </div>
@@ -592,7 +592,8 @@ function renderQuestion(){
   document.getElementById("qTag").textContent = q.cat;
   document.getElementById("quizProgressText").textContent = `${session.idx+1}/${session.queue.length}`;
   document.getElementById("quizProgressFill").style.width = `${(session.idx/session.queue.length)*100}%`;
-  document.getElementById("quizScoreText").textContent = `对${stats.correct} 错${stats.wrong}`;
+  const answeredCnt = stats.correct + stats.wrong, unansweredCnt = session.queue.length - answeredCnt;
+  document.getElementById("quizScoreText").textContent = `对${stats.correct} 错${stats.wrong} · 已答${answeredCnt} 未答${unansweredCnt}`;
   document.getElementById("qText").textContent = q.text;
   document.getElementById("prevBtn").disabled = session.idx===0;
 
@@ -738,7 +739,8 @@ document.getElementById("checkBtn").onclick=()=>{
   document.getElementById("checkBtn").style.display="none";
   updateNextBtn();
   const stats = sessionStats();
-  document.getElementById("quizScoreText").textContent = `对${stats.correct} 错${stats.wrong}`;
+  const answeredCnt = stats.correct + stats.wrong, unansweredCnt = session.queue.length - answeredCnt;
+  document.getElementById("quizScoreText").textContent = `对${stats.correct} 错${stats.wrong} · 已答${answeredCnt} 未答${unansweredCnt}`;
   saveProgress();
 };
 
