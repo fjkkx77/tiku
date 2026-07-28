@@ -183,6 +183,9 @@ const expandedFolders = new Set();
 let openMenu = null;
 // 当前正在编辑（重命名）的输入框，科目卡片/文件夹改名时用来判断"点击别处应该只退出编辑，不触发下面的跳转/其他动作"
 let activeRenameInput = null;
+// 点击输入框外部时，浏览器会在mousedown阶段就让输入框失焦(从而在click事件到达之前就已经把activeRenameInput清空、href也已恢复)，
+// 所以必须在mousedown阶段（比click更早）就记下"这一次点击应该被吞掉"，否则click阶段已经判断不出刚才是不是在重命名了
+let suppressRenameClick = false;
 // 批量整理模式状态
 let batchMode = false;
 const batchSelected = new Set();
@@ -224,6 +227,22 @@ document.addEventListener('click', function(e) {
     closeOpenMenu();
   }
 });
+
+// 用捕获阶段的mousedown先于失焦事件记下"点击的是外部"，再用捕获阶段的click吞掉这次点击，
+// 避免重命名输入框失焦提交之后，同一次点击继续被卡片的<a href>当成正常导航跳转进题库
+document.addEventListener('mousedown', function(e) {
+  if (activeRenameInput && !activeRenameInput.contains(e.target)) {
+    suppressRenameClick = true;
+  }
+}, true);
+
+document.addEventListener('click', function(e) {
+  if (suppressRenameClick) {
+    suppressRenameClick = false;
+    e.preventDefault();
+    e.stopPropagation();
+  }
+}, true);
 
 function buildList() {
   openMenu = null; // 即将整体重建列表，旧菜单节点会被一起清掉
