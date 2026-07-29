@@ -119,6 +119,15 @@
   .ov-item.wrong{background:#fef2f2;border-color:var(--red);color:#b91c1c;}
   .ov-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:49;display:none;}
   .ov-backdrop.show{display:block;}
+  .confirm-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:100;display:none;align-items:center;justify-content:center;padding:20px;}
+  .confirm-backdrop.show{display:flex;}
+  .confirm-box{background:#fff;border-radius:14px;max-width:320px;width:100%;box-shadow:0 10px 30px rgba(0,0,0,.25);overflow:hidden;animation:confirmPop .15s ease;}
+  @keyframes confirmPop{from{transform:scale(.92);opacity:0;}to{transform:scale(1);opacity:1;}}
+  .confirm-msg{padding:22px 20px 18px;font-size:15px;line-height:1.7;color:var(--text);white-space:pre-wrap;text-align:center;}
+  .confirm-btns{display:flex;border-top:1px solid var(--border);}
+  .confirm-btns button{flex:1;border:none;background:none;padding:13px 0;font-size:16px;cursor:pointer;}
+  .confirm-btns .confirm-cancel{color:var(--muted);border-right:1px solid var(--border);}
+  .confirm-btns .confirm-ok{color:var(--primary-dark);font-weight:bold;}
   #screen-overview.active{
     display:block;position:fixed;top:0;right:0;height:100vh;width:320px;max-width:88vw;
     background:#fff;z-index:50;overflow-y:auto;box-shadow:-6px 0 20px rgba(0,0,0,.18);
@@ -297,6 +306,17 @@
       </div>
     </section>
 
+    <!-- 自定义确认弹窗（替代原生confirm，保证跨设备/浏览器样式一致） -->
+    <div class="confirm-backdrop" id="confirmBackdrop">
+      <div class="confirm-box">
+        <div class="confirm-msg" id="confirmMsg"></div>
+        <div class="confirm-btns">
+          <button class="confirm-cancel" id="confirmCancelBtn">取消</button>
+          <button class="confirm-ok" id="confirmOkBtn">确定</button>
+        </div>
+      </div>
+    </div>
+
   </main>
 </div>
 
@@ -452,6 +472,26 @@ function gradeOrdered(userInputs, expectedList){
 function fmtTime(sec){ const m=Math.floor(sec/60), s=sec%60; return m+"分"+s+"秒"; }
 function fmtDate(ts){ const d=new Date(ts); return `${d.getMonth()+1}/${d.getDate()} ${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`; }
 function escapeHtml(s){ return (s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+
+function showConfirm(msg){
+  return new Promise(resolve=>{
+    document.getElementById("confirmMsg").textContent = msg;
+    const backdrop = document.getElementById("confirmBackdrop");
+    const okBtn = document.getElementById("confirmOkBtn");
+    const cancelBtn = document.getElementById("confirmCancelBtn");
+    backdrop.classList.add("show");
+    function cleanup(result){
+      backdrop.classList.remove("show");
+      okBtn.removeEventListener("click", onOk);
+      cancelBtn.removeEventListener("click", onCancel);
+      resolve(result);
+    }
+    function onOk(){ cleanup(true); }
+    function onCancel(){ cleanup(false); }
+    okBtn.addEventListener("click", onOk);
+    cancelBtn.addEventListener("click", onCancel);
+  });
+}
 // 词表框专用：只给英文单词/字母（含词表标题【...】）加粗，中文释义保持正常字重，
 // 避免"Microsoft YaHei"没有600字重、被浏览器就近取整成700 Bold，导致中文比英文更粗的视觉失衡。
 function styleWordlist(raw){
@@ -478,9 +518,9 @@ function showScreen(name){
   if(name==="wrongbook") renderWrongbook();
   if(name==="history") renderHistory();
 }
-document.querySelectorAll("nav button").forEach(b=>b.addEventListener("click", ()=>{
+document.querySelectorAll("nav button").forEach(b=>b.addEventListener("click", async ()=>{
   if(document.getElementById("screen-quiz").classList.contains("active")){
-    if(!confirm("你正在刷题中，确定要切换到其他页面吗？\n放心，当前进度已自动保存，可以稍后在「开始练习」页点击「继续上次练习」找回。")) return;
+    if(!await showConfirm("你正在刷题中，确定要切换到其他页面吗？\n放心，当前进度已自动保存，可以稍后在「开始练习」页点击「继续上次练习」找回。")) return;
   }
   if(b.dataset.screen==="home") renderResumeCard();
   showScreen(b.dataset.screen);
@@ -740,8 +780,8 @@ document.getElementById("prevBtn").onclick=()=>{
 document.getElementById("nextBtn").onclick=()=>{
   if(session.idx < session.queue.length-1){ session.idx++; renderQuestion(); }
 };
-document.getElementById("quitQuizBtn").onclick=()=>{
-  if(confirm("确定结束本次练习并查看结果吗？")) finishQuiz();
+document.getElementById("quitQuizBtn").onclick=async ()=>{
+  if(await showConfirm("确定结束本次练习并查看结果吗？")) finishQuiz();
 };
 
 function openOverview(){ renderOverview(); document.getElementById("screen-overview").classList.add("active"); document.getElementById("ovBackdrop").classList.add("show"); }
@@ -863,8 +903,8 @@ function renderWrongbook(){
     const pool = items.map(it=>QUESTIONS.find(q=>q.id===it.id)).filter(Boolean);
     startQuiz(pool, "错题本练习");
   };
-  document.getElementById("clearWrongbookBtn").onclick=()=>{
-    if(confirm("确定清空错题本吗？所有错题记录都会被清除，此操作不可恢复。")){
+  document.getElementById("clearWrongbookBtn").onclick=async ()=>{
+    if(await showConfirm("确定清空错题本吗？所有错题记录都会被清除，此操作不可恢复。")){
       wrongbook = {};
       saveJSON(LS_WRONGBOOK, wrongbook);
       renderWrongbook();
@@ -897,8 +937,8 @@ function renderHistory(){
     </div>
   `).join("");
 }
-document.getElementById("clearHistoryBtn").onclick=()=>{
-  if(confirm("确定清空所有练习记录吗？此操作不可恢复。")){ history=[]; saveJSON(LS_HISTORY, history); renderHistory(); }
+document.getElementById("clearHistoryBtn").onclick=async ()=>{
+  if(await showConfirm("确定清空所有练习记录吗？此操作不可恢复。")){ history=[]; saveJSON(LS_HISTORY, history); renderHistory(); }
 };
 
 /* ===================== 初始化 ===================== */
