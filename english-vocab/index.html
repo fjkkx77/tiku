@@ -46,7 +46,9 @@
   .progress-wrap{margin-bottom:10px;font-size:13px;color:var(--muted);}
   .progress-bar{width:100%;height:7px;background:var(--border);border-radius:4px;overflow:hidden;margin-bottom:8px;}
   .progress-bar-fill{height:100%;background:var(--primary);transition:width .25s;}
-  .progress-info{display:flex;align-items:center;gap:10px;flex-wrap:wrap;row-gap:6px;}
+  .progress-info{display:flex;align-items:center;flex-wrap:wrap;row-gap:6px;}
+  .progress-left{display:flex;align-items:center;gap:10px;flex-wrap:wrap;row-gap:6px;}
+  .progress-right{display:flex;align-items:center;gap:10px;margin-left:auto;flex-shrink:0;}
   .q-tag{display:inline-block;background:#eef2ff;color:var(--primary-dark);font-size:12px;padding:2px 8px;border-radius:10px;margin-bottom:8px;}
   .q-text{font-size:16px;line-height:1.8;margin-bottom:10px;white-space:pre-wrap;overflow-x:auto;word-break:break-word;}
   .q-code{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,"PingFang SC","Microsoft YaHei",sans-serif;font-size:15.5px;font-weight:400;letter-spacing:normal;color:#111827;background:#f8fafc;border:1px solid var(--border);border-radius:8px;padding:10px;margin:8px 0;line-height:1.75;white-space:pre-wrap;overflow-x:auto;}
@@ -187,9 +189,13 @@
       <div class="progress-wrap">
         <div class="progress-bar"><div class="progress-bar-fill" id="quizProgressFill"></div></div>
         <div class="progress-info">
-          <span id="quizProgressText">1/10</span>
-          <span id="quizScoreText">对0 错0 · 已答0 未答0</span>
-          <span class="ov-link" id="overviewLink">题目总览</span>
+          <div class="progress-left">
+            <span id="quizProgressText">1/10</span>
+            <span id="quizScoreText">对0 错0 · 已答0 未答0</span>
+          </div>
+          <div class="progress-right">
+            <span class="ov-link" id="overviewLink">题目总览</span>
+          </div>
         </div>
       </div>
       <div class="card">
