@@ -147,9 +147,44 @@
     header h1{font-size:17px;}
     .opt-row .opt-text{font-size:14px;}
   }
+  /* ===================== 下拉刷新 ===================== */
+  /* 先关掉浏览器自带的下拉刷新，否则会和自研的这套同时触发 */
+  html,body{overscroll-behavior-y:contain;}
+  #ptrIndicator{
+    position:fixed;top:calc(-44px + env(safe-area-inset-top,0px));left:50%;margin-left:-18px;
+    width:36px;height:36px;border-radius:50%;
+    background:#fff;box-shadow:0 4px 14px rgba(0,0,0,.18);
+    display:flex;align-items:center;justify-content:center;
+    color:var(--primary-dark);opacity:0;pointer-events:none;z-index:200;
+  }
+  /* 跟手过程中必须关掉过渡，只在松手回弹时开，否则拖泥带水 */
+  #ptrIndicator.ptr-animate{transition:transform .25s ease,opacity .25s ease;}
+  #ptrIndicator svg{width:20px;height:20px;}
+  #ptrIndicator .ptr-arrow{transition:transform .2s ease;}
+  #ptrIndicator.ptr-ready .ptr-arrow{transform:rotate(180deg);}
+  #ptrIndicator .ptr-spinner{display:none;}
+  #ptrIndicator.ptr-loading .ptr-arrow{display:none;}
+  #ptrIndicator.ptr-loading .ptr-spinner{display:block;animation:ptr-spin .8s linear infinite;}
+  @keyframes ptr-spin{to{transform:rotate(360deg);}}
+  #ptrTip{
+    position:fixed;top:calc(env(safe-area-inset-top,0px) + 14px);left:50%;transform:translateX(-50%);
+    max-width:80vw;text-align:center;
+    background:rgba(31,41,55,.92);color:#fff;font-size:13px;line-height:1.5;
+    padding:8px 14px;border-radius:999px;z-index:201;
+    opacity:0;pointer-events:none;transition:opacity .2s ease;
+  }
+  #ptrTip.show{opacity:1;}
+  /* 横向可滚的区域别把多余滑动传给浏览器，否则滑到尽头会触发「返回上一页」 */
+  .q-text,.q-code{overscroll-behavior-x:contain;}
+  #screen-overview.active{overscroll-behavior:contain;}
 </style>
 </head>
 <body>
+<div id="ptrIndicator">
+  <svg class="ptr-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="19" x2="12" y2="5"></line><polyline points="5 12 12 5 19 12"></polyline></svg>
+  <svg class="ptr-spinner" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M21 12a9 9 0 1 1-6.219-8.56"></path></svg>
+</div>
+<div id="ptrTip"></div>
 <div class="app">
   <div class="topbar">
   <header>
@@ -1035,6 +1070,105 @@ document.getElementById("clearHistoryBtn").onclick=async ()=>{
 
 /* ===================== 初始化 ===================== */
 renderCatList();
+/* ===================== 下拉刷新 ===================== */
+/* 配方：起手死区防误触 → 出死区后方向一锤定音 → 阈值按屏高推导（小屏上手指行程占比才不会偏重） */
+function setupPullToRefresh(){
+  const el = document.getElementById("ptrIndicator");
+  if(!el) return;
+  const DEADZONE = 16;    // 起手死区：按下瞬间手指会抖，这几像素不算下拉
+  const DAMPING  = 0.42;  // 阻尼系数：手指位移 × 它 = 指示器位移
+  const MAX_PULL = 120;   // 再往下拉指示器也不动了
+  function threshold(){ return Math.min(100, Math.max(56, window.innerHeight * 0.1)); }
+
+  let startX=0, startY=0, pulling=false, locked=false, distance=0, refreshing=false, tipTimer=null;
+
+  function isActive(id){ const n = document.getElementById(id); return !!n && n.classList.contains("active"); }
+  function hasShow(id){ const n = document.getElementById(id); return !!n && n.classList.contains("show"); }
+  // 有浮层、或正在答题时都不接管手势（以后每加一个浮层，都要回来这里补一条）
+  function blocked(){
+    if(isActive("screen-quiz")) return true;         // 答题中：刷新会把人踢回首页，还没提交的输入会丢
+    if(isActive("screen-overview")) return true;     // 题目总览抽屉自己要能滚
+    if(hasShow("ovBackdrop")) return true;
+    if(hasShow("confirmBackdrop")) return true;
+    return false;
+  }
+
+  function paint(d){
+    distance = d;
+    el.classList.remove("ptr-animate");
+    el.style.transform = "translateY(" + d + "px)";
+    el.style.opacity = Math.min(1, d / (threshold() * 0.8));
+    if(d >= threshold()) el.classList.add("ptr-ready"); else el.classList.remove("ptr-ready");
+  }
+  function reset(animate){
+    distance = 0;
+    if(animate) el.classList.add("ptr-animate"); else el.classList.remove("ptr-animate");
+    el.style.transform = "translateY(0)";
+    el.style.opacity = "0";
+    el.classList.remove("ptr-ready","ptr-loading");
+  }
+  function showTip(msg){
+    const tip = document.getElementById("ptrTip");
+    if(!tip) return;
+    tip.textContent = msg;
+    tip.classList.add("show");
+    clearTimeout(tipTimer);
+    tipTimer = setTimeout(function(){ tip.classList.remove("show"); }, 1800);
+  }
+  function doRefresh(){
+    // 页面没有 Service Worker：断网时 location.reload() 会把整个应用变成浏览器错误页，
+    // 所以离线时改成「重读本地数据 + 重绘」，视觉效果一样，也不会把人弄丢
+    if(navigator.onLine === false){
+      history = loadJSON(LS_HISTORY, []);
+      wrongbook = loadJSON(LS_WRONGBOOK, {});
+      renderCatList();
+      if(document.getElementById("screen-wrongbook").classList.contains("active")) renderWrongbook();
+      if(document.getElementById("screen-history").classList.contains("active")) renderHistory();
+      showTip("当前没有网络，已重新载入本地数据");
+      reset(true);
+      refreshing = false;
+      return;
+    }
+    try{ sessionStorage.setItem("ptr-fired", String(Date.now())); }catch(err){}
+    location.reload();
+  }
+
+  document.addEventListener("touchstart", function(e){
+    if(refreshing || blocked() || e.touches.length !== 1 || window.scrollY > 0){ pulling = false; return; }
+    startX = e.touches[0].clientX;
+    startY = e.touches[0].clientY;
+    pulling = true;
+    locked = false;
+  }, { passive:true });
+
+  document.addEventListener("touchmove", function(e){
+    if(!pulling || refreshing) return;
+    const dx = e.touches[0].clientX - startX;
+    const dy = e.touches[0].clientY - startY;
+    if(!locked){
+      if(Math.abs(dy) < DEADZONE && Math.abs(dx) < DEADZONE) return;             // 还在死区，继续观察
+      if(dy <= 0 || Math.abs(dx) > Math.abs(dy)){ pulling = false; return; }     // 上滑/横滑，这一次整个弃权
+      locked = true;
+    }
+    // 下拉到一半改主意往上滑：把控制权交还给页面，否则页面会卡住不动
+    if(dy <= 0 || window.scrollY > 0){ pulling = false; locked = false; reset(true); return; }
+    paint(Math.min((dy - DEADZONE) * DAMPING, MAX_PULL));
+    e.preventDefault();
+  }, { passive:false });
+
+  document.addEventListener("touchend", function(){
+    if(!pulling || !locked || refreshing){ pulling = false; locked = false; return; }
+    pulling = false;
+    locked = false;
+    if(distance < threshold()){ reset(true); return; }
+    refreshing = true;
+    el.classList.add("ptr-animate","ptr-loading");
+    el.style.transform = "translateY(" + threshold() + "px)";
+    // 留一下 spinner 再动手，否则直接白屏像卡死
+    setTimeout(doRefresh, 260);
+  }, { passive:true });
+}
+setupPullToRefresh();
 </script>
 </body>
 </html>
