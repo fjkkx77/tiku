@@ -982,22 +982,38 @@ function setupPullToRefresh(){
 }
 setupPullToRefresh();
 /* ===================== 左右滑动切题 ===================== */
-/* 手指往左划 = 下一题，往右划 = 上一题；卡片跟手，松手按距离或甩动速度决定翻不翻。
-   思路和下拉刷新同一套：起手死区防误触 → 出死区那一刻按方向一锤定音，判完这次手势就归一方。
-   翻页直接调「上一题/下一题」按钮自己的 onclick，按钮逻辑以后怎么改，滑动都跟着走。 */
+/* 手指往左划 = 下一题，往右划 = 上一题。
+   手感沿用《学期课表》日期面板那套验证过的物理（Apple《Designing Fluid Interfaces》WWDC18 session 803）：
+   ① 拖动时同步写 transform，1:1 跟手（不经 requestAnimationFrame，排队到下一帧就慢半拍）；到头用 iOS 橡皮筋
+   ② 松手用"动量投影"决定翻不翻：位置 + 速度×499 过了半张卡就翻（快甩短距离也翻，慢拖要过半）
+   ③ 落位动画继承松手那一刻的速度：弹簧曲线采成关键帧交给 Web Animations 播，留在合成器上
+   ④ 动画随时可被抓住：新手势从卡片此刻的真实位置接着走，绝不吞掉（旧版动画期间会丢手势）
+   翻页时把旧题克隆成一张"快照"顺着手势滑走，新题紧跟在它后面进来，看上去是一整条轨道。
+   不在拖动途中预渲染下一题：那要调用 renderQuestion，会冲掉当前题还没提交的选择和输入。
+   翻页调用「上一题/下一题」按钮自己的 onclick，行为与点按钮完全一致。 */
 function setupSwipeNav(){
   const screen = document.getElementById("screen-quiz");
   const card = screen && screen.querySelector(".card");
   if(!card) return;
-  const DEADZONE = 10;     // 横向没有滚动惯性的起手抖动，比下拉刷新的 16 小，要跟手
-  const EDGE = 28;         // 屏幕左右边缘留给浏览器的前进/返回手势
-  const LONGPRESS = 500;   // 按住这么久才开始动 = 想选文字，不是翻页（iOS 长按也是这个量级）
-  const FLICK_V = 0.5;     // 快甩：最近 100ms 平均速度（px/ms），配合最小位移 30px
-  const RUBBER = 0.3;      // 到头了（第一题/最后一题）继续拉的阻尼
-  function threshold(){ return Math.min(120, Math.max(56, card.offsetWidth * 0.22)); }  // 按卡片宽度推导，不同屏宽行程占比一致
-  const reduceMotion = window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const LOCK_DIST2 = 25;     // 动够 5px（这里是平方）才判方向——Swiper 的 threshold
+  const TOUCH_ANGLE = 45;    // 与水平方向夹角 ≤45° 才算横滑——Swiper 的 touchAngle
+  const EDGE = 28;           // 屏幕左右边缘留给浏览器的前进/返回手势
+  const LONGPRESS = 500;     // 按住这么久才开始动 = 想选文字
+  const PROJECT = 0.998 / (1 - 0.998);   // UIScrollView 默认减速率 0.998 → 速度(px/ms) × 499 = 惯性还能走多远
+  const GAP = 16;            // 旧题快照和新题之间的缝
+  const SPRING_RESPONSE = 0.4, SPRING_DAMPING = 0.86;   // SwiftUI .snappy 那一档
+  const SPRING_HZ = 240;     // 关键帧采样率：按 60Hz 采，120Hz 屏上就只剩 60 次/秒的速度分辨率
+  const SPRING_MAX_MS = 620, MAX_OVERSHOOT = 14;        // 过冲按像素封顶，不按比例
+  const reduceMQ = window.matchMedia ? matchMedia("(prefers-reduced-motion: reduce)") : null;
 
-  let startX=0, startY=0, startT=0, tracking=false, locked=false, animating=false, dx=0, samples=[], guardUntil=0;
+  // 快照要叠在卡片原位上，得有个定位参照；卡片滑出屏幕时也不能撑出横向滚动条
+  if(getComputedStyle(screen).position === "static") screen.style.position = "relative";
+  const app = document.querySelector(".app");
+  if(app) app.style.overflowX = "clip";
+
+  let cardX = 0, liveAnim = null, pending = false;
+  let tracking = false, locked = false, startX = 0, startY = 0, startT = 0;
+  let baseX = 0, pos = 0, W = 1, lastX = 0, lastT = 0, vel = 0, guardUntil = 0;
 
   function isActive(id){ const n = document.getElementById(id); return !!n && n.classList.contains("active"); }
   function hasShow(id){ const n = document.getElementById(id); return !!n && n.classList.contains("show"); }
@@ -1015,84 +1031,180 @@ function setupSwipeNav(){
       if(n.scrollWidth <= n.clientWidth + 1) continue;
       const ox = getComputedStyle(n).overflowX;
       if(ox !== "auto" && ox !== "scroll") continue;
-      if(d > 0 && n.scrollLeft + n.clientWidth < n.scrollWidth - 1) return true;  // 往左划，内容还能往右滚
+      if(d > 0 && n.scrollLeft + n.clientWidth < n.scrollWidth - 1) return true;
       if(d < 0 && n.scrollLeft > 1) return true;
     }
     return false;
   }
-  function paint(x, animate, ms){
-    card.style.transition = animate ? "transform " + ms + "ms cubic-bezier(.2,.8,.2,1)" : "none";
-    card.style.transform = x ? "translate3d(" + x + "px,0,0)" : "";
-  }
-  function settle(){ card.style.transition = ""; card.style.transform = ""; card.style.willChange = ""; animating = false; }
+  function reduced(){ return !!(reduceMQ && reduceMQ.matches); }
+  function isHorizontal(dx, dy){ return Math.atan2(Math.abs(dy), Math.abs(dx)) * 180 / Math.PI <= TOUCH_ANGLE; }
+  // iOS 橡皮筋：b = (1 - 1/(x·c/d + 1))·d，c = 0.55。越拉越紧，而不是一上手就打固定折扣
+  function rubber(off, dim){ const x = Math.abs(off), b = (1 - 1 / ((x * 0.55 / dim) + 1)) * dim; return off < 0 ? -b : b; }
+  function setX(el, px){ el.style.transform = px ? "translate3d(" + px + "px,0,0)" : ""; }
+  // 卡片此刻在屏幕上的真实位置。没在动画时直接用记着的值（getComputedStyle 会强制刷样式，别放在热路径上）
+  function liveX(){ return liveAnim ? new DOMMatrixReadOnly(getComputedStyle(card).transform).m41 : cardX; }
 
-  function go(d){
+  // 带初速度的弹簧，采样成 0→1 的进度序列。distance = 起点 − 终点（px），velocity = 松手速度（px/ms）
+  function springPts(distance, velocity){
+    const w0 = 2 * Math.PI / SPRING_RESPONSE, z = SPRING_DAMPING, wd = w0 * Math.sqrt(1 - z * z), step = 1 / SPRING_HZ;
+    const sample = function(v0){
+      const B = (v0 + z * w0) / wd, out = [];
+      for(let i = 0; ; i++){
+        const t = i * step;
+        if(t >= SPRING_MAX_MS / 1000) break;
+        const u = Math.exp(-z * w0 * t) * (Math.cos(wd * t) + B * Math.sin(wd * t));
+        out.push(1 - u);
+        if(t > 0.1 && Math.abs(u) < 0.002) break;
+      }
+      return out;
+    };
+    const over = function(a){ return (Math.max.apply(null, a) - 1) * Math.abs(distance); };
+    const v0 = distance ? (velocity * 1000) / distance : 0;
+    let pts = sample(v0);
+    if(over(pts) > MAX_OVERSHOOT){           // 0 速度一定不过冲，二分找一个刚好不超的初速度
+      let lo = 0, hi = v0;
+      for(let i = 0; i < 8; i++){ const mid = (lo + hi) / 2, c = sample(mid); if(over(c) > MAX_OVERSHOOT) hi = mid; else { lo = mid; pts = c; } }
+    }
+    pts[pts.length - 1] = 1;                 // 最后一点钉死，保证精确落位
+    return { ms: Math.round(Math.max(120, (pts.length - 1) * step * 1000)), pts: pts };
+  }
+  // 用 Web Animations 逐关键帧播（每段普通 linear）：带点的 CSS linear() 会让 Safari 把动画踢回主线程
+  function animateX(el, from, to, sp, done){
+    setX(el, to);
+    if(!el.animate){                         // 老浏览器：退回 CSS 过渡
+      el.style.transition = "transform " + sp.ms + "ms cubic-bezier(.05,.7,.1,1)";
+      const t = setTimeout(function(){ el.style.transition = ""; if(done) done(); }, sp.ms + 20);
+      return { cancel: function(){ clearTimeout(t); el.style.transition = ""; } };
+    }
+    const a = el.animate(sp.pts.map(function(p, i){
+      return { offset: i / (sp.pts.length - 1), transform: "translate3d(" + (from + (to - from) * p) + "px,0,0)" };
+    }), { duration: sp.ms, easing: "linear", fill: "both" });
+    a.onfinish = function(){ a.cancel(); if(done) done(); };
+    return a;
+  }
+  // 把卡片正在跑的动画就地停住，停在当前视觉位置（Apple：动画要从屏幕上的真实位置接着走）
+  function stopLive(){
+    if(!liveAnim) return cardX;
+    const x = liveX();
+    liveAnim.cancel(); liveAnim = null;
+    cardX = x; setX(card, x);
+    return x;
+  }
+  function tidy(){ if(!liveAnim && !locked){ card.style.willChange = ""; } }
+  function settleLive(from, v){
+    stopLive();
+    cardX = 0;
+    if(reduced() || !from){ setX(card, 0); tidy(); return; }
+    card.style.willChange = "transform";
+    liveAnim = animateX(card, from, 0, springPts(from, v), function(){ liveAnim = null; tidy(); });
+  }
+  // 旧题快照：克隆当前卡片，叠在原位，去掉 id（不能有重复 id）和交互
+  function makeGhost(){
+    const g = card.cloneNode(true);
+    const src = card.querySelectorAll("input,textarea,select"), dst = g.querySelectorAll("input,textarea,select");
+    src.forEach(function(el, i){ if(dst[i]) dst[i].value = el.value; });   // 敲的字是 value 属性，克隆带不过去
+    g.removeAttribute("id");
+    g.querySelectorAll("[id]").forEach(function(el){ el.removeAttribute("id"); });
+    g.setAttribute("aria-hidden", "true");
+    g.inert = true;
+    g.style.position = "absolute"; g.style.margin = "0"; g.style.boxSizing = "border-box"; g.style.pointerEvents = "none";
+    g.style.left = card.offsetLeft + "px"; g.style.top = card.offsetTop + "px"; g.style.width = card.offsetWidth + "px";
+    g.style.willChange = "transform";
+    card.parentNode.insertBefore(g, card.nextSibling);  // 放在卡片后面：别让 querySelector(".card") 先找到它
+    return g;
+  }
+  // 换题（renderQuestion + 排版）是整个翻页里最贵的一步：6× 降频实测约 43ms。
+  // 所以松手这一帧只做轻活——拍快照、让旧题立刻带着手指的速度滑走（合成器上跑，主线程卡住它也照样动），
+  // 下一帧再换题；新题的动画从"快照已经走了多久"那一刻接上，两者仍是同一条轨道。
+  // 先放后换：要是先换题再起动画，手指一抬卡片会先顿一下，速度交接就断了（第一版就是这样）
+  function commit(d, from, v){
+    const w = card.offsetWidth + GAP;
     const btn = document.getElementById(d > 0 ? "nextBtn" : "prevBtn");
-    if(reduceMotion){ settle(); btn.onclick(); return; }
-    animating = true;
-    const w = card.offsetWidth;
-    paint(-d * w, true, 160);                       // 旧题顺着手势滑出去
-    setTimeout(function(){
-      btn.onclick();                                 // 换题（和点按钮完全一样）
-      paint(d * w * 0.35, false);                    // 新题从另一侧一点点的位置进来
-      void card.offsetWidth;
-      paint(0, true, 240);
-      setTimeout(settle, 250);
-    }, 160);
+    if(reduced()){ cardX = 0; setX(card, 0); tidy(); btn.onclick(); return; }
+    const sp = springPts(from + d * w, v);   // 旧题和新题同一条弹簧、同一个起速
+    const ghost = makeGhost();
+    const t0 = performance.now();
+    const ga = animateX(ghost, from, -d * w, sp, function(){ ghost.remove(); });
+    // 卡片本体此刻还显示着旧题：先藏起来挪到快照后面，换好题再现身。
+    // 藏着的输入框也不会被 renderQuestion 自动聚焦，划进填空题时不会误弹键盘
+    card.style.visibility = "hidden";
+    cardX = 0; setX(card, from + d * w);
+    pending = true;
+    const swap = function(){
+      pending = false;
+      try { btn.onclick(); }                 // 换题：和点按钮完全一样
+      finally { card.style.visibility = ""; }
+      card.style.willChange = "transform";
+      liveAnim = animateX(card, from + d * w, 0, sp, function(){ liveAnim = null; tidy(); });
+      // 和快照钉在同一个时钟上：新题渲染再慢，一出现就在它该在的位置（按"已过多久"对齐的话，渲染慢了会落后一截）
+      const la = liveAnim;
+      if(la.currentTime !== undefined) la.currentTime = Math.min(sp.ms, performance.now() - t0);   // 先按已过多久估一个
+      if(ga.ready) ga.ready.then(function(){ if(liveAnim === la && ga.startTime != null) la.startTime = ga.startTime; });  // 快照起点一确定就精确对齐
+    };
+    // 必须等"这一帧画完、快照动画已经交给合成器"再换题。
+    // 光用 requestAnimationFrame 不行：rAF 回调排在这一帧提交之前，换题会插在快照开动之前（实测踩过）；
+    // ready 在 Chrome 上够用，但 Safari 的 ready 可能早于真正提交。rAF 里再套 setTimeout(0) = 这一帧画完之后，两边都稳
+    requestAnimationFrame(function(){ setTimeout(swap, 0); });
   }
 
   screen.addEventListener("touchstart", function(e){
-    tracking = false;
-    if(animating || blocked() || e.touches.length !== 1) return;
+    tracking = false; locked = false;
+    if(pending || blocked() || e.touches.length !== 1) return;
     const t = e.touches[0];
-    if(t.clientX < EDGE || t.clientX > window.innerWidth - EDGE) return;
+    if(t.clientX < EDGE || t.clientX > document.documentElement.clientWidth - EDGE) return;
     if(e.target.closest("input, textarea, select, [contenteditable='true']")) return;  // 在输入框里起手是想打字/挪光标
-    startX = t.clientX; startY = t.clientY; startT = Date.now();
-    dx = 0; samples = [{ t: startT, x: startX }];
-    tracking = true; locked = false;
+    baseX = stopLive();                       // 动画半路被抓住：就地停住，从这儿接着拖
+    pos = baseX;
+    startX = lastX = t.clientX; startY = t.clientY;
+    startT = lastT = e.timeStamp || Date.now();
+    vel = 0;
+    W = card.offsetWidth + GAP;
+    tracking = true;
   }, { passive:true });
 
   screen.addEventListener("touchmove", function(e){
     if(!tracking) return;
-    if(e.touches.length !== 1){ tracking = false; if(locked){ locked = false; paint(0, true, 220); } return; }
-    const t = e.touches[0];
-    const mx = t.clientX - startX, my = t.clientY - startY;
+    if(e.touches.length !== 1){ tracking = false; locked = false; settleLive(liveX(), 0); return; }
+    const t = e.touches[0], mx = t.clientX - startX, my = t.clientY - startY;
     if(!locked){
-      if(Math.abs(mx) < DEADZONE && Math.abs(my) < DEADZONE){
-        // 死区里就要拦住，否则 iOS 一旦开始自己处理这次触摸，后面的 touchmove 就拦不住了
+      if(mx * mx + my * my < LOCK_DIST2){
+        // 死区里就要拦：iOS 一旦开始自己处理这次触摸，后面的 touchmove 就拦不住了
         if(Math.abs(mx) > Math.abs(my) && e.cancelable) e.preventDefault();
         return;
       }
-      if(Math.abs(mx) <= Math.abs(my)){ tracking = false; return; }          // 纵向为主：交给页面滚动
-      if(Date.now() - startT > LONGPRESS){ tracking = false; return; }        // 按了半天才动：在选文字
-      if(scrollerWants(e.target, mx < 0 ? 1 : -1)){ tracking = false; return; }
+      const now0 = e.timeStamp || Date.now();
+      if(!isHorizontal(mx, my) || now0 - startT > LONGPRESS || scrollerWants(e.target, mx < 0 ? 1 : -1)){
+        tracking = false;                     // 竖划/选文字/让内容自己滚：整次交出去
+        if(cardX) settleLive(cardX, 0);       // 如果是从半路抓住的，别把卡片晾在半路
+        return;
+      }
       locked = true;
       card.style.willChange = "transform";
     }
     if(e.cancelable) e.preventDefault();
-    const d = mx < 0 ? 1 : -1;
-    dx = canGo(d) ? mx : mx * RUBBER;                                          // 到头了：带阻力，松手弹回
-    const now = Date.now();
-    samples.push({ t: now, x: t.clientX });
-    while(samples.length > 2 && now - samples[0].t > 100) samples.shift();
-    paint(dx, false);
+    // 速度只看最近一小段并做平滑：整段平均会被"先慢后甩"拉低，单点又太抖
+    const now = e.timeStamp || Date.now(), dt = now - lastT;
+    if(dt > 0){ vel = vel * 0.4 + ((t.clientX - lastX) / dt) * 0.6; lastX = t.clientX; lastT = now; }
+    let p = baseX + mx;
+    if(p < 0 && !canGo(1)) p = rubber(p, W);
+    else if(p > 0 && !canGo(-1)) p = rubber(p, W);
+    pos = p; cardX = p;
+    setX(card, p);                            // 同步写，不排队到下一帧
   }, { passive:false });
 
   function end(e){
-    if(!tracking){ return; }
+    if(!tracking) return;
     tracking = false;
-    if(!locked) return;
+    if(!locked){ if(cardX) settleLive(cardX, 0); return; }   // 半路抓住后只是轻点了一下：回到原位
     locked = false;
     guardUntil = Date.now() + 350;
-    if(e && e.type === "touchcancel"){ paint(0, true, 220); setTimeout(function(){ if(!tracking && !animating) settle(); }, 230); return; }  // 被系统打断（来电、手势）只弹回，不翻页
-    const d = dx < 0 ? 1 : -1;
-    const last = samples[samples.length - 1], first = samples[0];
-    // 停住再松手不算甩：最后一次移动距松手超过 100ms，速度记 0
-    const v = (Date.now() - last.t > 100 || last.t === first.t) ? 0 : Math.abs(last.x - first.x) / (last.t - first.t);
-    const far = Math.abs(dx) >= threshold();
-    const flick = v > FLICK_V && Math.abs(dx) > 30 && (last.x - first.x) * dx > 0;  // 甩的方向要和整体方向一致
-    if(canGo(d) && (far || flick)) go(d);
-    else { paint(0, true, 220); setTimeout(function(){ if(!tracking && !animating) settle(); }, 230); }
+    const now = (e && e.timeStamp) || Date.now();
+    if(now - lastT > 100) vel = 0;            // 停住再松手不算甩
+    if(e && e.type === "touchcancel"){ settleLive(pos, 0); return; }   // 被系统打断（来电、手势）只回位
+    const projected = pos + vel * PROJECT;
+    const d = projected < 0 ? 1 : -1;
+    if(canGo(d) && Math.abs(projected) > W / 2) commit(d, pos, vel);
+    else settleLive(pos, vel);
   }
   screen.addEventListener("touchend", end, { passive:true });
   screen.addEventListener("touchcancel", end, { passive:true });
