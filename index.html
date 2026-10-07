@@ -149,6 +149,18 @@
   }
   .batch-bar-btn.cancel{background:transparent;color:#fff;border:1px solid rgba(255,255,255,.4);}
   .batch-bar .item-menu{position:absolute;left:16px;right:16px;bottom:56px;top:auto;min-width:0;}
+  .batch-bar-btn:disabled{opacity:.45;cursor:not-allowed;}
+
+  /* 自定义确认弹窗（和科目站同款）：原生 confirm() 的样子由浏览器/微信内核决定，各设备不一致 */
+  .confirm-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:100;display:none;align-items:center;justify-content:center;padding:20px;}
+  .confirm-backdrop.show{display:flex;}
+  .confirm-box{background:#fff;border-radius:14px;max-width:320px;width:100%;box-shadow:0 10px 30px rgba(0,0,0,.25);overflow:hidden;animation:confirmPop .15s ease;}
+  @keyframes confirmPop{from{transform:scale(.92);opacity:0;}to{transform:scale(1);opacity:1;}}
+  .confirm-msg{padding:22px 20px 18px;font-size:15px;line-height:1.7;color:var(--text);white-space:pre-wrap;text-align:center;}
+  .confirm-btns{display:flex;border-top:1px solid var(--border);}
+  .confirm-btns button{flex:1;border:none;background:none;padding:13px 0;font-size:16px;cursor:pointer;}
+  .confirm-btns .confirm-cancel{color:var(--muted);border-right:1px solid var(--border);}
+  .confirm-btns .confirm-ok{color:var(--primary-dark);font-weight:bold;}
   /* ===================== 下拉刷新 ===================== */
   /* 先关掉浏览器自带的下拉刷新，否则会和自研的这套同时触发 */
   html,body{overscroll-behavior-y:contain;}
@@ -170,7 +182,7 @@
   @keyframes ptr-spin{to{transform:rotate(360deg);}}
   #ptrTip{
     position:fixed;top:calc(env(safe-area-inset-top,0px) + 14px);left:50%;transform:translateX(-50%);
-    max-width:80vw;text-align:center;
+    width:max-content;max-width:80vw;text-align:center;
     background:rgba(31,41,55,.92);color:#fff;font-size:13px;line-height:1.5;
     padding:8px 14px;border-radius:999px;z-index:201;
     opacity:0;pointer-events:none;transition:opacity .2s ease;
@@ -200,6 +212,16 @@
   <div style="display:flex;gap:8px;">
     <button class="batch-bar-btn" id="batchMoveBtn" type="button">移动到文件夹 ▾</button>
     <button class="batch-bar-btn cancel" id="batchCancelBtn" type="button">取消</button>
+  </div>
+</div>
+
+<div class="confirm-backdrop" id="confirmBackdrop">
+  <div class="confirm-box">
+    <div class="confirm-msg" id="confirmMsg"></div>
+    <div class="confirm-btns">
+      <button class="confirm-cancel" id="confirmCancelBtn" type="button">取消</button>
+      <button class="confirm-ok" id="confirmOkBtn" type="button">确定</button>
+    </div>
   </div>
 </div>
 
@@ -257,6 +279,26 @@ function loadSubjectFolderMap() {
 }
 function saveSubjectFolderMap(map) {
   localStorage.setItem(SUBJECT_FOLDER_KEY, JSON.stringify(map));
+}
+
+function showConfirm(msg) {
+  return new Promise(function(resolve) {
+    document.getElementById('confirmMsg').textContent = msg;
+    const backdrop = document.getElementById('confirmBackdrop');
+    const okBtn = document.getElementById('confirmOkBtn');
+    const cancelBtn = document.getElementById('confirmCancelBtn');
+    backdrop.classList.add('show');
+    function cleanup(result) {
+      backdrop.classList.remove('show');
+      okBtn.removeEventListener('click', onOk);
+      cancelBtn.removeEventListener('click', onCancel);
+      resolve(result);
+    }
+    function onOk() { cleanup(true); }
+    function onCancel() { cleanup(false); }
+    okBtn.addEventListener('click', onOk);
+    cancelBtn.addEventListener('click', onCancel);
+  });
 }
 
 function closeOpenMenu() {
@@ -386,6 +428,7 @@ function renderBatchBar() {
   }
   bar.style.display = 'flex';
   document.getElementById('batchCount').textContent = '已选 ' + batchSelected.size + ' 项';
+  document.getElementById('batchMoveBtn').disabled = batchSelected.size === 0;
 }
 
 function buildSubjectItem(subj, names) {
@@ -698,11 +741,11 @@ function buildFolderCard(folder, members, names) {
     startFolderRename(folder, nameSpan);
   });
 
-  deleteBtn.addEventListener('click', function(e) {
+  deleteBtn.addEventListener('click', async function(e) {
     e.preventDefault();
     e.stopPropagation();
     const confirmMsg = '确定要删除文件夹"' + folder.name + '"吗？\n文件夹里的科目不会被删除，只会移回未分类列表。';
-    if (!window.confirm(confirmMsg)) return;
+    if (!await showConfirm(confirmMsg)) return;
     const remaining = loadFolders().filter(function(f) { return f.id !== folder.id; });
     saveFolders(remaining);
     const map = loadSubjectFolderMap();
@@ -892,6 +935,7 @@ function setupPullToRefresh(){
     if(document.querySelector(".item-menu")) return true;   // 展开着的「移入文件夹」下拉菜单
     if(activeRenameInput) return true;                      // 正在重命名科目/文件夹
     if(batchMode) return true;                              // 批量整理模式：底部操作条浮着，且刷新会丢掉勾选
+    if(document.getElementById("confirmBackdrop").classList.contains("show")) return true;   // 确认弹窗打开时
     return false;
   }
 
