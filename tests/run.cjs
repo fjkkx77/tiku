@@ -144,6 +144,13 @@ function serve() {
       ${start}Q.session.idx=4;Q.renderQuestion();q=Q.session.queue[4];Q.pickOption(Object.keys(q.options).find(L=>L!==q.correct));Q.finishQuiz();f.remove();
       return {wb:Object.keys(JSON.parse(localStorage.getItem("webquiz_wrongbook"))).sort(),h:JSON.parse(localStorage.getItem("webquiz_history")).length};})()`);
     ok(JSON.stringify(r.wb) === '["q0","q4"]' && r.h === 2, '同一科目开两个页面：各自记的错题和记录都在，不互相冲掉', r);
+    // 页面被冻住期间（按返回恢复出来的旧页面）别的页面写了存储，这一页收不到通知：靠"写之前先重读"兜住
+    await fresh('web-design/');
+    r = await c.ev(`(async()=>{${start}localStorage.setItem("webquiz_wrongbook",JSON.stringify({q9:{cat:"x",type:"mcq",text:"别的页面记的",wrongCount:1,correctStreak:0,lastWrongAt:1}}));
+      localStorage.setItem("webquiz_history",JSON.stringify([{date:7,scope:"别的页面",total:1,correct:0,wrong:1,durationSec:1}]));
+      const q=Q.session.queue[0];Q.pickOption(Object.keys(q.options).find(L=>L!==q.correct));Q.finishQuiz();
+      return {wb:Object.keys(JSON.parse(localStorage.getItem("webquiz_wrongbook"))).sort(),h:JSON.parse(localStorage.getItem("webquiz_history")).length};})()`);
+    ok(JSON.stringify(r.wb) === '["q0","q9"]' && r.h === 2, '写错题本和记录之前先重读存储：别处刚记的不会被这一页的旧数据冲掉', r);
     // 旧页面不覆盖更新的进度：别的页面把这场练习接着做了，这一页回到前台就让位
     await fresh('mobile-app/');
     r = await c.ev(`(async()=>{${W8}${start}Q.pickOption(Q.session.queue[0].correct);await w(20);const s=JSON.parse(localStorage.getItem("mobileappquiz_inprogress"));
@@ -203,6 +210,39 @@ function serve() {
     r = await c.ev(`(async()=>{${W8}${start}Q.pickOption(Q.session.queue[0].correct);await w(20);Q.finishQuiz();Q.showScreen("home");document.querySelector('nav button[data-screen="home"]').click();await w(30);
       const txt=document.querySelector(".cat-count").textContent;document.getElementById("onlyNew").checked=true;document.getElementById("startBtn").click();await w(60);return {txt,n:Q.session.queue.length};})()`);
     ok(/做过1/.test(r.txt) && r.n === 9, '首页显示每章做过几题；「只练没做过的题」跳过已做的', r);
+    // 版本号盖了没有（改了共用文件却没跑 node tools/stamp.cjs，手机 10 分钟内会拿到旧文件）
+    { let stale = false; try { require('child_process').execFileSync('node', [path.join(ROOT, 'tools', 'stamp.cjs'), '--check'], { stdio: 'ignore' }); } catch (e) { stale = true; } ok(!stale, '科目页里的版本号和共用文件对得上（对不上就跑 node tools/stamp.cjs）'); }
+    /* ----- 汇总首页 ----- */
+    await c.goto(BASE); await c.ev('localStorage.clear()'); await c.goto(BASE);
+    r = await c.ev(`(async()=>{const out={};for(const s of SUBJECTS){const h=await (await fetch(s.href+"index.html")).text();const m=h.match(/prefix:\\s*"([^"]+)"/);out[s.key]=[s.prefix,m&&m[1]];}return out;})()`);
+    ok(Object.values(r).every(([a, b]) => a && a === b), '首页科目清单里的存储前缀和各科目页一致（导出备份靠它）', r);
+    for (const [k, v] of [['tiku_folders', 'null'], ['tiku_folders', '{}'], ['tiku_folders', '[null]'], ['tiku_subject_folder', 'null'], ['tiku_custom_names', 'null']]) {
+      await c.ev(`localStorage.clear();localStorage.setItem(${JSON.stringify(k)},${JSON.stringify(v)})`); await c.goto(BASE);
+      ok(await c.ev('document.querySelectorAll("a.item").length') === SITES.length, `首页：存储项 ${k}=${v} 坏了也照常显示科目`);
+    }
+    await c.ev('localStorage.clear()'); await c.goto(BASE);
+    r = await c.ev(`(async()=>{const w=ms=>new Promise(r=>setTimeout(r,ms));document.querySelector(".new-folder-link").click();await w(30);const i=document.querySelector("#newFolderRow .menu-input");i.value="期末";
+      i.dispatchEvent(new KeyboardEvent("keydown",{key:"Enter",isComposing:true,bubbles:true}));const composing=document.querySelectorAll(".folder-card").length;
+      i.dispatchEvent(new KeyboardEvent("keydown",{key:"Enter",bubbles:true}));await w(30);return {composing,made:document.querySelectorAll(".folder-card").length};})()`);
+    ok(r.composing === 0 && r.made === 1, '首页：输入法选字时按回车不创建文件夹，正常回车才创建', r);
+    // 导出 → 清空 → 导入：数据原样回来；再导入一次不会翻倍；本机较新的错题不被旧备份盖掉
+    r = await c.ev(`(async()=>{const w=ms=>new Promise(r=>setTimeout(r,ms));localStorage.clear();
+      localStorage.setItem("osquiz_wrongbook",JSON.stringify({q1:{cat:"a",text:"t1",wrongCount:1,lastWrongAt:100},q2:{cat:"a",text:"t2",wrongCount:2,lastWrongAt:200}}));
+      localStorage.setItem("osquiz_history",JSON.stringify([{date:5,scope:"x",total:1,correct:1,wrong:0},{date:3,scope:"y",total:1,correct:0,wrong:1}]));
+      localStorage.setItem("other_project_secret","别动我");
+      let blob=null;const orig=URL.createObjectURL;URL.createObjectURL=b=>{blob=b;return orig.call(URL,b);};document.getElementById("exportBtn").click();await w(50);const text=await blob.text();
+      const allowed=Object.keys(JSON.parse(text).items);
+      localStorage.removeItem("osquiz_wrongbook");localStorage.removeItem("osquiz_history");
+      localStorage.setItem("osquiz_wrongbook",JSON.stringify({q1:{cat:"a",text:"t1",wrongCount:9,lastWrongAt:999},q7:{cat:"a",text:"t7",wrongCount:1,lastWrongAt:50}}));
+      const imp=async()=>{const p=importBackup(new File([text],"b.json"));await w(60);document.getElementById("confirmOkBtn").click();await p;};
+      await imp();await imp();
+      const wb=JSON.parse(localStorage.getItem("osquiz_wrongbook")),h=JSON.parse(localStorage.getItem("osquiz_history"));
+      const bad=importBackup(new File(['{"app":"tiku","version":1,"items":{"evil_key":"1","tiku_folders":"null"}}'],"x.json"));await w(60);if(document.getElementById("confirmBackdrop").classList.contains("show"))document.getElementById("confirmOkBtn").click();await bad;
+      return {allowed,ids:Object.keys(wb).sort(),q1:wb.q1.wrongCount,h:h.map(x=>x.date),evil:localStorage.getItem("evil_key"),other:localStorage.getItem("other_project_secret"),cards:document.querySelectorAll("a.item").length};})()`);
+    ok(!r.allowed.includes('other_project_secret') && r.allowed.includes('osquiz_wrongbook'), '导出备份：只装刷题站自己的数据，不带同域名下别的项目的', r.allowed);
+    ok(JSON.stringify(r.ids) === '["q1","q2","q7"]' && r.q1 === 9 && JSON.stringify(r.h) === '[5,3]', '导入备份：是合并（本机较新的留着、缺的补上），导入两次也不翻倍', r);
+    ok(r.evil === null && r.other === '别动我' && r.cards === SITES.length, '导入备份：清单以外的存储项一律不写，坏内容不会把首页弄坏', r);
+    await c.ev('localStorage.clear()');
     console.log('2. 逻辑检查完成');
 
     /* ---------- 3. 手势 + 4. 版面 ---------- */
@@ -231,6 +271,31 @@ function serve() {
           await swipe(W / 2, y + 60, W / 2 + 6, y - 120, 200);
           ok(await t.ev('__quiz.session.idx') === 0, `${W} ${s} 竖划不翻页`);
         }
+        // 错题本/答错明细：全部题答错后逐个元素量，长代码不许伸出自己那一栏（整页宽度量不出来：外层会把超出的裁掉）
+        await t.goto(BASE + 'web-design/'); await t.ev('localStorage.clear()'); await t.goto(BASE + 'web-design/');
+        let m = await t.ev(`(async()=>{document.getElementById("startBtn").click();await new Promise(r=>setTimeout(r,80));const Q=__quiz;for(let i=0;i<Q.session.queue.length;i++){Q.session.idx=i;Q.renderQuestion();Q.submitAnswer();}
+          const over=sel=>[...document.querySelectorAll(sel)].filter(el=>el.scrollWidth>el.clientWidth+1).length;let optOver=0;
+          for(let i=0;i<Q.session.queue.length;i++){Q.session.idx=i;Q.renderQuestion();optOver+=over("#screen-quiz .opt-text")+over("#answerBox");}
+          Q.finishQuiz();document.getElementById("resWrongBox").click();const a=over("#screen-resultlist .review-item *");Q.showScreen("wrongbook");
+          return {optOver,list:a,wb:over("#screen-wrongbook .wrong-item *"),n:document.querySelectorAll(".wrong-item").length,ws:getComputedStyle(document.querySelector(".wrong-item .qtext")).whiteSpace};})()`);
+        ok(m.n === 90 && m.optOver === 0 && m.list === 0 && m.wb === 0, `${W} Web 站 90 题全错：选项、答案框、答错明细、错题本里都没有伸出去的长串`, m);
+        ok(m.ws === 'pre-wrap', `${W} 错题本里的题干保留换行`, m.ws);
+        // 小入口的可点范围：竖向至少 40 像素（文字本身只有 17 像素高，靠内边距或看不见的垫片撑大）
+        await t.goto(BASE + 'mobile-app/'); await t.ev('localStorage.clear()'); await t.goto(BASE + 'mobile-app/');
+        const tapH = sel => t.ev(`(()=>{const el=document.querySelector(${JSON.stringify(sel)});el.scrollIntoView({block:"center",behavior:"instant"});const r=el.getBoundingClientRect(),x=r.left+r.width/2,cy=r.top+r.height/2;const on=y=>{const p=document.elementFromPoint(x,y);return !!p&&(p===el||el.contains(p));};let up=0,dn=0;while(up<40&&on(cy-up-1))up++;while(dn<40&&on(cy+dn+1))dn++;return up+dn;})()`);
+        m = await tapH('#selAll'); ok(m >= 40, `${W} 「全选」可点高度 ${m}`, m);
+        await t.ev('document.getElementById("startBtn").click()'); await sleep(150);
+        m = [await tapH('#overviewLink'), await tapH('#reciteBtn'), await tapH('#modeToggleBtn')]; ok(m.every(x => x >= 40), `${W} 「题目总览」「背题」「快速模式」可点高度`, m);
+        // 快速模式答对后立刻左划：只前进一题（以前自动跳题和滑动各算一次，连跳两题）
+        {
+          const y2 = await t.ev('(()=>{const r=document.querySelector(".qcard .q-tag").getBoundingClientRect();return r.top+r.height/2;})()');
+          await t.ev('__quiz.pickOption(__quiz.session.queue[0].correct)');
+          await swipe(W * .75, y2, W * .2, y2 + 4, 180);
+          ok(await t.ev('__quiz.session.idx') === 1, `${W} 快速模式答对后马上左划：只到下一题，不连跳两题`, await t.ev('__quiz.session.idx'));
+        }
+        // 答题时收起大标题：吸顶栏不超过屏高的 15%
+        m = await t.ev('Math.round(document.querySelector(".topbar").getBoundingClientRect().height)');
+        ok(m <= 800 * 0.15, `${W} 答题时吸顶栏高度 ${m} 不超过屏高 15%`, m);
         await t.goto(BASE + 'os/'); await t.ev('window.__alive=1;sessionStorage.clear()');
         await swipe(W / 2, 120, W / 2, 520, 350); await sleep(800);
         ok(await t.ev('typeof window.__alive==="undefined"'), `${W} 首页下拉 → 刷新`);

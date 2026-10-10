@@ -15,7 +15,7 @@
   .list{display:flex;flex-direction:column;gap:12px;}
   .item{display:block;background:#fff;border-radius:10px;padding:16px;box-shadow:0 1px 3px rgba(0,0,0,.08);text-decoration:none;color:var(--text);position:relative;}
   .item .name-row{display:flex;align-items:center;gap:6px;margin-bottom:4px;}
-  .item .name{font-size:17px;font-weight:bold;}
+  .item .name{font-size:17px;font-weight:bold;min-width:0;overflow-wrap:anywhere;}
   .item .desc{font-size:13px;color:var(--muted);}
   .empty-note{font-size:12px;color:var(--muted);text-align:center;margin-top:24px;}
 
@@ -47,7 +47,7 @@
     border:2px solid var(--primary);border-radius:6px;
     padding:1px 6px;outline:none;
     font-family:inherit;color:var(--text);background:#fff;
-    min-width:80px;width:auto;
+    min-width:80px;width:auto;max-width:100%;
   }
 
   /* 重置按钮（已自定义名称时显示，不再依赖hover，触屏可直接点到） */
@@ -83,9 +83,9 @@
   .item-menu{
     position:absolute;right:10px;top:44px;z-index:20;
     background:#fff;border-radius:8px;box-shadow:0 4px 16px rgba(0,0,0,.18);
-    min-width:170px;display:flex;flex-direction:column;padding:6px;
+    min-width:170px;max-width:calc(100vw - 28px);display:flex;flex-direction:column;padding:6px;
   }
-  .menu-row{padding:12px 14px;font-size:13px;cursor:pointer;border-radius:6px;touch-action:manipulation;color:var(--text);}
+  .menu-row{padding:12px 14px;font-size:13px;cursor:pointer;border-radius:6px;touch-action:manipulation;color:var(--text);overflow-wrap:anywhere;}
   @media (hover:hover) and (pointer:fine) {
     .menu-row:hover{background:#f3f4f6;}
   }
@@ -188,6 +188,17 @@
     opacity:0;pointer-events:none;transition:opacity .2s ease;
   }
   #ptrTip.show{opacity:1;}
+  /* 批量整理时底部浮着操作条：给页面底部留出它的高度，最后一张卡片才不会被挡住 */
+  body.batch-on .app{padding-bottom:calc(96px + env(safe-area-inset-bottom));}
+  /* 小按钮：看起来不变，可点范围撑大 */
+  .reset-btn{position:relative;}
+  .reset-btn::after{content:"";position:absolute;left:-6px;right:-6px;top:-12px;bottom:-12px;}
+  /* 备份 */
+  .backup-row{display:flex;justify-content:center;gap:28px;margin-top:22px;}
+  .backup-link{font-size:13px;color:var(--primary-dark);font-weight:bold;cursor:pointer;padding:12px 8px;margin:-12px -8px;touch-action:manipulation;}
+  .backup-note{font-size:12px;color:var(--muted);text-align:center;line-height:1.7;margin:10px auto 28px;max-width:520px;}
+  [role="button"]:focus-visible,.icon-btn:focus-visible{outline:2px solid var(--primary);outline-offset:2px;}
+  button,input{font-family:inherit;}
 </style>
 </head>
 <body>
@@ -205,6 +216,12 @@
   <div class="new-folder-row" id="newFolderRow"></div>
   <div class="list" id="list"></div>
   <div class="empty-note">以后新增科目会持续加在这里</div>
+  <div class="backup-row">
+    <span class="backup-link" id="exportBtn" role="button" tabindex="0">⬇ 导出备份</span>
+    <span class="backup-link" id="importBtn" role="button" tabindex="0">⬆ 导入备份</span>
+    <input type="file" id="importFile" accept=".json,application/json" hidden>
+  </div>
+  <div class="backup-note">错题本和练习记录只存在这台设备的这个浏览器里：清一次浏览器数据、或很久没打开，都可能全没。<br>隔一阵点一下「导出备份」，存下的那个文件可以在任何设备上「导入」回来（导入是合并，不会冲掉已有的）。</div>
 </div>
 
 <div class="batch-bar" id="batchBar">
@@ -227,14 +244,14 @@
 
 <script>
 const SUBJECTS = [
-  { key:'web-design',         href:'./web-design/',          defaultName:'WEB程序设计',           desc:'单选+填空混合，90题 · 错题本 / 练习记录 / 题目总览' },
-  { key:'os',                 href:'./os/',                  defaultName:'操作系统',               desc:'填空题，85题 · 错题本 / 练习记录 / 题目总览' },
-  { key:'software-engineering',href:'./software-engineering/',defaultName:'软件工程',              desc:'单选+填空混合，156题（6章节填空+6套模拟题） · 错题本 / 练习记录 / 题目总览' },
-  { key:'mobile-app',         href:'./mobile-app/',          defaultName:'移动应用开发',           desc:'单选题，10题（第1次+第2次作业） · 错题本 / 练习记录 / 题目总览' },
-  { key:'english-listening',  href:'./english-listening/',   defaultName:'大学英语听力',           desc:'单选题，120题（六单元各20题） · 错题本 / 练习记录 / 题目总览' },
-  { key:'english-reading',    href:'./english-reading/',     defaultName:'大学英语阅读与选词填空', desc:'填空+单选混合，66题（六单元：选词填空6篇每篇10空＋阅读理解60题） · 错题本 / 练习记录 / 题目总览' },
-  { key:'english-vocab',      href:'./english-vocab/',       defaultName:'大学英语课后选词填空',   desc:'填空题，6题共93空（六单元课后例句选词，含词表） · 错题本 / 练习记录 / 题目总览' },
-  { key:'english-translation',href:'./english-translation/', defaultName:'大学英语汉译英翻译练习', desc:'翻译题，48题（六单元各8句，汉译英，关键词判分＋完整参考译文） · 错题本 / 练习记录 / 题目总览' },
+  { key:'web-design', prefix:'webquiz',         href:'./web-design/',          defaultName:'WEB程序设计',           desc:'单选+填空混合，90题 · 错题本 / 练习记录 / 题目总览' },
+  { key:'os', prefix:'osquiz',                 href:'./os/',                  defaultName:'操作系统',               desc:'填空题，85题 · 错题本 / 练习记录 / 题目总览' },
+  { key:'software-engineering', prefix:'rjgcquiz',href:'./software-engineering/',defaultName:'软件工程',              desc:'单选+填空混合，156题（6章节填空+6套模拟题） · 错题本 / 练习记录 / 题目总览' },
+  { key:'mobile-app', prefix:'mobileappquiz',         href:'./mobile-app/',          defaultName:'移动应用开发',           desc:'单选题，10题（第1次+第2次作业） · 错题本 / 练习记录 / 题目总览' },
+  { key:'english-listening', prefix:'listeningquiz',  href:'./english-listening/',   defaultName:'大学英语听力',           desc:'单选题，120题（六单元各20题） · 错题本 / 练习记录 / 题目总览' },
+  { key:'english-reading', prefix:'engreadingquiz',    href:'./english-reading/',     defaultName:'大学英语阅读与选词填空', desc:'填空+单选混合，66题（六单元：选词填空6篇每篇10空＋阅读理解60题） · 错题本 / 练习记录 / 题目总览' },
+  { key:'english-vocab', prefix:'engvocabquiz',      href:'./english-vocab/',       defaultName:'大学英语课后选词填空',   desc:'填空题，6题共93空（六单元课后例句选词，含词表） · 错题本 / 练习记录 / 题目总览' },
+  { key:'english-translation', prefix:'engtranslation',href:'./english-translation/', defaultName:'大学英语汉译英翻译练习', desc:'翻译题，48题（六单元各8句，汉译英，关键词判分＋完整参考译文） · 错题本 / 练习记录 / 题目总览' },
 ];
 
 const STORAGE_KEY = 'tiku_custom_names';
@@ -254,32 +271,43 @@ let suppressRenameClick = false;
 let batchMode = false;
 const batchSelected = new Set();
 
-function loadNames() {
-  try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}'); } catch(e) { return {}; }
+// 存储里的东西不一定是我们写的样子（被别的页面写坏了、浏览器禁用了存储）：读出来不对就当成空的，别让整页打不开
+function readObj(key) {
+  try { const v = JSON.parse(localStorage.getItem(key) || '{}'); return (v && typeof v === 'object' && !Array.isArray(v)) ? v : {}; } catch(e) { return {}; }
 }
+function readList(key) {
+  try { const v = JSON.parse(localStorage.getItem(key) || '[]'); return Array.isArray(v) ? v.filter(function(x){ return x && typeof x === 'object' && x.id && typeof x.name === 'string'; }) : []; } catch(e) { return []; }
+}
+// 写不进去（空间满了 / 存储被禁用）必须让人知道
+function safeSet(key, val) {
+  try { localStorage.setItem(key, JSON.stringify(val)); return true; }
+  catch(e) { notify('浏览器存不进数据了（空间已满或存储被禁用），这次改动没有保存'); return false; }
+}
+let notifyTimer = null;
+function notify(msg) {
+  const tip = document.getElementById('ptrTip');
+  if (!tip) return;
+  tip.textContent = msg;
+  tip.classList.add('show');
+  clearTimeout(notifyTimer);
+  notifyTimer = setTimeout(function(){ tip.classList.remove('show'); }, 3200);
+}
+function loadNames() { return readObj(STORAGE_KEY); }
 function saveName(key, name) {
   const names = loadNames();
   names[key] = name;
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(names));
+  safeSet(STORAGE_KEY, names);
 }
 function deleteName(key) {
   const names = loadNames();
   delete names[key];
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(names));
+  safeSet(STORAGE_KEY, names);
 }
 
-function loadFolders() {
-  try { return JSON.parse(localStorage.getItem(FOLDERS_KEY) || '[]'); } catch(e) { return []; }
-}
-function saveFolders(folders) {
-  localStorage.setItem(FOLDERS_KEY, JSON.stringify(folders));
-}
-function loadSubjectFolderMap() {
-  try { return JSON.parse(localStorage.getItem(SUBJECT_FOLDER_KEY) || '{}'); } catch(e) { return {}; }
-}
-function saveSubjectFolderMap(map) {
-  localStorage.setItem(SUBJECT_FOLDER_KEY, JSON.stringify(map));
-}
+function loadFolders() { return readList(FOLDERS_KEY); }
+function saveFolders(folders) { return safeSet(FOLDERS_KEY, folders); }
+function loadSubjectFolderMap() { return readObj(SUBJECT_FOLDER_KEY); }
+function saveSubjectFolderMap(map) { return safeSet(SUBJECT_FOLDER_KEY, map); }
 
 function showConfirm(msg) {
   return new Promise(function(resolve) {
@@ -381,6 +409,7 @@ function startNewFolderRow() {
   const input = document.createElement('input');
   input.type = 'text';
   input.className = 'menu-input';
+  input.maxLength = 40;
   input.placeholder = '文件夹名称';
 
   const btn = document.createElement('button');
@@ -409,6 +438,7 @@ function startNewFolderRow() {
   }
 
   input.addEventListener('keydown', function(e) {
+    if (e.isComposing || e.keyCode === 229) return;   // 输入法还在选字
     if (e.key === 'Enter') { e.preventDefault(); commit(); }
     if (e.key === 'Escape') { renderNewFolderRow(); }
   });
@@ -422,6 +452,7 @@ function renderToolbar() {
 
 function renderBatchBar() {
   const bar = document.getElementById('batchBar');
+  document.body.classList.toggle('batch-on', batchMode);
   if (!batchMode) {
     bar.style.display = 'none';
     return;
@@ -528,6 +559,7 @@ function startEdit(subj, nameSpan, renameBtn, resetBtn) {
   const input = document.createElement('input');
   input.type = 'text';
   input.className = 'name-input';
+  input.maxLength = 40;
   input.value = currentText;
   input.style.width = Math.max(currentText.length * 18, 120) + 'px';
 
@@ -563,6 +595,7 @@ function startEdit(subj, nameSpan, renameBtn, resetBtn) {
 
   input.addEventListener('blur', commit);
   input.addEventListener('keydown', function(e) {
+    if (e.isComposing || e.keyCode === 229) return;   // 输入法还在选字
     if (e.key === 'Enter') { e.preventDefault(); input.blur(); }
     if (e.key === 'Escape') { input.value = currentText; input.blur(); }
   });
@@ -638,6 +671,7 @@ function renderNewFolderInput(menu, subj) {
   const input = document.createElement('input');
   input.type = 'text';
   input.className = 'menu-input';
+  input.maxLength = 40;
   input.placeholder = '文件夹名称';
 
   const btn = document.createElement('button');
@@ -664,6 +698,7 @@ function renderNewFolderInput(menu, subj) {
 
   input.addEventListener('click', function(e) { e.stopPropagation(); });
   input.addEventListener('keydown', function(e) {
+    if (e.isComposing || e.keyCode === 229) return;   // 输入法还在选字
     if (e.key === 'Enter') { e.preventDefault(); commit(); }
     if (e.key === 'Escape') { closeOpenMenu(); }
   });
@@ -768,6 +803,7 @@ function startFolderRename(folder, nameSpan) {
   const input = document.createElement('input');
   input.type = 'text';
   input.className = 'name-input';
+  input.maxLength = 40;
   input.value = currentText;
   input.style.width = Math.max(currentText.length * 18, 100) + 'px';
 
@@ -792,6 +828,7 @@ function startFolderRename(folder, nameSpan) {
 
   input.addEventListener('blur', commit);
   input.addEventListener('keydown', function(e) {
+    if (e.isComposing || e.keyCode === 229) return;   // 输入法还在选字
     if (e.key === 'Enter') { e.preventDefault(); input.blur(); }
     if (e.key === 'Escape') { input.value = currentText; input.blur(); }
   });
@@ -868,6 +905,7 @@ function renderBatchNewFolderInput(menu) {
   const input = document.createElement('input');
   input.type = 'text';
   input.className = 'menu-input';
+  input.maxLength = 40;
   input.placeholder = '文件夹名称';
 
   const btn = document.createElement('button');
@@ -889,6 +927,7 @@ function renderBatchNewFolderInput(menu) {
 
   input.addEventListener('click', function(e) { e.stopPropagation(); });
   input.addEventListener('keydown', function(e) {
+    if (e.isComposing || e.keyCode === 229) return;   // 输入法还在选字
     if (e.key === 'Enter') { e.preventDefault(); commit(); }
     if (e.key === 'Escape') { closeOpenMenu(); }
   });
@@ -918,6 +957,110 @@ document.getElementById('batchMoveBtn').addEventListener('click', function(e) {
 
 renderToolbar();
 buildList();
+
+/* ===================== 备份：导出 / 导入 ===================== */
+/* 错题本、练习记录只存在这个浏览器里。导出 = 把 8 科的数据装进一个文件；导入 = 合并回来（不覆盖已有的）。
+   只认下面这张清单里的存储项，文件里别的东西一律不写。 */
+const PER_SUBJECT = ['_wrongbook', '_history', '_done', '_inprogress', '_exammode', '_recite'];
+function backupKeys() {
+  const keys = [STORAGE_KEY, FOLDERS_KEY, SUBJECT_FOLDER_KEY];
+  SUBJECTS.forEach(function(s){ PER_SUBJECT.forEach(function(suf){ keys.push(s.prefix + suf); }); });
+  return keys;
+}
+function pad2(n) { return String(n).padStart(2, '0'); }
+function exportBackup() {
+  const items = {};
+  let wrong = 0, hist = 0;
+  backupKeys().forEach(function(k){
+    let v = null; try { v = localStorage.getItem(k); } catch(e) {}
+    if (v == null) return;
+    items[k] = v;
+    try { const j = JSON.parse(v); if (/_wrongbook$/.test(k) && j && typeof j === 'object') wrong += Object.keys(j).length; if (/_history$/.test(k) && Array.isArray(j)) hist += j.length; } catch(e) {}
+  });
+  if (!Object.keys(items).length) { notify('现在还没有任何数据可以导出'); return; }
+  const d = new Date();
+  const name = '刷题合集备份_' + d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate()) + '.json';
+  const blob = new Blob([JSON.stringify({ app: 'tiku', version: 1, exportedAt: d.getTime(), items: items })], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(function(){ URL.revokeObjectURL(url); }, 2000);
+  notify('已导出：' + wrong + ' 道错题、' + hist + ' 条练习记录');
+}
+function parseJSON(s, def) { try { const v = JSON.parse(s); return v == null ? def : v; } catch(e) { return def; } }
+function isObj(v) { return !!v && typeof v === 'object' && !Array.isArray(v); }
+// 合并规则：错题同一题留较新的那条；记录按时间去重后留最近 100 条；做过的题取并集；其余（进行中的练习、模式开关、自定义名字和文件夹）只在本机没有时才填
+function mergeItem(key, incoming) {
+  let cur = null; try { cur = localStorage.getItem(key); } catch(e) {}
+  if (/_wrongbook$/.test(key)) {
+    const a = parseJSON(cur, {}), b = parseJSON(incoming, null);
+    if (!isObj(b)) return 0;
+    const out = isObj(a) ? a : {}; let n = 0;
+    Object.keys(b).forEach(function(id){ const x = b[id]; if (!isObj(x)) return; const old = out[id]; if (!isObj(old) || (Number(x.lastWrongAt) || 0) > (Number(old.lastWrongAt) || 0)) { out[id] = x; n++; } });
+    return safeSet(key, out) ? n : 0;
+  }
+  if (/_history$/.test(key)) {
+    const a = parseJSON(cur, []), b = parseJSON(incoming, null);
+    if (!Array.isArray(b)) return 0;
+    const seen = {}, out = []; let n = 0;
+    (Array.isArray(a) ? a : []).forEach(function(h){ if (isObj(h) && !seen[h.date]) { seen[h.date] = 1; out.push(h); } });
+    b.forEach(function(h){ if (isObj(h) && !seen[h.date]) { seen[h.date] = 1; out.push(h); n++; } });
+    out.sort(function(x, y){ return (Number(y.date) || 0) - (Number(x.date) || 0); });
+    return safeSet(key, out.slice(0, 100)) ? n : 0;
+  }
+  if (/_done$/.test(key)) {
+    const a = parseJSON(cur, {}), b = parseJSON(incoming, null);
+    if (!isObj(b)) return 0;
+    const out = isObj(a) ? a : {};
+    Object.keys(b).forEach(function(k){ out[k] = 1; });
+    safeSet(key, out); return 0;
+  }
+  if (cur == null) {
+    if (/_exammode$|_recite$/.test(key)) { if (incoming === 'true' || incoming === 'false') { try { localStorage.setItem(key, incoming); } catch(e) {} } }
+    else { const v = parseJSON(incoming, null); if (v != null) safeSet(key, v); }
+  }
+  return 0;
+}
+async function importBackup(file) {
+  let text = '';
+  try { text = await file.text(); } catch(e) { notify('这个文件读不出来'); return; }
+  const data = parseJSON(text, null);
+  if (!isObj(data) || data.app !== 'tiku' || !isObj(data.items)) { notify('这不是刷题合集导出的备份文件'); return; }
+  const allowed = backupKeys();
+  const keys = Object.keys(data.items).filter(function(k){ return allowed.indexOf(k) >= 0 && typeof data.items[k] === 'string'; });
+  if (!keys.length) { notify('备份文件里没有可以导入的内容'); return; }
+  let wrong = 0, hist = 0;
+  keys.forEach(function(k){ const j = parseJSON(data.items[k], null); if (/_wrongbook$/.test(k) && isObj(j)) wrong += Object.keys(j).length; if (/_history$/.test(k) && Array.isArray(j)) hist += j.length; });
+  const when = data.exportedAt ? new Date(Number(data.exportedAt)) : null;
+  const whenText = when && !isNaN(when) ? (when.getFullYear() + '-' + pad2(when.getMonth() + 1) + '-' + pad2(when.getDate()) + ' 导出的') : '';
+  if (!await showConfirm('这份备份' + (whenText ? '是 ' + whenText : '') + '，里面有 ' + wrong + ' 道错题、' + hist + ' 条练习记录。\n导入是「合并」：本机已有的不会被冲掉，同一道错题留较新的那条。\n确定导入吗？')) return;
+  let addW = 0, addH = 0;
+  keys.forEach(function(k){ const n = mergeItem(k, data.items[k]); if (/_wrongbook$/.test(k)) addW += n; if (/_history$/.test(k)) addH += n; });
+  buildList();
+  notify('导入完成：新增或更新 ' + addW + ' 道错题、' + addH + ' 条练习记录');
+}
+document.getElementById('exportBtn').addEventListener('click', exportBackup);
+document.getElementById('importBtn').addEventListener('click', function(){ document.getElementById('importFile').click(); });
+document.getElementById('importFile').addEventListener('change', function(e){
+  const f = e.target.files && e.target.files[0];
+  e.target.value = '';
+  if (f) importBackup(f);
+});
+// 文字做的按钮：Tab 走到以后回车/空格 = 点它；确认弹窗接 Esc / 回车
+document.addEventListener('keydown', function(e){
+  const bd = document.getElementById('confirmBackdrop');
+  if (bd.classList.contains('show')) {
+    if (e.key === 'Escape') { document.getElementById('confirmCancelBtn').click(); e.preventDefault(); }
+    else if (e.key === 'Enter') { document.getElementById('confirmOkBtn').click(); e.preventDefault(); }
+    return;
+  }
+  const b = e.target.closest && e.target.closest('[role="button"]');
+  if (b && (e.key === 'Enter' || e.key === ' ')) { b.click(); e.preventDefault(); }
+});
+/* 离线也能打开：只做"断网时用上次存下来的页面"（见 sw.js） */
+if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
+  window.addEventListener('load', function(){ navigator.serviceWorker.register('./sw.js').catch(function(){}); });
+}
 /* ===================== 下拉刷新 ===================== */
 /* 配方：起手死区防误触 → 出死区后方向一锤定音 → 阈值按屏高推导（小屏上手指行程占比才不会偏重） */
 function setupPullToRefresh(){
@@ -966,7 +1109,7 @@ function setupPullToRefresh(){
     // 所以离线时改成「重读本地数据 + 重绘」，视觉效果一样，也不会把人弄丢
     if(navigator.onLine === false){
       buildList();
-      showTip("当前没有网络，已重新载入本地数据");
+      notify("当前没有网络，已重新载入本地数据");
       reset(true);
       refreshing = false;
       return;
