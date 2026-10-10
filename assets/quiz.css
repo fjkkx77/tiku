@@ -201,3 +201,48 @@ body.font-en .blank-input:not(.trans-area){font-size:15.5px;font-weight:600;lett
 /* 返回主界面的文字链接（原来写在行内 onmouseover 里） */
 .back-link{font-size:13px;color:var(--muted);text-decoration:none;padding:4px 8px;border-radius:6px;display:inline-block;}
 @media (hover:hover){ .back-link:hover{color:var(--primary);} }
+
+/* ===================== 2026-10-10 审查整改 ===================== */
+/* 错题本里的题干也保留换行（以前只有结果页保留，代码题在错题本里挤成一段） */
+.wrong-item .qtext{white-space:pre-wrap;line-height:1.6;}
+/* 不带空格的长串（长代码、网址）允许在任意位置断开，别伸出卡片被裁掉 */
+.qtext,.opt-row .opt-text,.answer-box,.wrong-item .ans,.review-item .your-ans,.review-item .correct-ans-line,.confirm-msg{overflow-wrap:anywhere;}
+/* 代码字体那一串里没有中文字体，Windows 上代码块里的中文会落成新宋体：等宽字体后面接上常用中文字体 */
+.q-code{font-family:"SF Mono",Menlo,Consolas,"Cascadia Mono","Roboto Mono","Droid Sans Mono","Courier New","PingFang SC","Microsoft YaHei",monospace;}
+body.font-code .blank-input{font-family:"SF Mono",Menlo,Consolas,"Roboto Mono","PingFang SC","Microsoft YaHei",monospace;}
+/* 按钮不会自动继承页面字体 */
+button,select,textarea,input{font-family:inherit;}
+.trans-area{font-family:"Microsoft YaHei",Segoe UI,Arial,sans-serif;}
+/* 文字做的小入口：看起来多大不变，只把可点的范围撑到够手指点（四周加内边距，再用负外边距抵消掉） */
+.toplinks span,.ov-link,.back-link,.reset-size-btn{padding:13px 8px;margin:-13px -8px;}
+.reset-size-btn{padding:10px 8px;margin:-8px -8px -6px;}
+.mode-toggle{position:relative;}
+.mode-toggle::after{content:"";position:absolute;left:-4px;right:-4px;top:-10px;bottom:-10px;}
+.ov-header-row .ov-close{padding:12px 14px;margin:-12px -14px;}
+[role="button"]{cursor:pointer;-webkit-tap-highlight-color:transparent;}
+[role="button"]:focus-visible,.btn:focus-visible,nav button:focus-visible,.opt-row:focus-visible{outline:2px solid var(--primary);outline-offset:2px;}
+/* 填空框：默认窄一点、跟着内容变宽（宽度由脚本按字数设），代码题里一行不再被输入框撑断 */
+input.blank-input{min-width:0;max-width:100%;}
+/* 只练没做过的 */
+.only-new{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--muted);padding:6px 0 2px;cursor:pointer;}
+/* 背题模式：答案框用中性的蓝色，和"答对/答错"区分开 */
+body.reciting .answer-box.show.right{background:#eef2ff;color:var(--primary-dark);}
+body.reciting .answer-box .correct-ans{color:var(--primary-dark);}
+/* 翻译题自评 */
+.answer-box.self{background:#f8fafc;color:var(--text);border:1px solid var(--border);}
+.answer-box .self-hint{font-size:12px;color:var(--muted);margin-top:6px;}
+.answer-box .self-ask{margin-top:10px;font-weight:bold;}
+.answer-box .self-btns{margin-top:8px;}
+/* 错题本：按章节筛选、单条移出 */
+.wb-filter{width:100%;font-size:14px;padding:9px 10px;border:1px solid var(--border);border-radius:8px;background:#fff;color:var(--text);}
+.wb-remove{float:right;border:none;background:none;color:var(--muted);font-size:12px;text-decoration:underline;cursor:pointer;padding:10px 6px;margin:-10px -6px;}
+/* 键盘快捷键说明：只在有鼠标的电脑上显示 */
+.key-hint{display:none;text-align:center;font-size:12px;color:var(--muted);margin-top:10px;}
+@media (hover:hover) and (pointer:fine){ .key-hint{display:block;} }
+/* 答题时收起大标题，把屏幕让给题目（小屏上标题栏+标签占了两成多屏高，键盘一弹就没地方了） */
+body.quizzing header{padding:8px 16px;}
+body.quizzing header p{display:none;}
+body.quizzing header h1{font-size:15px;}
+body.quizzing .home-btn{width:32px;height:32px;font-size:16px;}
+body.quizzing .home-btn::after{content:"";position:absolute;inset:-6px;}
+body.quizzing nav button{padding:8px 4px;}

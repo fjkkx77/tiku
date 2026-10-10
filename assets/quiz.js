@@ -72,9 +72,9 @@ document.body.insertAdjacentHTML("afterbegin", `
       </div>
       <div class="card">
         <div class="toplinks">
-          <span id="selAll">全选</span>
-          <span id="selNone">清空</span>
-          <span id="selWrongOnly">仅选有错题${esc(CFG.catWord)}</span>
+          <span id="selAll" role="button" tabindex="0">全选</span>
+          <span id="selNone" role="button" tabindex="0">清空</span>
+          <span id="selWrongOnly" role="button" tabindex="0">仅选有错题${esc(CFG.catWord)}</span>
         </div>
         <div class="cat-list" id="catList"></div>
       </div>
@@ -84,6 +84,7 @@ document.body.insertAdjacentHTML("afterbegin", `
           <label><input type="radio" name="order" value="seq" checked>原始顺序</label>
           <label><input type="radio" name="order" value="random">随机顺序</label>
         </div>
+        <label class="only-new"><input type="checkbox" id="onlyNew">只练没做过的题</label>
         <div class="btn-row">
           <button class="btn" id="startBtn">开始练习</button>
         </div>
@@ -105,8 +106,9 @@ document.body.insertAdjacentHTML("afterbegin", `
             <span id="quizScoreText"></span>
           </div>
           <div class="progress-right">
-            ${HAS_MCQ ? `<span class="mode-toggle" id="modeToggleBtn"></span>` : ""}
-            <span class="ov-link" id="overviewLink">题目总览</span>
+            <span class="mode-toggle" id="reciteBtn" role="button" tabindex="0"></span>
+            ${HAS_MCQ ? `<span class="mode-toggle" id="modeToggleBtn" role="button" tabindex="0"></span>` : ""}
+            <span class="ov-link" id="overviewLink" role="button" tabindex="0">题目总览</span>
           </div>
         </div>
       </div>
@@ -125,6 +127,7 @@ document.body.insertAdjacentHTML("afterbegin", `
       <div class="btn-row">
         <button class="btn gray" id="quitQuizBtn">结束并查看结果</button>
       </div>
+      <div class="key-hint">键盘：A–D 或 1–4 选选项 · 回车 提交 / 下一题 · ← → 切题</div>
     </section>
 
     <!-- 题目总览（右侧抽屉） -->
@@ -132,7 +135,7 @@ document.body.insertAdjacentHTML("afterbegin", `
     <section class="screen" id="screen-overview">
       <div class="ov-header-row">
         <div style="font-size:16px;font-weight:bold;">题目总览</div>
-        <span class="ov-close" id="ovCloseBtn">&times;</span>
+        <span class="ov-close" id="ovCloseBtn" role="button" tabindex="0" aria-label="关闭题目总览">&times;</span>
       </div>
       <div class="ov-legend">
         <span><span class="ov-dot cur"></span>当前</span>
@@ -216,12 +219,37 @@ const $ = id => document.getElementById(id);
 /* ===================== 本地存储（key 沿用各站原来的名字，老数据照常可用） ===================== */
 const LS_HISTORY = CFG.prefix+"_history", LS_WRONGBOOK = CFG.prefix+"_wrongbook",
       LS_EXAMMODE = CFG.prefix+"_exammode", LS_INPROGRESS = CFG.prefix+"_inprogress";
+const LS_DONE = CFG.prefix+"_done", LS_RECITE = CFG.prefix+"_recite";
+function lsGet(key){ try{ return localStorage.getItem(key); }catch(e){ return null; } }   // 浏览器禁用存储时一碰就抛错
 function loadJSON(key,def){ try{ const v = JSON.parse(localStorage.getItem(key)); return v==null ? def : v; }catch(e){ return def; } }
-function saveJSON(key,val){ try{ localStorage.setItem(key, JSON.stringify(val)); }catch(e){} }
-let historyList = loadJSON(LS_HISTORY, []);
-let wrongbook = loadJSON(LS_WRONGBOOK, {});
-if(!Array.isArray(historyList)) historyList = [];
-if(!wrongbook || typeof wrongbook !== "object" || Array.isArray(wrongbook)) wrongbook = {};
+let saveFailTold = false;
+function saveJSON(key,val){
+  try{ localStorage.setItem(key, JSON.stringify(val)); return true; }
+  catch(e){
+    // 存不进去（空间满了 / 存储被禁用）：必须让人知道，否则错题和进度悄悄丢了都不知道。一次打开只提示一回
+    if(!saveFailTold){ saveFailTold = true; setTimeout(()=>showAlert("⚠️ 浏览器存不进数据了（空间已满，或存储被禁用）。\n这次的错题、进度和练习记录可能没有保存。\n可以清理一下这个浏览器里别的网站数据后再试。"), 0); }
+    return false;
+  }
+}
+// 存储里的东西不一定是我们写的样子（被别的页面写坏、旧版本留下的）：只留认得的，别让一条坏数据把整页弄死
+function cleanWrongbook(w){
+  const out = {};
+  if(w && typeof w === "object" && !Array.isArray(w)) Object.keys(w).forEach(id=>{ if(w[id] && typeof w[id] === "object") out[id] = w[id]; });
+  return out;
+}
+function cleanHistory(h){ return Array.isArray(h) ? h.filter(x=>x && typeof x === "object") : []; }
+function num(v){ v = Number(v); return isFinite(v) ? v : 0; }   // 存储里的数字拼进页面前一律过一遍，别把字符串当 HTML 插进去
+let historyList = cleanHistory(loadJSON(LS_HISTORY, []));
+let wrongbook = cleanWrongbook(loadJSON(LS_WRONGBOOK, {}));
+let doneSet = loadJSON(LS_DONE, {}); if(!doneSet || typeof doneSet !== "object" || Array.isArray(doneSet)) doneSet = {};
+
+/* 同一科目可能同时开着不止一个页面（两个标签页；或者按"返回"时浏览器把很久以前的旧页面原样恢复出来）。
+   每个页面内存里都有一份错题本/记录，旧页面一保存就会把别的页面刚记的整份冲掉。
+   所以：改之前先从存储重新读一遍，在最新的那份上改，再写回去。 */
+function updateWrongbook(fn){ wrongbook = cleanWrongbook(loadJSON(LS_WRONGBOOK, {})); fn(wrongbook); return saveJSON(LS_WRONGBOOK, wrongbook); }
+function updateHistory(fn){ historyList = cleanHistory(loadJSON(LS_HISTORY, [])); fn(historyList); if(historyList.length>100) historyList = historyList.slice(0,100); return saveJSON(LS_HISTORY, historyList); }
+const FP = new Map(Q.map(q=>[q.id, fp(q)]));
+function markDone(q){ doneSet = loadJSON(LS_DONE, {}) || {}; if(typeof doneSet !== "object" || Array.isArray(doneSet)) doneSet = {}; doneSet[fp(q)] = 1; saveJSON(LS_DONE, doneSet); }
 
 /* 题目指纹：题号是按题库里的位置编的（q0、q1…），以后在题库中间插题/删题，
    老的错题记录和续练进度就会对到别的题上，而且没有任何提示。
@@ -250,15 +278,27 @@ relocateWrongbook();
 /* ===================== 判分 ===================== */
 const normalize = typeof CFG.normalize === "function" ? CFG.normalize
   : s => (s||"").trim().toLowerCase().replace(/[\s;；]/g,"");
-function isCorrect(userInput, acceptStr){
-  userInput = userInput || "";
+// iPhone 默认开「智能标点」，打 ' " 出来的是弯引号；判分前统一成直的
+function straighten(s){ return String(s==null?"":s).replace(/[‘’]/g,"'").replace(/[“”]/g,'"'); }
+// "包含也算对"放过的那部分：正确答案是数字（可带单位）时必须完全相等（15 ≠ 150）；
+// 紧贴在答案前面的是否定词时不算（"不可再现"不是"可再现"）
+const NUMERIC_RE = /^[\d.]+[a-z%]*$/i, NEGATION_RE = /[不非无未没]$/;
+function containsOk(u, o){
+  if(o.length < CFG.containsMinLen || NUMERIC_RE.test(o)) return false;
+  const at = u.indexOf(o);
+  return at >= 0 && !NEGATION_RE.test(u.slice(0, at));
+}
+// seq=true：这个空里的几项有先后（如安全序列 Q,P,R），不做"顺序无关"那一步
+function isCorrect(userInput, acceptStr, seq){
+  userInput = straighten(userInput);
   const u = normalize(userInput);
   if(!u) return false;
-  for(const opt of String(acceptStr).split("|")){
+  for(const opt of straighten(acceptStr).split("|")){
     const o = normalize(opt);
     if(u === o) return true;
     // 只允许"用户答案包含完整正确答案"（容忍多写了无关字），不允许反向——否则答了半截也会判对
-    if(o.length >= CFG.containsMinLen && u.includes(o)) return true;
+    if(containsOk(u, o)) return true;
+    if(seq) continue;
     // 顺序无关：按"和/、/，/,"拆开排序再比。必须先拆再 normalize（有的站 normalize 会把顿号逗号删掉）
     const splitRe = /[和、，,]/;
     const oParts = opt.split(splitRe).map(normalize).filter(Boolean).sort();
@@ -267,19 +307,40 @@ function isCorrect(userInput, acceptStr){
   }
   return false;
 }
-// 多空默认不限顺序：整体集合对得上就算对（贪心两两配对）
-function gradeBlanksSet(userInputs, expectedList){
+// 整体集合对得上就算对（贪心两两配对）——只给写了 unordered:true 的题用
+function gradeBlanksSet(userInputs, expectedList, seq){
   const n = expectedList.length, used = new Array(n).fill(false), assignment = new Array(userInputs.length).fill(-1);
-  for(let i=0;i<userInputs.length;i++){
-    for(let j=0;j<n;j++){
-      if(!used[j] && isCorrect(userInputs[i], expectedList[j])){ used[j]=true; assignment[i]=j; break; }
+  // 先配"一字不差"的，再配宽松的：否则 line-height:24px 会先把 height:24px 那个空占掉（它"包含"后者），真正的 height:24px 反而没处放
+  const exact = (u, acc)=>{ const x = normalize(straighten(u)); return !!x && straighten(acc).split("|").some(o=>normalize(o)===x); };
+  [exact, (u, acc)=>isCorrect(u, acc, seq)].forEach(match=>{
+    for(let i=0;i<userInputs.length;i++){
+      if(assignment[i]!==-1) continue;
+      for(let j=0;j<n;j++){
+        if(!used[j] && match(userInputs[i], expectedList[j])){ used[j]=true; assignment[i]=j; break; }
+      }
     }
-  }
+  });
   return { allCorrect: assignment.length>0 && assignment.every(a=>a!==-1), assignment };
 }
-function gradeOrdered(userInputs, expectedList){
-  const assignment = expectedList.map((exp,i)=> isCorrect(userInputs[i]||"", exp) ? i : -1);
+function gradeOrdered(userInputs, expectedList, seq){
+  const assignment = expectedList.map((exp,i)=> isCorrect(userInputs[i]||"", exp, seq) ? i : -1);
   return { allCorrect: assignment.every(a=>a!==-1), assignment };
+}
+/* 一道填空题怎么判（页面提交和测试都走这一个入口）：
+   默认逐空按位置判——填错位置就是错（2026-10 以前默认不分顺序，把答案填反也判全对）；
+   unordered:true  整题几个空是并列的，不分先后（如"操作系统的特征是：__、__、__、__"）；
+   anyOrder:[[13,14,15]]  只有这几个空之间可以互换（如同一个 CSS 选择器里的几条声明），其余仍按位置；
+   seq:true  一个空里的几项有先后，不能换（如安全序列）。 */
+function gradeQuestion(q, userInputs){
+  const key = q.vocab || q.ans || [];
+  if(q.unordered) return gradeBlanksSet(userInputs, key, q.seq);
+  const g = gradeOrdered(userInputs, key, q.seq);
+  (q.anyOrder || []).forEach(group=>{
+    const sub = gradeBlanksSet(group.map(i=>userInputs[i]||""), group.map(i=>key[i]), q.seq);
+    group.forEach((i,k)=>{ g.assignment[i] = sub.assignment[k]===-1 ? -1 : group[sub.assignment[k]]; });
+  });
+  g.allCorrect = g.assignment.length>0 && g.assignment.every(a=>a!==-1);
+  return g;
 }
 
 /* ===================== 小工具 ===================== */
@@ -316,8 +377,10 @@ function showConfirm(msg, opt){
     const bd = $("confirmBackdrop"), ok = $("confirmOkBtn"), cancel = $("confirmCancelBtn");
     ok.textContent = opt.ok || "确定";
     cancel.hidden = !!opt.alertOnly;
+    const before = document.activeElement;
     bd.classList.add("show");
-    function done(r){ bd.classList.remove("show"); ok.removeEventListener("click", onOk); cancel.removeEventListener("click", onCancel); resolve(r); }
+    try{ ok.focus({preventScroll:true}); }catch(e){}
+    function done(r){ bd.classList.remove("show"); try{ if(before && before.focus && document.contains(before)) before.focus({preventScroll:true}); }catch(e){} ok.removeEventListener("click", onOk); cancel.removeEventListener("click", onCancel); resolve(r); }
     function onOk(){ done(true); } function onCancel(){ done(false); }
     ok.addEventListener("click", onOk); cancel.addEventListener("click", onCancel);
   });
@@ -332,33 +395,69 @@ function showScreen(name){
   $("ovBackdrop").classList.remove("show");
   $("screen-"+name).classList.add("active");
   document.querySelectorAll("nav button").forEach(b=>b.classList.toggle("active", b.dataset.screen===name));
+  document.body.classList.toggle("quizzing", name==="quiz");
   if(name==="quiz") timerResume(); else timerPause();
+  syncBackEntry(name);
   if(name==="wrongbook") renderWrongbook();
   if(name==="history") renderHistory();
 }
 document.querySelectorAll("nav button").forEach(b=>b.addEventListener("click", async ()=>{
   if(isActive("screen-quiz")){
-    if(!await showConfirm("你正在刷题中，确定要切换到其他页面吗？\n放心，当前进度已自动保存，可以稍后在「开始练习」页点击「继续上次练习」找回。")) return;
+    keepDraftNow();
+    if(!await showConfirm("你正在刷题中，确定要切换到其他页面吗？\n放心，当前进度（包括这道题已经填的内容）已自动保存，可以稍后在「开始练习」页点击「继续上次练习」找回。")) return;
   }
   if(b.dataset.screen==="home") renderCatList();
   showScreen(b.dataset.screen);
 }));
+
+/* 手机上的"返回"（安卓返回键、iPhone 从左边缘右滑）：以前会直接离开整个科目站。
+   现在离开首页时往浏览器历史里垫一条，按返回 = 先关总览抽屉 → 再回到本站首页，第三次才是真的离开。
+   进度本来就是实时保存的，所以回首页不用再问。 */
+let backArmed = false, backSilent = false;
+function syncBackEntry(name){
+  if(!window.history || !history.pushState) return;
+  if(name !== "home" && !backArmed){ try{ history.pushState({ tikuInner: 1 }, ""); backArmed = true; }catch(e){} }
+  else if(name === "home" && backArmed){ backArmed = false; backSilent = true; try{ history.back(); }catch(e){ backSilent = false; } }
+}
+window.addEventListener("popstate", ()=>{
+  if(backSilent){ backSilent = false; return; }          // 是我们自己为了撤掉那一条而退的，不用处理
+  if(!backArmed) return;
+  if(hasShow("confirmBackdrop") || isActive("screen-overview")){
+    // 有浮层：这次返回只用来关浮层，把垫的那一条补回去
+    if(hasShow("confirmBackdrop")) ($("confirmCancelBtn").hidden ? $("confirmOkBtn") : $("confirmCancelBtn")).click(); else closeOverview();
+    try{ history.pushState({ tikuInner: 1 }, ""); }catch(e){ backArmed = false; }
+    return;
+  }
+  backArmed = false;
+  clearAutoAdvance(); keepDraftNow();
+  renderCatList(); showScreen("home");
+});
+// 答题中点左上角🏠：和旁边三个标签一样先问一句（进度是保存了的，只是别让人被误触带走）
+document.querySelector(".home-btn").addEventListener("click", async e=>{
+  if(!isActive("screen-quiz")) return;
+  e.preventDefault();
+  const href = e.currentTarget.href;
+  keepDraftNow();
+  if(await showConfirm("你正在刷题中，确定要回到刷题主界面吗？\n放心，当前进度（包括这道题已经填的内容）已自动保存，下次点「继续上次练习」接着做。")) location.href = href;
+});
 
 /* ===================== 首页：章节选择 ===================== */
 function renderCatList(){
   // 重画时保留用户已经取消勾选的章节（旧版一回首页就全部重置成勾选）
   const unchecked = new Set([...document.querySelectorAll(".catChk")].filter(c=>!c.checked).map(c=>c.value));
   $("catList").innerHTML = CATS.map(cat=>{
-    const cnt = Q.filter(q=>q.cat===cat).length;
+    const inCat = Q.filter(q=>q.cat===cat), cnt = inCat.length;
+    const dcnt = inCat.filter(isDone).length;
     const wcnt = Object.values(wrongbook).filter(w=>w.cat===cat).length;
     return `<label>
       <input type="checkbox" class="catChk" value="${esc(cat)}"${unchecked.has(cat) ? "" : " checked"}>
       ${esc(cat)}
-      <span class="cat-count">${cnt}题${wcnt?` · <span class="badge-cnt">${wcnt}错</span>`:""}</span>
+      <span class="cat-count">${cnt}题${dcnt?` · 做过${dcnt}`:""}${wcnt?` · <span class="badge-cnt">${wcnt}错</span>`:""}</span>
     </label>`;
   }).join("");
   renderResumeCard();
 }
+function isDone(q){ return !!doneSet[FP.get(q.id)]; }
 function checkedCats(){ return [...document.querySelectorAll(".catChk:checked")].map(c=>c.value); }
 $("selAll").onclick = ()=>document.querySelectorAll(".catChk").forEach(c=>c.checked=true);
 $("selNone").onclick = ()=>document.querySelectorAll(".catChk").forEach(c=>c.checked=false);
@@ -370,7 +469,12 @@ $("selWrongOnly").onclick = ()=>{
 $("startBtn").onclick = ()=>{
   const cats = checkedCats();
   if(!cats.length){ showAlert("请至少选择一个" + CFG.catWord); return; }
-  startQuiz(Q.filter(q=>cats.includes(q.cat)), cats.length===CATS.length ? `全部${CFG.catWord}` : cats.join("、"), true);
+  let pool = Q.filter(q=>cats.includes(q.cat)), label = cats.length===CATS.length ? `全部${CFG.catWord}` : cats.join("、");
+  if($("onlyNew").checked){
+    pool = pool.filter(q=>!isDone(q)); label += "（没做过的）";
+    if(!pool.length){ showAlert("选中的" + CFG.catWord + "里，每道题你都做过了。\n去掉「只练没做过的题」就能再练一遍。"); return; }
+  }
+  startQuiz(pool, label, true);
 };
 
 /* ===================== 练习会话 ===================== */
@@ -385,16 +489,43 @@ function timerPause(){ if(session && activeSince){ session.elapsed = elapsedNow(
 function timerResume(){ if(session && !activeSince && document.visibilityState !== "hidden") activeSince = Date.now(); }
 document.addEventListener("visibilitychange", ()=>{
   if(document.visibilityState === "hidden"){ if(activeSince){ timerPause(); saveProgress(); } }
-  else if(isActive("screen-quiz")) timerResume();
+  else { refreshFromStorage(); if(isActive("screen-quiz")) timerResume(); }
 });
+// 从"返回"恢复出来的旧页面（往返缓存）、别的页面改了存储：都重新读一遍，别拿内存里的旧数据接着用
+window.addEventListener("pageshow", e=>{ if(e.persisted) refreshFromStorage(); });
+window.addEventListener("storage", e=>{ if(e.key && e.key.indexOf(CFG.prefix+"_")===0) refreshFromStorage(); });
+function refreshFromStorage(){
+  wrongbook = cleanWrongbook(loadJSON(LS_WRONGBOOK, {}));
+  historyList = cleanHistory(loadJSON(LS_HISTORY, []));
+  doneSet = loadJSON(LS_DONE, {}) || {};
+  if(session && !session.finished && isActive("screen-quiz") && someoneElseIsNewer()){
+    // 这场练习在别的页面里已经往后做了（或者已经开了新的）：这一页是旧的，再答下去只会把新进度盖掉
+    session = null; activeSince = null; clearAutoAdvance();
+    renderCatList(); showScreen("home");
+    showAlert("这场练习在另一个页面里有更新的进度，这一页是旧的。\n已回到首页，点「继续上次练习」接着做。");
+    return;
+  }
+  if(isActive("screen-home")) renderCatList();
+  if(isActive("screen-wrongbook")) renderWrongbook();
+  if(isActive("screen-history")) renderHistory();
+}
 
 /* ===================== 继续上次练习（进行中的进度实时存 localStorage） ===================== */
+// 存档上带「是哪个页面存的（sid）」和「什么时候存的」：别的页面存过更新的，就轮不到这一页去覆盖
+const PAGE_ID = Math.random().toString(36).slice(2) + Date.now().toString(36);
+function someoneElseIsNewer(){
+  const s = loadJSON(LS_INPROGRESS, null);
+  return !!(s && s.sid && session && s.sid !== session.sid && num(s.savedAt) > num(session.savedAt));
+}
 function saveProgress(){
-  if(!session) return;
+  if(!session || session.finished) return;
+  if(someoneElseIsNewer()) return;
+  session.savedAt = Date.now();
   saveJSON(LS_INPROGRESS, {
     ids: session.queue.map(q=>q.id), fps: session.queue.map(fp),
-    answers: session.answers, idx: session.idx, elapsed: elapsedNow(),
-    scopeLabel: session.scopeLabel, historyDate: session.historyDate || null
+    answers: session.answers, drafts: session.drafts || {}, idx: session.idx, elapsed: elapsedNow(),
+    scopeLabel: session.scopeLabel, historyDate: session.historyDate || null,
+    sid: session.sid, savedAt: session.savedAt
   });
 }
 function clearProgress(){ try{ localStorage.removeItem(LS_INPROGRESS); }catch(e){} }
@@ -414,12 +545,20 @@ function renderResumeCard(){
   card.hidden = false;
   $("resumeContinueBtn").onclick = ()=>{
     // 老版本存的是 startTime 而不是 elapsed：没法知道中间离开了多久，只好从 0 接着计
-    session = { queue, idx: saved.idx, answers: saved.answers, elapsed: saved.elapsed||0, scopeLabel: saved.scopeLabel, historyDate: saved.historyDate||null };
+    session = { queue, idx: saved.idx, answers: saved.answers, drafts: (saved.drafts && typeof saved.drafts==="object") ? saved.drafts : {},
+      elapsed: saved.elapsed||0, scopeLabel: saved.scopeLabel, historyDate: saved.historyDate||null, sid: newSid(), savedAt: Date.now() };
     activeSince = null;
     showScreen("quiz"); renderQuestion();
   };
-  $("resumeRestartBtn").onclick = ()=>startQuiz(queue, saved.scopeLabel, false);
+  // 「重新练习」会丢掉已经答过的进度，和「继续练习」又紧挨着：答过题就先问一句（「开始练习」那边本来就会问）
+  $("resumeRestartBtn").onclick = async ()=>{
+    const n = saved.answers.filter(Boolean).length;
+    if(n && !await showConfirm(`这场练习已经答了 ${n}/${queue.length} 题。\n重新练习会从第 1 题开始，已答的进度会清掉，确定吗？\n（错题本里的记录不受影响）`)) return;
+    startQuiz(queue, saved.scopeLabel, false);
+  };
 }
+let sidCounter = 0;
+function newSid(){ return PAGE_ID + "-" + (++sidCounter); }
 
 async function startQuiz(questionPool, scopeLabel, confirmOverwrite){
   if(confirmOverwrite){
@@ -434,7 +573,7 @@ async function startQuiz(questionPool, scopeLabel, confirmOverwrite){
   if(random){ shuffle(mcq); shuffle(blank); }
   const pool = mcq.concat(blank);
   activeSince = null;
-  session = { queue: pool, idx: 0, answers: new Array(pool.length).fill(null), elapsed: 0, scopeLabel };
+  session = { queue: pool, idx: 0, answers: new Array(pool.length).fill(null), drafts: {}, elapsed: 0, scopeLabel, sid: newSid(), savedAt: Date.now() };
   showScreen("quiz"); renderQuestion();
 }
 function currentQ(){ return session.queue[session.idx]; }
@@ -451,7 +590,7 @@ function renderStats(){
 }
 
 /* ===================== 快速模式（单选题选中即提交，选对自动跳题） ===================== */
-let examMode = HAS_MCQ && (localStorage.getItem(LS_EXAMMODE) ?? "true") === "true";   // 存的是字符串，必须显式比较
+let examMode = HAS_MCQ && (lsGet(LS_EXAMMODE) ?? "true") === "true";   // 存的是字符串，必须显式比较
 let autoAdvanceTimer = null;
 function applyModeToggleUI(){
   const btn = $("modeToggleBtn"); if(!btn) return;
@@ -475,14 +614,51 @@ if($("modeToggleBtn")){
   applyModeToggleUI();
 }
 
+/* ===================== 背题模式（直接看答案，不计对错、不进错题本） ===================== */
+let recite = lsGet(LS_RECITE) === "true";
+function applyReciteUI(){
+  const btn = $("reciteBtn");
+  btn.textContent = recite ? "📖背题中" : "📖背题";
+  btn.classList.toggle("manual", !recite);
+  document.body.classList.toggle("reciting", recite);
+}
+$("reciteBtn").onclick = ()=>{
+  recite = !recite;
+  try{ localStorage.setItem(LS_RECITE, recite ? "true" : "false"); }catch(e){}
+  applyReciteUI();
+  if(session && isActive("screen-quiz")) renderQuestion();
+};
+applyReciteUI();
+
 /* ===================== 出题 ===================== */
 function blankHtml(q, idx){
-  if(q.vocab) return `<textarea class="blank-input trans-area" data-idx="${idx}" rows="5" placeholder="请在此输入英语翻译…"></textarea><span class="reset-size-btn">⇕ 恢复</span>`;
-  return `<input type="text" class="blank-input" data-idx="${idx}" autocomplete="off">`;
+  // 手机别自作主张：不要首字母大写、不要自动改词、不要拼写检查（代码和单词会被改坏）
+  const noFix = `autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false"`;
+  if(q.vocab) return `<textarea class="blank-input trans-area" data-idx="${idx}" rows="5" placeholder="请在此输入英语翻译…" ${noFix}></textarea><span class="reset-size-btn">⇕ 恢复</span>`;
+  return `<input type="text" class="blank-input" data-idx="${idx}" ${noFix}>`;
 }
+function blankInputs(){ return [...document.querySelectorAll("#qText .blank-input, #qCode .blank-input")]; }
+// 填空框跟着内容变宽（默认窄一点，代码题里一行才不会被输入框撑断）
+function fitInput(inp){ if(inp.tagName==="INPUT") inp.style.width = Math.min(22, Math.max(5, inp.value.length + 2)) + "ch"; }
+/* 还没提交的内容也要记下来：以前换一题、滑一下、切个标签，填到一半的十几个空就全没了 */
+let draftTimer = null;
+function keepDraft(){
+  if(!session || session.answers[session.idx]) return;
+  const q = currentQ();
+  if(q.type==="mcq"){ if(selectedOpt) session.drafts[session.idx] = { opt: selectedOpt }; }
+  else {
+    const vals = blankInputs().map(i=>i.value);
+    if(vals.some(v=>v)) session.drafts[session.idx] = vals; else delete session.drafts[session.idx];
+  }
+  clearTimeout(draftTimer); draftTimer = setTimeout(saveProgress, 400);
+}
+function keepDraftNow(){ if(session && isActive("screen-quiz")){ keepDraft(); clearTimeout(draftTimer); saveProgress(); } }
+let pendingSelf = false;   // 翻译题已经亮出参考译文、等着自己点「译对了/没译对」
 function renderQuestion(){
   clearAutoAdvance();
-  const q = currentQ(), saved = session.answers[session.idx];
+  pendingSelf = false;
+  if(!session.drafts) session.drafts = {};
+  const q = currentQ(), saved = session.answers[session.idx], draft = session.drafts[session.idx];
   selectedOpt = saved && saved.selectedOpt ? saved.selectedOpt : null;
   $("qTag").textContent = q.cat;
   $("prevBtn").disabled = session.idx===0;
@@ -499,6 +675,7 @@ function renderQuestion(){
     else if(CFG.wordlist) codeEl.innerHTML = styleWordlist(q.code.replace(/\{\{\}\}/g,"______"));
     else codeEl.textContent = q.code.replace(/\{\{\}\}/g,"______");
   } else { codeEl.hidden = true; codeEl.textContent = ""; }
+  const showOnly = recite && !saved;   // 背题：只看不答
 
   if(q.type==="mcq"){
     body.innerHTML = `<div class="opt-list">` + Object.keys(q.options).map(L=>
@@ -506,33 +683,48 @@ function renderQuestion(){
     if(saved){
       markOptions(q, saved.selectedOpt);
       if(!(examMode && saved.allCorrect)) showAnswerBoxMcq(q, saved.allCorrect, saved.selectedOpt);
+    } else if(showOnly){
+      markOptions(q, null);
+      box.className = "answer-box show right";
+      box.innerHTML = `<b>答案：</b><span class="correct-ans">${esc(q.correct)}. ${esc(q.options[q.correct])}</span>`;
     } else {
       body.querySelectorAll(".opt-row").forEach(el=>el.addEventListener("click", ()=>pickOption(el.dataset.letter)));
+      if(draft && draft.opt && q.options[draft.opt] !== undefined){
+        selectedOpt = draft.opt;
+        body.querySelectorAll(".opt-row").forEach(o=>o.classList.toggle("selected", o.dataset.letter===selectedOpt));
+      }
     }
   } else {
-    const inputs = [...document.querySelectorAll("#qText .blank-input, #qCode .blank-input")];
+    const inputs = blankInputs();
     if(saved){
       inputs.forEach((inp,i)=>{
         inp.value = (saved.userInputs||[])[i] || "";
         inp.classList.add(saved.assignment && saved.assignment[i]!==-1 ? "correct" : "wrong");
-        inp.disabled = true;
+        inp.disabled = true; fitInput(inp);
       });
-      showAnswerBoxBlank(q, saved.allCorrect);
+      showAnswerBoxBlank(q, saved.allCorrect, saved.self);
     } else {
+      if(Array.isArray(draft)) inputs.forEach((inp,i)=>{ inp.value = draft[i] || ""; });
       inputs.forEach((inp,i)=>{
+        fitInput(inp);
+        inp.addEventListener("input", ()=>{ fitInput(inp); keepDraft(); });
         inp.addEventListener("keydown", e=>{
           if(e.key!=="Enter" || e.isComposing || e.keyCode===229) return;   // 中文输入法按回车是在选字，不是要提交
           if(inp.tagName==="TEXTAREA" && !(e.ctrlKey||e.metaKey)) return;    // 翻译框里回车是换行；Ctrl/⌘+回车才提交
           e.preventDefault();
-          if(i<inputs.length-1) inputs[i+1].focus(); else submitAnswer();
+          if(i<inputs.length-1) inputs[i+1].focus(); else if(!recite) submitAnswer();
         });
       });
-      // 滑动翻页时卡片是藏着的，这时不聚焦（不然划到填空题会误弹键盘）
-      if(inputs[0] && document.querySelector("#screen-quiz .qcard").style.visibility !== "hidden") inputs[0].focus();
+      if(showOnly){
+        box.className = "answer-box show right";
+        box.innerHTML = `${q.vocab?"参考译文":"参考答案"}：<span class="real">${esc(ansText(q))}</span>`;
+      }
+      // 滑动翻页时卡片是藏着的，这时不聚焦（不然划到填空题会误弹键盘）；背题时也不抢焦点
+      else if(inputs[0] && document.querySelector("#screen-quiz .qcard").style.visibility !== "hidden") inputs[0].focus();
     }
   }
   document.querySelectorAll("#qText .reset-size-btn").forEach(b=>{ b.onclick = ()=>{ b.previousElementSibling.style.height = ""; }; });
-  $("checkBtn").hidden = !!saved;
+  $("checkBtn").hidden = !!saved || showOnly;
   updateNextBtn();
   renderStats();
   saveProgress();
@@ -547,7 +739,7 @@ function markOptions(q, picked){
   });
 }
 function pickOption(L){
-  if(!session || session.answers[session.idx]) return;
+  if(!session || session.answers[session.idx] || recite) return;
   const q = currentQ();
   selectedOpt = L;
   $("qBody").querySelectorAll(".opt-row").forEach(o=>o.classList.toggle("selected", o.dataset.letter===L));
@@ -555,7 +747,7 @@ function pickOption(L){
     const right = L===q.correct;
     submitAnswer();
     if(right) scheduleAutoAdvance(session.idx);
-  }
+  } else keepDraft();
 }
 function updateNextBtn(){
   const isLast = session.idx === session.queue.length-1, b = $("nextBtn");
@@ -568,17 +760,35 @@ function showAnswerBoxMcq(q, allCorrect, userOpt){
   box.innerHTML = `<b>我的答案：</b><span class="my-ans${allCorrect?"":" wrong-color"}">${userOpt ? esc(userOpt) : "未作答"}</span>`
     + `　　<b>正确答案：</b><span class="correct-ans">${esc(q.correct)}. ${esc(q.options[q.correct])}</span>`;
 }
-function showAnswerBoxBlank(q, allCorrect){
+function showAnswerBoxBlank(q, allCorrect, self){
   const box = $("answerBox");
   box.className = "answer-box show " + (allCorrect ? "right" : "wrong");
   if(q.vocab){
-    box.innerHTML = (allCorrect ? `✔ 正确！（关键词✓）` : `✘ 有误。（关键词未匹配，请对照）`) + ` 参考译文：<span class="real">${esc(ansText(q))}</span>`;
+    const verdict = self ? (allCorrect ? `✔ 你判定：译对了。` : `✘ 你判定：没译对。`)
+                         : (allCorrect ? `✔ 正确！（关键词✓）` : `✘ 有误。（关键词未匹配，请对照）`);   // 没有 self 的是旧版按关键词判的记录
+    box.innerHTML = verdict + ` 参考译文：<span class="real">${esc(ansText(q))}</span>`;
   } else {
     box.innerHTML = (allCorrect ? `✔ 回答正确！` : `✘ 回答有误。`) + ` 参考答案：<span class="real">${esc(ansText(q))}</span>`;
   }
 }
+/* 翻译题自己判：用没用到关键词，和译得对不对是两回事（以前只打一个关键词也判"正确"，
+   而把参考译文原样打进去、只因词形不同反而判"有误"）。所以交卷后亮出参考译文，由本人对照后点对/不对；
+   关键词有没有用到只作提示。 */
+function askSelfGrade(q, userInputs){
+  const hit = gradeQuestion(q, userInputs).allCorrect, box = $("answerBox");
+  pendingSelf = true;
+  box.className = "answer-box show self";
+  box.innerHTML = `<div>参考译文：<span class="real">${esc(ansText(q))}</span></div>`
+    + `<div class="self-hint">${hit ? "✓ 用到了题目提示的关键词" : "· 没检测到题目提示的关键词（仅供参考，换了词形也可能检测不到）"}</div>`
+    + `<div class="self-ask">对照一下，你译对了吗？</div>`
+    + `<div class="btn-row self-btns"><button class="btn secondary" id="selfWrongBtn">✘ 没译对</button><button class="btn" id="selfRightBtn">✔ 译对了</button></div>`;
+  const done = ok=>{ pendingSelf = false; blankInputs().forEach(i=>i.classList.add(ok ? "correct" : "wrong")); recordAnswer(q, { allCorrect: ok, userInputs, assignment: [ok ? 0 : -1], self: true }); showAnswerBoxBlank(q, ok, true); };
+  $("selfRightBtn").onclick = ()=>done(true);
+  $("selfWrongBtn").onclick = ()=>done(false);
+  $("checkBtn").hidden = true;
+}
 function submitAnswer(){
-  if(!session || session.answers[session.idx]) return;   // 已经交过的题不能再交一次（防连点重复记错题）
+  if(!session || session.answers[session.idx] || recite || pendingSelf) return;   // 已经交过的题不能再交一次（防连点重复记错题）
   const q = currentQ();
   let record;
   if(q.type==="mcq"){
@@ -587,36 +797,45 @@ function submitAnswer(){
     if(!(examMode && allCorrect)) showAnswerBoxMcq(q, allCorrect, selectedOpt);
     record = { allCorrect, selectedOpt };
   } else {
-    const inputs = [...document.querySelectorAll("#qText .blank-input, #qCode .blank-input")];
+    const inputs = blankInputs();
     const userInputs = inputs.map(inp=>inp.value);
-    const key = q.vocab || q.ans;
-    const g = q.ordered ? gradeOrdered(userInputs, key) : gradeBlanksSet(userInputs, key);
-    inputs.forEach((inp,i)=>{ inp.classList.add(g.assignment[i]!==-1 ? "correct" : "wrong"); inp.disabled = true; });
+    inputs.forEach(inp=>{ inp.disabled = true; });
+    if(q.vocab){ keepDraft(); askSelfGrade(q, userInputs); return; }   // 还没点对/不对之前算没答；草稿留着，走开再回来还能接着
+    const g = gradeQuestion(q, userInputs);
+    inputs.forEach((inp,i)=>{ inp.classList.add(g.assignment[i]!==-1 ? "correct" : "wrong"); });
     showAnswerBoxBlank(q, g.allCorrect);
     record = { allCorrect: g.allCorrect, userInputs, assignment: g.assignment };
   }
+  recordAnswer(q, record);
+}
+function recordAnswer(q, record){
   session.answers[session.idx] = record;
-  // 错题本：答错就记一笔；已在错题本里的题要连续答对 3 次才移出，中途错一次清零
-  if(record.allCorrect){
-    if(wrongbook[q.id]){
-      wrongbook[q.id].correctStreak = (wrongbook[q.id].correctStreak||0) + 1;
-      if(wrongbook[q.id].correctStreak >= MASTER_STREAK) delete wrongbook[q.id];
+  delete session.drafts[session.idx];
+  // 错题本：答错就记一笔；已在错题本里的题要连续答对 3 次才移出，中途错一次清零。
+  // 先从存储读最新的那份再改（见 updateWrongbook）
+  updateWrongbook(wb=>{
+    if(record.allCorrect){
+      if(wb[q.id]){
+        wb[q.id].correctStreak = num(wb[q.id].correctStreak) + 1;
+        if(wb[q.id].correctStreak >= MASTER_STREAK) delete wb[q.id];
+      }
+    } else {
+      wb[q.id] = { cat:q.cat, type:q.type, text:q.text||"", code:q.code||"", options:q.options||null, correct:q.correct||null, ans:q.ans||null,
+        vocab:q.vocab||null, wrongCount:num((wb[q.id]||{}).wrongCount)+1, correctStreak:0, lastWrongAt:Date.now() };
     }
-  } else {
-    wrongbook[q.id] = { cat:q.cat, type:q.type, text:q.text||"", code:q.code||"", options:q.options||null, correct:q.correct||null, ans:q.ans||null,
-      ordered:!!q.ordered, vocab:q.vocab||null, wrongCount:((wrongbook[q.id]||{}).wrongCount||0)+1, correctStreak:0, lastWrongAt:Date.now() };
-  }
-  saveJSON(LS_WRONGBOOK, wrongbook);
+  });
+  markDone(q);
   $("checkBtn").hidden = true;
   updateNextBtn();
   renderStats();
   saveProgress();
 }
 $("checkBtn").onclick = submitAnswer;
-$("prevBtn").onclick = ()=>{ if(session.idx>0){ session.idx--; renderQuestion(); } };
-$("nextBtn").onclick = ()=>{ if(session.idx < session.queue.length-1){ session.idx++; renderQuestion(); } };
+$("prevBtn").onclick = ()=>{ if(session.idx>0){ keepDraft(); session.idx--; renderQuestion(); } };
+$("nextBtn").onclick = ()=>{ if(session.idx < session.queue.length-1){ keepDraft(); session.idx++; renderQuestion(); } };
 $("quitQuizBtn").onclick = async ()=>{
   const s = sessionStats(), left = s.total - s.answered;
+  keepDraft();
   if(await showConfirm(left ? `还有 ${left} 题没答，确定结束本次练习并查看结果吗？` : "确定结束本次练习并查看结果吗？")) finishQuiz();
 };
 
@@ -644,7 +863,7 @@ function renderOverview(){
   if(blankIdx.length) html += `<div class="ov-section-title">${both?"二、":""}填空题（${blankIdx.length}题）</div>` + renderOverviewGrid(blankIdx, both);
   const c = $("ovContent"); c.innerHTML = html;
   c.querySelectorAll(".ov-item").forEach(el=>el.addEventListener("click", ()=>{
-    session.idx = parseInt(el.dataset.idx, 10); closeOverview(); showScreen("quiz"); renderQuestion();
+    keepDraft(); session.idx = parseInt(el.dataset.idx, 10); closeOverview(); showScreen("quiz"); renderQuestion();
   }));
   const cur = c.querySelector(".ov-item.cur"); if(cur && cur.scrollIntoView) cur.scrollIntoView({block:"center"});
 }
@@ -655,14 +874,18 @@ function finishQuiz(){
   timerPause();
   const s = sessionStats(), durationSec = Math.round(elapsedNow()/1000);
   const rate = pct(s.correct, s.answered);       // 正确率 = 答对 / 已答。旧版除以总题数：答 1 题对 1 题显示 1%
-  const entry = { date: session.historyDate || Date.now(), scope: session.scopeLabel, total: s.total, correct: s.correct, wrong: s.wrong, rate, durationSec };
-  // 从结果页「返回本次练习」接着答再结束：更新同一条记录，而不是再记一条
-  const at = session.historyDate ? historyList.findIndex(h=>h.date===session.historyDate) : -1;
-  if(at>=0) historyList[at] = entry; else historyList.unshift(entry);
-  session.historyDate = entry.date;
-  if(historyList.length>100) historyList = historyList.slice(0,100);
-  saveJSON(LS_HISTORY, historyList);
-  clearProgress();
+  // 一题没答就结束：不记练习记录（以前会记一条"对0 错0 正确率 –"）
+  if(s.answered || session.historyDate){
+    const entry = { date: session.historyDate || Date.now(), scope: session.scopeLabel, total: s.total, correct: s.correct, wrong: s.wrong, rate, durationSec };
+    // 从结果页「返回本次练习」接着答再结束：更新同一条记录，而不是再记一条
+    updateHistory(list=>{
+      const at = list.findIndex(h=>h.date===entry.date);
+      if(at>=0) list[at] = entry; else { list.push(entry); list.sort((a,b)=>num(b.date)-num(a.date)); }
+    });
+    session.historyDate = entry.date;
+  }
+  session.finished = true;
+  if(!someoneElseIsNewer()) clearProgress();
   $("resTotal").textContent = s.total;
   $("resAnswered").textContent = s.answered;
   $("resUnanswered").textContent = s.total - s.answered;
@@ -672,7 +895,7 @@ function finishQuiz(){
   $("resTime").textContent = fmtTime(durationSec);
   showScreen("result");
 }
-$("backToQuizBtn").onclick = ()=>{ showScreen("quiz"); renderQuestion(); };
+$("backToQuizBtn").onclick = ()=>{ session.finished = false; session.savedAt = Date.now(); showScreen("quiz"); renderQuestion(); };
 $("retryAllBtn").onclick = ()=>startQuiz(session.queue, session.scopeLabel, false);
 $("retryWrongBtn").onclick = ()=>{
   const list = session.queue.filter((q,i)=>session.answers[i] && !session.answers[i].allCorrect);
@@ -703,37 +926,47 @@ $("resWrongBox").onclick = ()=>{ renderResultList(false); showScreen("resultlist
 $("resultListBackBtn").onclick = ()=>showScreen("result");
 
 /* ===================== 错题本 ===================== */
+let wbFilter = "";   // 只看某一章的错题；空 = 全部
 function renderWrongbook(){
-  const items = Object.entries(wrongbook).map(([id,w])=>({id, ...w}));
+  const all = Object.entries(wrongbook).map(([id,w])=>({id, ...w}));
   const summary = $("wrongbookSummary"), list = $("wrongbookList");
-  if(!items.length){ summary.innerHTML = `<div class="empty">暂无错题，继续保持！</div>`; list.hidden = true; list.innerHTML = ""; return; }
+  if(!all.length){ summary.innerHTML = `<div class="empty">暂无错题，继续保持！</div>`; list.hidden = true; list.innerHTML = ""; return; }
+  const cats = [...new Set(all.map(it=>it.cat))];
+  if(!cats.includes(wbFilter)) wbFilter = "";
+  const items = wbFilter ? all.filter(it=>it.cat===wbFilter) : all;
   list.hidden = false;
   summary.innerHTML = `
-    <div style="margin-bottom:10px;">共 <b>${items.length}</b> 道错题</div>
+    <div style="margin-bottom:10px;">共 <b>${all.length}</b> 道错题${wbFilter ? `，当前只看「${esc(wbFilter)}」的 <b>${items.length}</b> 道` : ""}</div>
+    ${cats.length>1 ? `<select class="wb-filter" id="wbFilterSel" aria-label="按${esc(CFG.catWord)}筛选错题"><option value="">全部${esc(CFG.catWord)}（${all.length}）</option>${cats.map(c=>`<option value="${esc(c)}"${c===wbFilter?" selected":""}>${esc(c)}（${all.filter(it=>it.cat===c).length}）</option>`).join("")}</select>` : ""}
     <div class="btn-row">
-      <button class="btn" id="practiceWrongBtn">练习全部错题</button>
+      <button class="btn" id="practiceWrongBtn">${wbFilter ? "练习这些错题" : "练习全部错题"}</button>
       <button class="btn gray" id="clearWrongbookBtn">清空错题本</button>
     </div>`;
+  if($("wbFilterSel")) $("wbFilterSel").onchange = e=>{ wbFilter = e.target.value; renderWrongbook(); };
   $("practiceWrongBtn").onclick = ()=>{
     const pool = items.map(it=>QBYID[it.id]).filter(Boolean);
     if(!pool.length){ showAlert("这些错题在当前题库里都找不到了（题库可能更新过），没法练习。"); return; }
-    startQuiz(pool, "错题本练习", true);
+    startQuiz(pool, wbFilter ? `错题本练习（${wbFilter}）` : "错题本练习", true);
   };
   $("clearWrongbookBtn").onclick = async ()=>{
     if(await showConfirm("确定清空错题本吗？所有错题记录都会被清除，此操作不可恢复。")){
-      wrongbook = {}; saveJSON(LS_WRONGBOOK, wrongbook); renderWrongbook();
+      wrongbook = {}; saveJSON(LS_WRONGBOOK, wrongbook); wbFilter = ""; renderWrongbook();
     }
   };
-  items.sort((a,b)=>(b.lastWrongAt||0)-(a.lastWrongAt||0));
+  items.sort((a,b)=>num(b.lastWrongAt)-num(a.lastWrongAt));
   list.innerHTML = items.map(it=>{
-    const streak = it.correctStreak||0;
+    const streak = num(it.correctStreak);
     return `<div class="wrong-item">
-      <div class="top"><span>${esc(it.cat)}</span><span>错${it.wrongCount||1}次 · ${it.lastWrongAt ? fmtDate(it.lastWrongAt) : ""}</span></div>
+      <div class="top"><span>${esc(it.cat)}</span><span>错${num(it.wrongCount)||1}次 · ${it.lastWrongAt ? fmtDate(num(it.lastWrongAt)) : ""}</span></div>
       <div class="qtext">${esc(plainText(it))}</div>
       <div class="ans">${it.vocab?"参考译文":"答案"}：${esc(ansText(it))}</div>
-      <div class="note">已连续答对 ${streak}/${MASTER_STREAK} 次${streak>0 ? `，再连续答对${MASTER_STREAK-streak}次将自动从错题本移除` : ""}</div>
+      <div class="note">已连续答对 ${streak}/${MASTER_STREAK} 次${streak>0 ? `，再连续答对${MASTER_STREAK-streak}次将自动从错题本移除` : ""}<button class="wb-remove" data-id="${esc(it.id)}">移出错题本</button></div>
     </div>`;
   }).join("");
+  list.querySelectorAll(".wb-remove").forEach(b=>{ b.onclick = async ()=>{
+    if(!await showConfirm("把这道题移出错题本吗？")) return;
+    updateWrongbook(wb=>{ delete wb[b.dataset.id]; }); renderWrongbook();
+  }; });
 }
 
 /* ===================== 练习记录 ===================== */
@@ -741,10 +974,10 @@ function renderHistory(){
   const list = $("historyList");
   if(!historyList.length){ list.innerHTML = `<div class="empty">还没有练习记录，快去开始第一次练习吧～</div>`; return; }
   list.innerHTML = historyList.map(h=>{
-    const answered = (h.correct||0) + (h.wrong||0);   // 老记录存的 rate 是"答对/总题数"，这里统一按已答重算
+    const correct = num(h.correct), wrong = num(h.wrong), answered = correct + wrong;   // 老记录存的 rate 是"答对/总题数"，这里统一按已答重算
     return `<div class="history-item">
-      <div class="top"><span>${fmtDate(h.date)}</span><span>用时 ${fmtTime(h.durationSec)}</span></div>
-      <div>${esc(h.scope)} · 共${h.total}题 · 对<b style="color:var(--green)">${h.correct||0}</b> 错<b style="color:var(--red)">${h.wrong||0}</b> · 正确率 <b>${answered ? pct(h.correct||0, answered)+"%" : "–"}</b></div>
+      <div class="top"><span>${fmtDate(num(h.date))}</span><span>用时 ${fmtTime(num(h.durationSec))}</span></div>
+      <div>${esc(h.scope)} · 共${num(h.total)}题 · 对<b style="color:var(--green)">${correct}</b> 错<b style="color:var(--red)">${wrong}</b> · 正确率 <b>${answered ? pct(correct, answered)+"%" : "–"}</b></div>
     </div>`;
   }).join("");
 }
@@ -754,9 +987,20 @@ $("clearHistoryBtn").onclick = async ()=>{
 
 /* ===================== 键盘快捷键（电脑上用）：A-D/1-4 选项，回车提交/下一题，←→ 切题，Esc 关总览 ===================== */
 document.addEventListener("keydown", e=>{
+  // 弹窗开着：Esc = 取消，回车 = 确定；别的键一律不往下传（以前回车会再点一次弹窗背后的那个按钮）
+  if(hasShow("confirmBackdrop")){
+    if(e.key==="Escape"){ ($("confirmCancelBtn").hidden ? $("confirmOkBtn") : $("confirmCancelBtn")).click(); e.preventDefault(); }
+    else if(e.key==="Enter"){ $("confirmOkBtn").click(); e.preventDefault(); }
+    return;
+  }
+  const t = e.target, onBtn = t.closest && t.closest("button, a, [role=button]");
+  // 文字做的按钮（题目总览、全选……）用 Tab 走到以后，回车/空格 = 点它
+  if(onBtn && onBtn.getAttribute("role")==="button" && (e.key==="Enter" || e.key===" ")){ onBtn.click(); e.preventDefault(); return; }
   if(e.key==="Escape" && isActive("screen-overview")){ closeOverview(); return; }
-  if(!session || !isActive("screen-quiz") || hasShow("confirmBackdrop") || isActive("screen-overview")) return;
-  if(e.ctrlKey || e.metaKey || e.altKey || (e.target.closest && e.target.closest("input, textarea, select, button, a"))) return;
+  if(!session || !isActive("screen-quiz") || isActive("screen-overview")) return;
+  if(e.ctrlKey || e.metaKey || e.altKey || (t.closest && t.closest("input, textarea, select"))) return;
+  // 焦点停在某个按钮上时，回车/空格归那个按钮自己；其余快捷键照常（以前鼠标点过「下一题」后字母键和方向键全部失灵）
+  if(onBtn && (e.key==="Enter" || e.key===" ")) return;
   const q = currentQ(), answered = !!session.answers[session.idx];
   const k = e.key.length===1 ? e.key.toUpperCase() : e.key;
   if(q.type==="mcq" && !answered){
@@ -764,7 +1008,7 @@ document.addEventListener("keydown", e=>{
     const L = /^[1-9]$/.test(k) ? letters[+k-1] : (letters.includes(k) ? k : null);
     if(L){ pickOption(L); e.preventDefault(); return; }
   }
-  if(k==="Enter"){ if(!answered) submitAnswer(); else $("nextBtn").click(); e.preventDefault(); }
+  if(k==="Enter"){ if(!answered && !recite && !pendingSelf) submitAnswer(); else $("nextBtn").click(); e.preventDefault(); }
   else if(k==="ArrowRight"){ $("nextBtn").click(); e.preventDefault(); }
   else if(k==="ArrowLeft"){ $("prevBtn").click(); e.preventDefault(); }
 });
@@ -808,7 +1052,7 @@ function setupPullToRefresh(){
   function doRefresh(){
     // 页面没有 Service Worker：断网时 location.reload() 会变成浏览器错误页，改成重读本地数据 + 重绘
     if(navigator.onLine === false){
-      historyList = loadJSON(LS_HISTORY, []); wrongbook = loadJSON(LS_WRONGBOOK, {});
+      historyList = cleanHistory(loadJSON(LS_HISTORY, [])); wrongbook = cleanWrongbook(loadJSON(LS_WRONGBOOK, {}));
       renderCatList();
       if(isActive("screen-wrongbook")) renderWrongbook();
       if(isActive("screen-history")) renderHistory();
@@ -1023,6 +1267,7 @@ function setupSwipeNav(){
         return;
       }
       locked = true; card.style.willChange = "transform";
+      clearAutoAdvance();
     }
     if(e.cancelable) e.preventDefault();
     // 速度只看最近一小段并做平滑：整段平均会被"先慢后甩"拉低，单点又太抖
@@ -1057,7 +1302,12 @@ setupSwipeNav();
 window.__quiz = {
   get session(){ return session; }, set session(v){ session = v; },
   renderQuestion, finishQuiz, showScreen, openOverview, closeOverview, startQuiz, submitAnswer, pickOption,
-  isCorrect, gradeBlanksSet, gradeOrdered, normalize, fp, elapsedNow,
+  isCorrect, gradeBlanksSet, gradeOrdered, gradeQuestion, normalize, fp, elapsedNow, refreshFromStorage,
   get wrongbook(){ return wrongbook; }, get history(){ return historyList; }, CFG
 };
+
+/* 离线也能刷：注册一个只做"断网时用上次存下来的页面"的缓存（见仓库根目录 sw.js） */
+if("serviceWorker" in navigator && /^https?:$/.test(location.protocol)){
+  window.addEventListener("load", ()=>{ navigator.serviceWorker.register("../sw.js").catch(()=>{}); });
+}
 })();

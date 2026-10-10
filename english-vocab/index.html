@@ -18,6 +18,7 @@ const QUIZ = {
   intro: "六单元课后选词填空，共93空，每题含词表",
   font: "en",                 // 英语：系统 UI 字体 + Semibold
   wordlist: true,             // code 字段是词表：只给英文单词加粗
+  containsMinLen: 9999,       // 单词题只认完全一致（和已列出的备选写法）：多写个 s/ed 就是错的，不启用「包含也算对」
 };
 /* ===================== 题库数据 ===================== */
 // 单选 {type:"mcq", cat, text, options, correct}；填空 {type:"blank", cat, text(用{{}}标空), code?, ans:[每空一项，|分隔多个可接受答案], ordered?, vocab?}

@@ -25,9 +25,15 @@ async function open(w, h, scale) {
   // 2026-09-13 踩过：名字全是 cdp-xxxx，凭"启动时间对得上"认领残留，误杀了另一个会话正在跑的测试浏览器
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), RUN_PREFIX));
   const tag = path.basename(dir);
+  // 测的是本机起的页面，浏览器不需要、也不许自己上网：Chrome 有后台联网（查更新、同步等），
+  // 不指定代理时系统代理一关它就直连出去。所以一律走环境变量里的代理；没有代理就指到一个不通的地址，宁可连不上也不漏。
+  const proxy = process.env.HTTPS_PROXY || process.env.https_proxy || process.env.HTTP_PROXY || process.env.http_proxy || 'http://127.0.0.1:9';
   const proc = spawn('C:/Program Files/Google/Chrome/Application/chrome.exe',
     ['--headless=new', '--remote-debugging-port=' + port, '--user-data-dir=' + dir, '--no-first-run',
-     '--no-default-browser-check', '--disable-gpu', '--hide-scrollbars', 'about:blank'], { stdio: 'ignore' });
+     '--no-default-browser-check', '--disable-gpu', '--hide-scrollbars',
+     '--proxy-server=' + proxy, '--proxy-bypass-list=127.0.0.1;localhost',
+     '--disable-background-networking', '--disable-component-update', '--disable-sync', '--disable-domain-reliability', '--no-pings',
+     'about:blank'], { stdio: 'ignore' });
   LIVE.push({ pid: proc.pid, dir, tag });
   let ws = null;
   for (let i = 0; i < 60; i++) {
