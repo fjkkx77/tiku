@@ -1288,12 +1288,31 @@ function setupSwipeNav(){
     // 等"这一帧画完、快照动画已经交给合成器"再换题：光用 rAF 会插在快照开动之前；rAF 里再套 setTimeout(0) 两边都稳
     requestAnimationFrame(()=>setTimeout(swap, 0));
   }
+  let editingField = null, pointerField = null, pointerAt = 0;
+  const FIELD_SEL = "input, textarea, select, [contenteditable='true']";
+  // 时间从抬手算：焦点是松手那一下给的，按得久一点也不能被当成程序自动聚焦
+  // 已经被自动聚焦的框再点一下不会有 focusin（iPhone 上这一下才弹键盘），所以轻点（手指没怎么动）已聚焦的框也算
+  // pointerTap 每次按下先清掉：在框里拖动时浏览器会接管，只发 pointercancel 不发 pointerup，不清的话会沿用上一次轻点
+  let px = 0, py = 0, pointerTap = false;
+  document.addEventListener("pointerdown", e=>{ pointerField = e.target.closest ? e.target.closest(FIELD_SEL) : null; pointerAt = Date.now(); px = e.clientX; py = e.clientY; pointerTap = false; }, true);
+  document.addEventListener("pointerup", e=>{
+    pointerAt = Date.now();
+    pointerTap = Math.abs(e.clientX-px) < 10 && Math.abs(e.clientY-py) < 10;
+    if(pointerTap && pointerField && pointerField === document.activeElement) editingField = pointerField;
+  }, true);
+  document.addEventListener("focusin", e=>{ editingField = (pointerTap && e.target === pointerField && Date.now()-pointerAt < 1500) ? e.target : null; }, true);
+  document.addEventListener("input", e=>{ if(e.target === document.activeElement) editingField = e.target; }, true);
+  document.addEventListener("focusout", e=>{ if(e.target === editingField) editingField = null; }, true);
   screen.addEventListener("touchstart", e=>{
     tracking = false; locked = false;
     if(pending || blocked() || e.touches.length!==1) return;
     const t = e.touches[0];
     if(t.clientX < EDGE || t.clientX > document.documentElement.clientWidth-EDGE) return;
-    if(e.target.closest("input, textarea, select, [contenteditable='true']")) return;  // 在输入框里起手是想打字/挪光标
+    // 正在输入的框里起手是想挪光标/选字，不翻页；框没在编辑（没聚焦，或交卷后锁住了）就照常翻页——
+    // 以前只要从输入框起手一律不翻，翻译题的大文本框占了卡片一大块，那块怎么滑都没反应（2026-10-15 用户报）
+    // 「在编辑」要看是不是本人点进去的/打过字：用「下一题」翻过来时程序会自动聚焦第一个框，iPhone 上不弹键盘，那不算
+    const field = e.target.closest(FIELD_SEL);
+    if(field && field === editingField && field === document.activeElement && !field.disabled) return;
     baseX = stopLive();                       // 动画半路被抓住：就地停住，从这儿接着拖
     pos = baseX;
     startX = lastX = t.clientX; startY = t.clientY;

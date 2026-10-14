@@ -317,6 +317,32 @@ function serve() {
           await swipe(W / 2, y + 60, W / 2 + 6, y - 120, 200);
           ok(await t.ev('__quiz.session.idx') === 0, `${W} ${s} 竖划不翻页`);
         }
+        // 从输入框起手：框没在编辑就照常翻页；正在输入时不翻（2026-10-15 用户报：翻译框那一大块滑不动）
+        {
+          await t.goto(BASE + 'english-translation/'); await t.ev('localStorage.clear()'); await t.goto(BASE + 'english-translation/');
+          await t.ev('document.getElementById("startBtn").click()'); await sleep(200);
+          const mid = () => t.ev('(()=>{const a=document.querySelector(".trans-area");a.scrollIntoView({block:"center",behavior:"instant"});const r=a.getBoundingClientRect();return r.top+r.height/2;})()');
+          let y3 = await mid();
+          await T('touchStart', W / 2, y3); await T('touchEnd'); await sleep(300);
+          const tapFocus = await t.ev('document.activeElement===document.querySelector(".trans-area")');
+          // 亲手点进去的：从框里左划不翻
+          await swipe(W * .75, y3, W * .2, y3 + 4, 180);
+          const tapped = await t.ev('__quiz.session.idx');
+          await t.ev('document.activeElement.blur()');
+          // 程序自动聚焦（「下一题」翻过来就是这样，iPhone 不弹键盘）：照常翻页
+          y3 = await mid(); await t.ev('document.querySelector(".trans-area").focus()');
+          await swipe(W * .75, y3, W * .2, y3 + 4, 180);
+          const auto = await t.ev('__quiz.session.idx');
+          // 自动聚焦后打过字：算在编辑，不翻
+          y3 = await mid(); await t.ev('(()=>{const a=document.querySelector(".trans-area");a.focus();a.value="x";a.dispatchEvent(new Event("input",{bubbles:true}));})()');
+          await swipe(W * .75, y3, W * .2, y3 + 4, 180);
+          const typed = await t.ev('__quiz.session.idx');
+          ok(tapFocus && tapped === 0 && auto === 1 && typed === 1, `${W} 翻译框：轻点能聚焦；点进去或打过字后从框里滑不翻，只是被自动聚焦时照常翻`, { tapFocus, tapped, auto, typed });
+          await t.ev('document.activeElement.blur();__quiz.submitAnswer()'); await sleep(100);
+          y3 = await mid();
+          await swipe(W * .75, y3, W * .2, y3 + 4, 180);
+          ok(await t.ev('__quiz.session.idx') === 2, `${W} 翻译框交卷锁住后，从框里左划照常翻页`, await t.ev('__quiz.session.idx'));
+        }
         // 错题本/答错明细：全部题答错后逐个元素量，长代码不许伸出自己那一栏（整页宽度量不出来：外层会把超出的裁掉）
         await t.goto(BASE + 'web-design/'); await t.ev('localStorage.clear()'); await t.goto(BASE + 'web-design/');
         let m = await t.ev(`(async()=>{document.getElementById("startBtn").click();await new Promise(r=>setTimeout(r,80));const Q=__quiz;for(let i=0;i<Q.session.queue.length;i++){Q.session.idx=i;Q.renderQuestion();Q.submitAnswer();}
