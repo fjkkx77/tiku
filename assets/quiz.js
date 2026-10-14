@@ -14,8 +14,9 @@
        anyOrder  只有其中几个空可以互换，如 [[13,14,15]]（序号从 0 数）
        seq       一个空里的几项有先后（如安全序列 Q,P,R）
        ordered   只影响参考答案的显示方式：(1)xx (2)yy
-       vocab     翻译题：ans 是完整参考译文，输入框换成多行文本框；提交后本人对照参考译文自评，
-                 vocab 里的关键词有没有用到只作提示
+       vocab     翻译题：ans 是完整参考译文，输入框换成多行文本框；提交后自动跟参考译文严格比对
+                 （只放过大小写、空格、标点，词一个不能差、顺序不能变），答错时标出差在哪几个词
+       accept    翻译题：参考译文有几种写法时把每种完整写出来（ans 仍是显示用的那一句）
      没写 type 的按填空处理（操作系统站的老数据就没写）
    ===================================================================== */
 (function(){
@@ -348,8 +349,42 @@ function gradeOrdered(userInputs, expectedList, seq){
    unordered:true  整题几个空是并列的，不分先后（如"操作系统的特征是：__、__、__、__"）；
    anyOrder:[[13,14,15]]  只有这几个空之间可以互换（如同一个 CSS 选择器里的几条声明），其余仍按位置；
    seq:true  一个空里的几项有先后，不能换（如安全序列）。 */
+/* 翻译题：严格对照参考译文（2026-10-14 用户要求，取代以前的"本人自评"）。
+   只放过不改变译文本身的差别：大小写、空格多少、标点（含弯/直引号、破折号、连字符）；词一个不能差，顺序不能变。
+   缩写也算不同的词：you're ≠ you are。参考译文有几种写法的，在题目上用 accept 列全。 */
+const TRANS_WORD_RE = /[A-Za-z0-9'‘’]+/g;
+function transTokens(s){ return (String(s==null?"":s).match(TRANS_WORD_RE) || []).map(w=>w.toLowerCase().replace(/['‘’]/g,"")).filter(Boolean); }
+function transRefs(q){ return q.accept && q.accept.length ? q.accept : String((q.ans||[])[0]||"").split("|"); }
+function gradeTranslation(q, text){
+  const u = transTokens(text).join(" ");
+  return !!u && transRefs(q).some(r=>transTokens(r).join(" ")===u);
+}
+// 最长公共子序列：标出你多写/写错的词（mine）和参考译文里你没写到的词（ref）
+function transDiff(mine, ref){
+  const a = transTokens(mine), b = transTokens(ref), n = a.length, m = b.length;
+  const L = Array.from({length:n+1}, ()=>new Array(m+1).fill(0));
+  for(let i=n-1;i>=0;i--) for(let j=m-1;j>=0;j--) L[i][j] = a[i]===b[j] ? L[i+1][j+1]+1 : Math.max(L[i+1][j], L[i][j+1]);
+  const keepA = new Array(n).fill(false), keepB = new Array(m).fill(false);
+  for(let i=0,j=0; i<n && j<m;){
+    if(a[i]===b[j]){ keepA[i]=keepB[j]=true; i++; j++; }
+    else if(L[i+1][j] >= L[i][j+1]) i++; else j++;
+  }
+  return { keepA, keepB, common: L[0][0] };
+}
+// 原样显示（保留标点），只把 keep[k] 为 false 的第 k 个词包上标记
+function markWords(text, keep, cls){
+  let k = 0, out = "", last = 0, m;
+  const s = String(text||""), re = new RegExp(TRANS_WORD_RE.source, "g");
+  while((m = re.exec(s))){
+    if(!m[0].replace(/['‘’]/g,"")) continue;
+    out += esc(s.slice(last, m.index)) + (keep[k] ? esc(m[0]) : `<mark class="${cls}">${esc(m[0])}</mark>`);
+    last = m.index + m[0].length; k++;
+  }
+  return out + esc(s.slice(last));
+}
 function gradeQuestion(q, userInputs){
-  const key = q.vocab || q.ans || [];
+  if(q.vocab){ const ok = gradeTranslation(q, (userInputs||[])[0]); return { allCorrect: ok, assignment: [ok ? 0 : -1] }; }
+  const key = q.ans || [];
   if(q.unordered) return gradeBlanksSet(userInputs, key, q.seq);
   const g = gradeOrdered(userInputs, key, q.seq);
   (q.anyOrder || []).forEach(group=>{
@@ -679,10 +714,8 @@ function keepDraft(){
   clearTimeout(draftTimer); draftTimer = setTimeout(saveProgress, 400);
 }
 function keepDraftNow(){ if(session && isActive("screen-quiz")){ keepDraft(); clearTimeout(draftTimer); saveProgress(); } }
-let pendingSelf = false;   // 翻译题已经亮出参考译文、等着自己点「译对了/没译对」
 function renderQuestion(){
   clearAutoAdvance();
-  pendingSelf = false;
   if(!session.drafts) session.drafts = {};
   const q = currentQ(), saved = session.answers[session.idx], draft = session.drafts[session.idx];
   selectedOpt = saved && saved.selectedOpt ? saved.selectedOpt : null;
@@ -728,7 +761,7 @@ function renderQuestion(){
         inp.classList.add(saved.assignment && saved.assignment[i]!==-1 ? "correct" : "wrong");
         inp.disabled = true; fitInput(inp);
       });
-      showAnswerBoxBlank(q, saved.allCorrect, saved.self);
+      showAnswerBoxBlank(q, saved.allCorrect, saved.self, saved.userInputs);
     } else {
       if(Array.isArray(draft)) inputs.forEach((inp,i)=>{ inp.value = draft[i] || ""; });
       inputs.forEach((inp,i)=>{
@@ -786,35 +819,29 @@ function showAnswerBoxMcq(q, allCorrect, userOpt){
   box.innerHTML = `<b>我的答案：</b><span class="my-ans${allCorrect?"":" wrong-color"}">${userOpt ? esc(userOpt) : "未作答"}</span>`
     + `　　<b>正确答案：</b><span class="correct-ans">${esc(q.correct)}. ${esc(q.options[q.correct])}</span>`;
 }
-function showAnswerBoxBlank(q, allCorrect, self){
+function showAnswerBoxBlank(q, allCorrect, self, userInputs){
   const box = $("answerBox");
   box.className = "answer-box show " + (allCorrect ? "right" : "wrong");
   if(q.vocab){
-    const verdict = self ? (allCorrect ? `✔ 你判定：译对了。` : `✘ 你判定：没译对。`)
-                         : (allCorrect ? `✔ 正确！（关键词✓）` : `✘ 有误。（关键词未匹配，请对照）`);   // 没有 self 的是旧版按关键词判的记录
-    box.innerHTML = verdict + ` 参考译文：<span class="real">${esc(ansText(q))}</span>`;
+    if(self){   // 2026-10-14 以前是本人自评，那时的记录照原样显示
+      box.innerHTML = (allCorrect ? `✔ 你判定：译对了。` : `✘ 你判定：没译对。`) + ` 参考译文：<span class="real">${esc(ansText(q))}</span>`;
+    } else if(allCorrect){
+      box.innerHTML = `✔ 跟参考译文一致。 参考译文：<span class="real">${esc(ansText(q))}</span>`;
+    } else {
+      const mine = (userInputs||[])[0] || "";
+      // 有几种写法时，拿最接近的那种来标
+      const ref = transRefs(q).map(r=>({ r, d: transDiff(mine, r) })).sort((x,y)=>y.d.common-x.d.common)[0];
+      box.innerHTML = `<div>✘ 跟参考译文不一致${mine.trim() ? "" : "（没有作答）"}</div>`
+        + (mine.trim() ? `<div class="trans-line"><b>你的译文：</b>${markWords(mine, ref.d.keepA, "tw-extra")}</div>` : "")
+        + `<div class="trans-line"><b>参考译文：</b><span class="real">${markWords(ref.r, ref.d.keepB, "tw-miss")}</span></div>`
+        + (mine.trim() ? `<div class="trans-legend"><mark class="tw-extra">红色</mark> 参考译文里没有的词　<mark class="tw-miss">黄底</mark> 你漏掉或写错的词（大小写、标点不算错）</div>` : "");
+    }
   } else {
     box.innerHTML = (allCorrect ? `✔ 回答正确！` : `✘ 回答有误。`) + ` 参考答案：<span class="real">${esc(ansText(q))}</span>`;
   }
 }
-/* 翻译题自己判：用没用到关键词，和译得对不对是两回事（以前只打一个关键词也判"正确"，
-   而把参考译文原样打进去、只因词形不同反而判"有误"）。所以交卷后亮出参考译文，由本人对照后点对/不对；
-   关键词有没有用到只作提示。 */
-function askSelfGrade(q, userInputs){
-  const hit = gradeQuestion(q, userInputs).allCorrect, box = $("answerBox");
-  pendingSelf = true;
-  box.className = "answer-box show self";
-  box.innerHTML = `<div>参考译文：<span class="real">${esc(ansText(q))}</span></div>`
-    + `<div class="self-hint">${hit ? "✓ 用到了题目提示的关键词" : "· 没检测到题目提示的关键词（仅供参考，换了词形也可能检测不到）"}</div>`
-    + `<div class="self-ask">对照一下，你译对了吗？</div>`
-    + `<div class="btn-row self-btns"><button class="btn secondary" id="selfWrongBtn">✘ 没译对</button><button class="btn" id="selfRightBtn">✔ 译对了</button></div>`;
-  const done = ok=>{ pendingSelf = false; blankInputs().forEach(i=>i.classList.add(ok ? "correct" : "wrong")); recordAnswer(q, { allCorrect: ok, userInputs, assignment: [ok ? 0 : -1], self: true }); showAnswerBoxBlank(q, ok, true); };
-  $("selfRightBtn").onclick = ()=>done(true);
-  $("selfWrongBtn").onclick = ()=>done(false);
-  $("checkBtn").hidden = true;
-}
 function submitAnswer(){
-  if(!session || session.answers[session.idx] || recite || pendingSelf) return;   // 已经交过的题不能再交一次（防连点重复记错题）
+  if(!session || session.answers[session.idx] || recite) return;   // 已经交过的题不能再交一次（防连点重复记错题）
   const q = currentQ();
   let record;
   if(q.type==="mcq"){
@@ -826,10 +853,9 @@ function submitAnswer(){
     const inputs = blankInputs();
     const userInputs = inputs.map(inp=>inp.value);
     inputs.forEach(inp=>{ inp.disabled = true; });
-    if(q.vocab){ keepDraft(); askSelfGrade(q, userInputs); return; }   // 还没点对/不对之前算没答；草稿留着，走开再回来还能接着
     const g = gradeQuestion(q, userInputs);
     inputs.forEach((inp,i)=>{ inp.classList.add(g.assignment[i]!==-1 ? "correct" : "wrong"); });
-    showAnswerBoxBlank(q, g.allCorrect);
+    showAnswerBoxBlank(q, g.allCorrect, false, userInputs);
     record = { allCorrect: g.allCorrect, userInputs, assignment: g.assignment };
   }
   recordAnswer(q, record);
@@ -1035,7 +1061,7 @@ document.addEventListener("keydown", e=>{
     const L = /^[1-9]$/.test(k) ? letters[+k-1] : (letters.includes(k) ? k : null);
     if(L){ pickOption(L); e.preventDefault(); return; }
   }
-  if(k==="Enter"){ if(!answered && !recite && !pendingSelf) submitAnswer(); else $("nextBtn").click(); e.preventDefault(); }
+  if(k==="Enter"){ if(!answered && !recite) submitAnswer(); else $("nextBtn").click(); e.preventDefault(); }
   else if(k==="ArrowRight"){ $("nextBtn").click(); e.preventDefault(); }
   else if(k==="ArrowLeft"){ $("prevBtn").click(); e.preventDefault(); }
 });

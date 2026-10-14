@@ -93,7 +93,7 @@
   .menu-row.accent{color:var(--primary);font-weight:bold;}
   .menu-row.danger{color:#ef4444;}
   .menu-input{
-    font-size:14px;border:1.5px solid var(--primary);border-radius:6px;
+    font-size:16px;   /* 小于 16px 的输入框在 iPhone 上一点就把整页放大 */border:1.5px solid var(--primary);border-radius:6px;
     padding:8px 10px;outline:none;margin:4px;font-family:inherit;
     color:var(--text);background:#fff;
   }
@@ -251,7 +251,7 @@ const SUBJECTS = [
   { key:'english-listening', prefix:'listeningquiz',  href:'./english-listening/',   defaultName:'大学英语听力',           desc:'单选题，120题（六单元各20题） · 错题本 / 练习记录 / 题目总览' },
   { key:'english-reading', prefix:'engreadingquiz',    href:'./english-reading/',     defaultName:'大学英语阅读与选词填空', desc:'填空+单选混合，66题（六单元：选词填空6篇每篇10空＋阅读理解60题） · 错题本 / 练习记录 / 题目总览' },
   { key:'english-vocab', prefix:'engvocabquiz',      href:'./english-vocab/',       defaultName:'大学英语课后选词填空',   desc:'填空题，6题共93空（六单元课后例句选词，含词表） · 错题本 / 练习记录 / 题目总览' },
-  { key:'english-translation', prefix:'engtranslation',href:'./english-translation/', defaultName:'大学英语汉译英翻译练习', desc:'翻译题，48题（六单元各8句，汉译英，关键词判分＋完整参考译文） · 错题本 / 练习记录 / 题目总览' },
+  { key:'english-translation', prefix:'engtranslation',href:'./english-translation/', defaultName:'大学英语汉译英翻译练习', desc:'翻译题，48题（六单元各8句，汉译英，对照完整参考译文自动判分） · 错题本 / 练习记录 / 题目总览' },
 ];
 
 const STORAGE_KEY = 'tiku_custom_names';

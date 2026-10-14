@@ -53,7 +53,7 @@ main{flex:1;padding:14px;}
 .mode-toggle.manual{background:#f3f4f6;color:var(--muted);border-color:var(--border);}
 .q-tag{display:inline-block;background:#eef2ff;color:var(--primary-dark);font-size:12px;padding:2px 8px;border-radius:10px;margin-bottom:8px;}
 .q-text{font-size:16px;line-height:1.8;margin-bottom:10px;white-space:pre-wrap;overflow-x:auto;word-break:break-word;}
-.q-code{font-family:"SF Mono",Menlo,Consolas,"Cascadia Mono","Roboto Mono","Droid Sans Mono","Courier New",monospace;font-size:14.5px;font-weight:700;letter-spacing:.2px;color:#111827;background:#f8fafc;border:1px solid var(--border);border-radius:8px;padding:10px;margin:8px 0;line-height:1.75;white-space:pre-wrap;overflow-x:auto;}
+.q-code{font-family:"SF Mono",Menlo,Consolas,"Cascadia Mono","Roboto Mono","Droid Sans Mono","Courier New",monospace;font-size:14.5px;font-weight:700;letter-spacing:.2px;color:#111827;background:#f8fafc;border:1px solid var(--border);border-radius:8px;padding:10px;margin:8px 0;line-height:1.75;white-space:pre-wrap;overflow-wrap:anywhere;overflow-x:auto;}
 .opt-list{display:flex;flex-direction:column;margin:10px 0;}
 .opt-row{position:relative;padding:13px 6px;border-bottom:1px solid var(--border);cursor:pointer;border-radius:6px;}
 .opt-row:last-child{border-bottom:none;}
@@ -71,7 +71,7 @@ main{flex:1;padding:14px;}
 .answer-box .my-ans.wrong-color{color:var(--red);}
 .answer-box .correct-ans{color:var(--green);font-weight:bold;}
 /* 自己画完整边框方框，不依赖各平台原生input外观（原生样式在不同浏览器/系统下表现差异很大，不可靠） */
-.blank-input{-webkit-appearance:none;appearance:none;border:1.5px solid var(--primary);border-radius:6px;background:#f8fafc;padding:4px 8px;font-size:15px;min-width:90px;text-align:center;margin:2px;color:var(--text);box-shadow:none;}
+.blank-input{-webkit-appearance:none;appearance:none;border:1.5px solid var(--primary);border-radius:6px;background:#f8fafc;padding:4px 8px;font-size:16px;min-width:90px;text-align:center;margin:2px;color:var(--text);box-shadow:none;}
 .blank-input.correct{border-color:var(--green);background:#ecfdf3;color:var(--green);}
 .blank-input.wrong{border-color:var(--red);background:#fef2f2;color:var(--red);}
 /* iOS Safari会强制改变disabled输入框的颜色和透明度，必须用-webkit-text-fill-color覆盖，否则手机上看不出方框和颜色 */
@@ -145,7 +145,7 @@ footer.qfoot .btn{flex:1;}
 .ov-dot.cur{background:var(--primary);border-color:var(--primary);}
 @media (max-width:380px){
   .ov-grid{grid-template-columns:repeat(4,1fr);}
-  .blank-input{min-width:64px;font-size:14px;}
+  .blank-input{min-width:64px;}
   header h1{font-size:17px;}
   .opt-row .opt-text{font-size:14px;}
 }
@@ -182,7 +182,7 @@ html,body{overscroll-behavior-y:contain;}
 
 /* ===================== 翻译题（多行输入框） ===================== */
 .reset-size-btn{display:block;text-align:right;font-size:11px;color:var(--muted);cursor:pointer;user-select:none;margin-top:2px;margin-bottom:4px;}.reset-size-btn:hover{color:var(--primary);}
-.trans-area{-webkit-appearance:none;appearance:none;width:100%;min-width:0;box-sizing:border-box;border:1.5px solid var(--primary);border-radius:6px;background:#f8fafc;padding:8px 10px;font-size:14.5px;font-weight:400;letter-spacing:normal;-webkit-text-stroke:0;font-family:"Microsoft YaHei",Segoe UI,Arial,sans-serif;color:var(--text);resize:vertical;display:block;margin:8px 0;line-height:1.6;text-align:left;overflow-y:scroll;}.trans-area:disabled{opacity:1;-webkit-text-fill-color:var(--text);}.trans-area.correct{border-color:var(--green);background:#f0fdf4;-webkit-text-fill-color:var(--green);}.trans-area.wrong{border-color:var(--red);background:#fff1f2;-webkit-text-fill-color:var(--red);}
+.trans-area{-webkit-appearance:none;appearance:none;width:100%;min-width:0;box-sizing:border-box;border:1.5px solid var(--primary);border-radius:6px;background:#f8fafc;padding:8px 10px;font-size:16px;font-weight:400;letter-spacing:normal;-webkit-text-stroke:0;font-family:"Microsoft YaHei",Segoe UI,Arial,sans-serif;color:var(--text);resize:vertical;display:block;margin:8px 0;line-height:1.6;text-align:left;overflow-y:scroll;}.trans-area:disabled{opacity:1;-webkit-text-fill-color:var(--text);}.trans-area.correct{border-color:var(--green);background:#f0fdf4;-webkit-text-fill-color:var(--green);}.trans-area.wrong{border-color:var(--red);background:#fff1f2;-webkit-text-fill-color:var(--red);}
 
 /* ===================== 科目字体 ===================== */
 /* 真代码（Web 程序设计、软件工程）：代码块/选项/填空用等宽字体，缩进才对得齐 */
@@ -192,12 +192,9 @@ body.font-code .blank-input{font-family:"SF Mono",Menlo,Consolas,"Roboto Mono",m
 body.font-en .q-code{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,"PingFang SC","Microsoft YaHei",sans-serif;font-size:15.5px;font-weight:400;letter-spacing:normal;}
 body.font-en .q-code .wl-bold{font-weight:600;}
 body.font-en .opt-row .opt-text{font-size:15px;font-weight:600;letter-spacing:normal;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,"PingFang SC","Microsoft YaHei",sans-serif;}
-body.font-en .blank-input:not(.trans-area){font-size:15.5px;font-weight:600;letter-spacing:normal;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,"PingFang SC","Microsoft YaHei",sans-serif;}
-/* 窄屏：旧版这条规则排在最后，填空框和翻译框都缩到 14px；上面的科目字体特异性更高，这里补回去保持原样 */
-@media (max-width:380px){
-  .trans-area{font-size:14px;}
-  body.font-code .blank-input,body.font-en .blank-input:not(.trans-area){font-size:14px;}
-}
+body.font-en .blank-input:not(.trans-area){font-size:16px;font-weight:600;letter-spacing:normal;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,"PingFang SC","Microsoft YaHei",sans-serif;}
+/* 所有输入框一律 16px，窄屏也不缩：iPhone 上点进字号小于 16px 的输入框，Safari 会把整页放大，
+   版面被撑开、标题和按钮显示不全（2026-10-14 用户报。以前窄屏缩到 14px、翻译框 14.5px 都会触发） */
 /* 返回主界面的文字链接（原来写在行内 onmouseover 里） */
 .back-link{font-size:13px;color:var(--muted);text-decoration:none;padding:4px 8px;border-radius:6px;display:inline-block;}
 @media (hover:hover){ .back-link:hover{color:var(--primary);} }
@@ -215,7 +212,9 @@ button,select,textarea,input{font-family:inherit;}
 .trans-area{font-family:"Microsoft YaHei",Segoe UI,Arial,sans-serif;}
 /* 文字做的小入口：看起来多大不变，只把可点的范围撑到够手指点（四周加内边距，再用负外边距抵消掉） */
 .toplinks span,.ov-link,.back-link,.reset-size-btn{padding:13px 8px;margin:-13px -8px;}
-.reset-size-btn{padding:10px 8px;margin:-8px -8px -6px;}
+/* 「恢复」在题目区（可横向滚动的容器）里面：可点范围只能往上借，不能伸出去——
+   以前左右各伸出 8px、底下 6px，题目区就多出了横竖两条滚动条，手指一碰整块题目跟着晃（2026-10-14 用户报） */
+.reset-size-btn{padding:10px 0;margin:-8px 0 0;}
 .mode-toggle{position:relative;}
 .mode-toggle::after{content:"";position:absolute;left:-4px;right:-4px;top:-10px;bottom:-10px;}
 .ov-header-row .ov-close{padding:12px 14px;margin:-12px -14px;}
@@ -228,13 +227,15 @@ input.blank-input{min-width:0;max-width:100%;}
 /* 背题模式：答案框用中性的蓝色，和"答对/答错"区分开 */
 body.reciting .answer-box.show.right{background:#eef2ff;color:var(--primary-dark);}
 body.reciting .answer-box .correct-ans{color:var(--primary-dark);}
-/* 翻译题自评 */
-.answer-box.self{background:#f8fafc;color:var(--text);border:1px solid var(--border);}
-.answer-box .self-hint{font-size:12px;color:var(--muted);margin-top:6px;}
-.answer-box .self-ask{margin-top:10px;font-weight:bold;}
-.answer-box .self-btns{margin-top:8px;}
+/* 翻译题答错：标出差在哪几个词 */
+.answer-box .trans-line{margin-top:6px;line-height:1.7;color:var(--text);word-break:break-word;}
+.answer-box .trans-line .real{font-weight:600;}
+.answer-box mark{border-radius:3px;padding:0 2px;}
+.answer-box mark.tw-extra{background:#fee2e2;color:#b91c1c;text-decoration:line-through;}
+.answer-box mark.tw-miss{background:#fef08a;color:#713f12;}
+.answer-box .trans-legend{margin-top:6px;font-size:12px;color:var(--muted);line-height:1.8;}
 /* 错题本：按章节筛选、单条移出 */
-.wb-filter{width:100%;font-size:14px;padding:9px 10px;border:1px solid var(--border);border-radius:8px;background:#fff;color:var(--text);}
+.wb-filter{width:100%;font-size:16px;padding:9px 10px;border:1px solid var(--border);border-radius:8px;background:#fff;color:var(--text);}
 .wb-remove{float:right;border:none;background:none;color:var(--muted);font-size:12px;text-decoration:underline;cursor:pointer;padding:10px 0 10px 12px;margin:-10px 0;}
 /* 键盘快捷键说明：只在有鼠标的电脑上显示 */
 .key-hint{display:none;text-align:center;font-size:12px;color:var(--muted);margin-top:10px;}

@@ -75,11 +75,26 @@ function serve() {
     r = await c.ev(`(async()=>{${start}const inp=document.querySelector("#qText .blank-input");inp.value="x";inp.dispatchEvent(new KeyboardEvent("keydown",{key:"Enter",isComposing:true,bubbles:true}));return !!Q.session.answers[0]||document.activeElement!==inp;})()`);
     ok(r === false, '中文输入法组字时按回车不提交', r);
     await fresh('english-translation/');
-    r = await c.ev(`(async()=>{${start}const t=document.querySelector(".trans-area");t.value="a "+Q.session.queue[0].vocab[0];t.dispatchEvent(new KeyboardEvent("keydown",{key:"Enter",bubbles:true}));const a=!!Q.session.answers[0];t.dispatchEvent(new KeyboardEvent("keydown",{key:"Enter",ctrlKey:true,bubbles:true}));const asked=!!document.getElementById("selfRightBtn")&&!Q.session.answers[0];document.getElementById("selfWrongBtn").click();return {a,asked,rec:Q.session.answers[0],wb:Object.keys(Q.wrongbook).length,box:document.getElementById("answerBox").textContent};})()`);
-    ok(!r.a && r.asked, '翻译框：回车换行不提交，Ctrl+回车提交后先亮参考译文、等本人判', r);
-    ok(r.rec && r.rec.allCorrect === false && r.rec.self === true && r.wb === 1 && /你判定：没译对/.test(r.box), '翻译题：点「没译对」才记成答错并进错题本（关键词用到了也一样）', r);
-    r = await c.ev(`(()=>QUESTIONS.filter(q=>!__quiz.gradeQuestion(q,[q.ans[0]]).allCorrect).map(q=>q.text.slice(0,12)))()`);
-    ok(r.length === 0, '翻译站：每道题的参考译文自己都能命中关键词提示', r);
+    /* 翻译题严格对照参考译文自动判（2026-10-14 用户要求，取代本人自评） */
+    r = await c.ev(`(async()=>{${start}const t=document.querySelector(".trans-area");t.value="Jack is so diligent a student that he never goes anywhere with a book.";t.dispatchEvent(new KeyboardEvent("keydown",{key:"Enter",bubbles:true}));const a=!!Q.session.answers[0];t.dispatchEvent(new KeyboardEvent("keydown",{key:"Enter",ctrlKey:true,bubbles:true}));const box=document.getElementById("answerBox");return {a,rec:Q.session.answers[0],wb:Object.keys(Q.wrongbook).length,extra:[...box.querySelectorAll(".trans-line mark.tw-extra")].map(m=>m.textContent),miss:[...box.querySelectorAll(".trans-line mark.tw-miss")].map(m=>m.textContent),btns:!!document.getElementById("selfRightBtn"),cls:t.className};})()`);
+    ok(!r.a && r.rec && r.rec.allCorrect === false && r.wb === 1 && !r.btns && /wrong/.test(r.cls), '翻译框：回车换行不提交，Ctrl+回车提交后直接判（错一个词就是错，进错题本，不再让本人点对错）', r);
+    ok(JSON.stringify(r.extra) === '["with"]' && JSON.stringify(r.miss) === '["without"]', '翻译题答错：标出多写/写错的词和漏掉的词', r);
+    r = await c.ev(`(()=>{const q=QUESTIONS[0],g=s=>__quiz.gradeQuestion(q,[s]).allCorrect;return {
+      ok:[g("jack IS so diligent  a student that he never goes anywhere without a book"),g("  Jack is so diligent a student, that he never goes anywhere without a book! ")],
+      bad:[g("Jack is so diligent a student that he never goes anywhere without book."),g("Jack is such a diligent student that he never goes anywhere without a book."),g(""),g("杰克")]};})()`);
+    ok(r.ok.every(Boolean) && !r.bad.some(Boolean), '翻译题：大小写/空格/标点不算错，少一个词、换个说法、空着都算错', r);
+    r = await c.ev(`(()=>{const g=(i,s)=>__quiz.gradeQuestion(QUESTIONS[i],[s]).allCorrect;const i3=QUESTIONS.findIndex(q=>/you’re buying/.test(q.ans[0]));return [g(i3,QUESTIONS[i3].ans[0].replace(/’/g,"'")),!g(i3,QUESTIONS[i3].ans[0].replace("you’re","you are"))];})()`);
+    ok(r.every(Boolean), '翻译题：弯引号直引号都行，缩写和展开算不同', r);
+    r = await c.ev(`(()=>QUESTIONS.filter(q=>q.vocab).flatMap(q=>(q.accept||[q.ans[0]]).filter(a=>!__quiz.gradeQuestion(q,[a]).allCorrect).map(a=>a.slice(0,30))))()`);
+    ok(r.length === 0, '翻译站：每一种参考写法自己都判对', r);
+    r = await c.ev(`(()=>QUESTIONS.filter(q=>q.vocab&&!q.accept&&/[\/()]/.test(q.ans[0])).map(q=>q.ans[0].slice(0,30)))()`);
+    ok(r.length === 0, '翻译站：参考译文里写了「a/b」「(可省略)」的题都用 accept 列全了每种写法', r);
+    r = await c.ev(`(()=>{const q=QUESTIONS.find(q=>q.accept&&/article/.test(q.ans[0])),g=s=>__quiz.gradeQuestion(q,[s]).allCorrect;return [g(q.accept[1]),!g(q.ans[0])];})()`);
+    ok(r.every(Boolean), '翻译站：accept 里的另一种写法判对；原资料的「article/essay」照抄不算对', r);
+    // 旧版自评留下的记录照原样显示
+    await fresh('english-translation/');
+    r = await c.ev(`(async()=>{${start}Q.session.answers[0]={allCorrect:true,userInputs:["x"],assignment:[0],self:true};Q.renderQuestion();return document.getElementById("answerBox").textContent;})()`);
+    ok(/你判定：译对了/.test(r), '旧的自评记录照原样显示', r);
     await fresh('web-design/');
     await c.ev(`(()=>{const q=QUESTIONS[3];localStorage.setItem("webquiz_wrongbook",JSON.stringify({q5:{cat:q.cat,type:q.type,text:q.text,options:q.options,correct:q.correct,wrongCount:1,correctStreak:0,lastWrongAt:1}}));})()`);
     await c.goto(BASE + 'web-design/');
@@ -317,6 +332,33 @@ function serve() {
         m = await tapH('#selAll'); ok(m >= 40, `${W} 「全选」可点高度 ${m}`, m);
         await t.ev('document.getElementById("startBtn").click()'); await sleep(150);
         m = [await tapH('#overviewLink'), await tapH('#reciteBtn'), await tapH('#modeToggleBtn')]; ok(m.every(x => x >= 40), `${W} 「题目总览」「背题」「快速模式」可点高度`, m);
+        // 题目区不许出现内部滚动：每个站每道题都量（2026-10-14 用户报：翻译题里「恢复」按钮伸出去 8px，题目区能横竖晃）
+        {
+          const bad = [];
+          for (const s2 of SITES) {
+            await t.goto(BASE + s2 + '/'); await t.ev('localStorage.clear()'); await t.goto(BASE + s2 + '/');
+            const n = await t.ev('document.getElementById("startBtn").click();__quiz.session.queue.length'); await sleep(80);
+            // 每 25 题一次调用：一次量完一整个站，机器忙时会撞上 CDP 的 20 秒超时
+            for (let from = 0; from < n; from += 25) {
+              bad.push(...await t.ev(`(()=>{const Q=__quiz,out=[];
+                for(let i=${from};i<Math.min(${from + 25},Q.session.queue.length);i++){Q.session.idx=i;Q.renderQuestion();for(const id of ["qText","qCode"]){const el=document.getElementById(id);if(el.offsetParent&&(el.scrollWidth>el.clientWidth||el.scrollHeight>el.clientHeight))out.push("${s2} "+id+" 第"+(i+1)+"题 "+el.scrollWidth+"/"+el.clientWidth+"×"+el.scrollHeight+"/"+el.clientHeight);}}
+                return out;})()`));
+            }
+          }
+          ok(bad.length === 0, `${W} 8 个站每道题：题目区没有横竖滚动`, bad);
+          // 输入框字号 ≥16px：小于 16px 的输入框 iPhone 一点就把整页放大（2026-10-14 用户报）
+          const fs = [];
+          for (const s2 of ['web-design', 'os', 'english-vocab', 'english-translation']) {
+            await t.goto(BASE + s2 + '/'); await t.ev('localStorage.clear()'); await t.goto(BASE + s2 + '/');
+            fs.push(...await t.ev(`(async()=>{document.getElementById("startBtn").click();await new Promise(r=>setTimeout(r,80));const Q=__quiz,out=[];const i=Q.session.queue.findIndex(q=>q.type==="blank");if(i>=0){Q.session.idx=i;Q.renderQuestion();}
+              document.querySelectorAll("#screen-quiz .blank-input").forEach(el=>{const f=parseFloat(getComputedStyle(el).fontSize);if(f<16)out.push("${s2} "+el.tagName+" "+f);});
+              const wf=[...document.styleSheets].flatMap(ss=>[...ss.cssRules]).find(r=>r.selectorText===".wb-filter");if(!wf||parseFloat(wf.style.fontSize)<16)out.push("${s2} 错题筛选 "+(wf&&wf.style.fontSize));return out;})()`));
+          }
+          await t.goto(BASE); fs.push(...await t.ev('[...document.styleSheets].flatMap(ss=>[...ss.cssRules]).filter(r=>r.selectorText&&/menu-input|name-input/.test(r.selectorText)&&r.style.fontSize&&parseFloat(r.style.fontSize)<16).map(r=>"首页 "+r.selectorText+" "+r.style.fontSize)'));
+          ok(fs.length === 0, `${W} 输入框、下拉框字号都不小于 16px`, fs);
+          await t.goto(BASE + 'mobile-app/'); await t.ev('localStorage.clear()'); await t.goto(BASE + 'mobile-app/');
+          await t.ev('document.getElementById("startBtn").click()'); await sleep(150);
+        }
         // 快速模式答对后立刻左划：只前进一题（以前自动跳题和滑动各算一次，连跳两题）
         {
           const y2 = await t.ev('(()=>{const r=document.querySelector(".qcard .q-tag").getBoundingClientRect();return r.top+r.height/2;})()');
