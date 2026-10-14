@@ -961,7 +961,7 @@ buildList();
 /* ===================== 备份：导出 / 导入 ===================== */
 /* 错题本、练习记录只存在这个浏览器里。导出 = 把 8 科的数据装进一个文件；导入 = 合并回来（不覆盖已有的）。
    只认下面这张清单里的存储项，文件里别的东西一律不写。 */
-const PER_SUBJECT = ['_wrongbook', '_history', '_done', '_inprogress', '_exammode', '_recite'];
+const PER_SUBJECT = ['_wrongbook', '_wbremoved', '_history', '_done', '_inprogress', '_exammode', '_recite'];
 function backupKeys() {
   const keys = [STORAGE_KEY, FOLDERS_KEY, SUBJECT_FOLDER_KEY];
   SUBJECTS.forEach(function(s){ PER_SUBJECT.forEach(function(suf){ keys.push(s.prefix + suf); }); });
@@ -996,7 +996,9 @@ function mergeItem(key, incoming) {
     const a = parseJSON(cur, {}), b = parseJSON(incoming, null);
     if (!isObj(b)) return 0;
     const out = isObj(a) ? a : {}; let n = 0;
-    Object.keys(b).forEach(function(id){ const x = b[id]; if (!isObj(x)) return; const old = out[id]; if (!isObj(old) || (Number(x.lastWrongAt) || 0) > (Number(old.lastWrongAt) || 0)) { out[id] = x; n++; } });
+    // 本机已经移出过的题（连对 3 次、手动移出、清空），备份里那条比移出时间旧就不放回来
+    const removed = parseJSON(localStorage.getItem(key.replace(/_wrongbook$/, '_wbremoved')), {});
+    Object.keys(b).forEach(function(id){ const x = b[id]; if (!isObj(x)) return; if (isObj(removed) && (Number(removed[id]) || 0) >= (Number(x.lastWrongAt) || 0)) return; const old = out[id]; if (!isObj(old) || (Number(x.lastWrongAt) || 0) > (Number(old.lastWrongAt) || 0)) { out[id] = x; n++; } });
     return safeSet(key, out) ? n : 0;
   }
   if (/_history$/.test(key)) {
@@ -1007,6 +1009,13 @@ function mergeItem(key, incoming) {
     b.forEach(function(h){ if (isObj(h) && !seen[h.date]) { seen[h.date] = 1; out.push(h); n++; } });
     out.sort(function(x, y){ return (Number(y.date) || 0) - (Number(x.date) || 0); });
     return safeSet(key, out.slice(0, 100)) ? n : 0;
+  }
+  if (/_wbremoved$/.test(key)) {
+    const a = parseJSON(cur, {}), b = parseJSON(incoming, null);
+    if (!isObj(b)) return 0;
+    const out = isObj(a) ? a : {};
+    Object.keys(b).forEach(function(id){ if ((Number(b[id]) || 0) > (Number(out[id]) || 0)) out[id] = Number(b[id]); });
+    safeSet(key, out); return 0;
   }
   if (/_done$/.test(key)) {
     const a = parseJSON(cur, {}), b = parseJSON(incoming, null);
@@ -1035,6 +1044,7 @@ async function importBackup(file) {
   const whenText = when && !isNaN(when) ? (when.getFullYear() + '-' + pad2(when.getMonth() + 1) + '-' + pad2(when.getDate()) + ' 导出的') : '';
   if (!await showConfirm('这份备份' + (whenText ? '是 ' + whenText : '') + '，里面有 ' + wrong + ' 道错题、' + hist + ' 条练习记录。\n导入是「合并」：本机已有的不会被冲掉，同一道错题留较新的那条。\n确定导入吗？')) return;
   let addW = 0, addH = 0;
+  keys.sort(function(x, y){ return (/_wbremoved$/.test(y) ? 1 : 0) - (/_wbremoved$/.test(x) ? 1 : 0); });   // 先合并移出记号，再合并错题本
   keys.forEach(function(k){ const n = mergeItem(k, data.items[k]); if (/_wrongbook$/.test(k)) addW += n; if (/_history$/.test(k)) addH += n; });
   buildList();
   notify('导入完成：新增或更新 ' + addW + ' 道错题、' + addH + ' 条练习记录');
@@ -1050,6 +1060,7 @@ document.getElementById('importFile').addEventListener('change', function(e){
 document.addEventListener('keydown', function(e){
   const bd = document.getElementById('confirmBackdrop');
   if (bd.classList.contains('show')) {
+    if ((e.key === 'Enter' || e.key === ' ') && e.target.closest && e.target.closest('.confirm-box button')) return;   // 焦点在「取消」上按回车就是取消
     if (e.key === 'Escape') { document.getElementById('confirmCancelBtn').click(); e.preventDefault(); }
     else if (e.key === 'Enter') { document.getElementById('confirmOkBtn').click(); e.preventDefault(); }
     return;

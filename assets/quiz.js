@@ -227,12 +227,18 @@ const LS_HISTORY = CFG.prefix+"_history", LS_WRONGBOOK = CFG.prefix+"_wrongbook"
 const LS_DONE = CFG.prefix+"_done", LS_RECITE = CFG.prefix+"_recite";
 function lsGet(key){ try{ return localStorage.getItem(key); }catch(e){ return null; } }   // 浏览器禁用存储时一碰就抛错
 function loadJSON(key,def){ try{ const v = JSON.parse(localStorage.getItem(key)); return v==null ? def : v; }catch(e){ return def; } }
-let saveFailTold = false;
+let saveFailTold = false, toastTimer = null;
+function toast(msg, ms){
+  const tip = document.getElementById("ptrTip"); if(!tip) return;
+  tip.textContent = msg; tip.classList.add("show");
+  clearTimeout(toastTimer); toastTimer = setTimeout(()=>tip.classList.remove("show"), ms || 1800);
+}
 function saveJSON(key,val){
   try{ localStorage.setItem(key, JSON.stringify(val)); return true; }
   catch(e){
     // 存不进去（空间满了 / 存储被禁用）：必须让人知道，否则错题和进度悄悄丢了都不知道。一次打开只提示一回
-    if(!saveFailTold){ saveFailTold = true; setTimeout(()=>showAlert("⚠️ 浏览器存不进数据了（空间已满，或存储被禁用）。\n这次的错题、进度和练习记录可能没有保存。\n可以清理一下这个浏览器里别的网站数据后再试。"), 0); }
+    // 用不挡操作的提示条，不用确认弹窗：两者共用一个遮罩，正在问"确定要切换吗"时弹出来会替人把那个问题答成"确定"
+    if(!saveFailTold){ saveFailTold = true; toast("⚠️ 浏览器存不进数据了（空间已满或存储被禁用），这次的错题和进度可能没保存。可以清理一下这个浏览器里别的网站数据", 6000); }
     return false;
   }
 }
@@ -254,6 +260,9 @@ let doneSet = loadJSON(LS_DONE, {}); if(!doneSet || typeof doneSet !== "object" 
 function updateWrongbook(fn){ wrongbook = cleanWrongbook(loadJSON(LS_WRONGBOOK, {})); fn(wrongbook); return saveJSON(LS_WRONGBOOK, wrongbook); }
 function updateHistory(fn){ historyList = cleanHistory(loadJSON(LS_HISTORY, [])); fn(historyList); if(historyList.length>100) historyList = historyList.slice(0,100); return saveJSON(LS_HISTORY, historyList); }
 const FP = new Map(Q.map(q=>[q.id, fp(q)]));
+// 从错题本移出过的题记个时间（连对 3 次、手动移出、清空）：导入一份更早的备份时，比这个时间旧的错题不再放回来
+const LS_REMOVED = CFG.prefix+"_wbremoved";
+function markRemoved(ids){ const m = loadJSON(LS_REMOVED, {}); const out = (m && typeof m === "object" && !Array.isArray(m)) ? m : {}; const now = Date.now(); ids.forEach(id=>{ out[id] = now; }); saveJSON(LS_REMOVED, out); }
 function markDone(q){ doneSet = loadJSON(LS_DONE, {}) || {}; if(typeof doneSet !== "object" || Array.isArray(doneSet)) doneSet = {}; doneSet[fp(q)] = 1; saveJSON(LS_DONE, doneSet); }
 
 /* 题目指纹：题号是按题库里的位置编的（q0、q1…），以后在题库中间插题/删题，
@@ -289,9 +298,12 @@ function straighten(s){ return String(s==null?"":s).replace(/[‘’]/g,"'").rep
 // 紧贴在答案前面的是否定词时不算（"不可再现"不是"可再现"）
 const NUMERIC_RE = /^[\d.]+[a-z%]*$/i, NEGATION_RE = /[不非无未没]$/;
 function containsOk(u, o){
-  if(o.length < CFG.containsMinLen || NUMERIC_RE.test(o)) return false;
+  if(o.length < CFG.containsMinLen) return false;
   const at = u.indexOf(o);
-  return at >= 0 && !NEGATION_RE.test(u.slice(0, at));
+  if(at < 0 || NEGATION_RE.test(u.slice(0, at))) return false;
+  // 数字答案：紧挨着的前后不能还是数字或小数点（15 ≠ 150、256 ≠ 1256；"256个""9次"仍算对）
+  if(NUMERIC_RE.test(o) && (/[\d.]/.test(u.charAt(at-1)) || /[\d.]/.test(u.charAt(at+o.length)))) return false;
+  return true;
 }
 // seq=true：这个空里的几项有先后（如安全序列 Q,P,R），不做"顺序无关"那一步
 function isCorrect(userInput, acceptStr, seq){
@@ -438,12 +450,13 @@ window.addEventListener("popstate", ()=>{
   renderCatList(); showScreen("home");
 });
 // 答题中点左上角🏠：和旁边三个标签一样先问一句（进度是保存了的，只是别让人被误触带走）
+function leaveTo(href){ if(backArmed){ backArmed = false; location.replace(href); } else location.href = href; }
 document.querySelector(".home-btn").addEventListener("click", async e=>{
-  if(!isActive("screen-quiz")) return;
-  e.preventDefault();
   const href = e.currentTarget.href;
+  if(!isActive("screen-quiz")){ if(backArmed){ e.preventDefault(); leaveTo(href); } return; }
+  e.preventDefault();
   keepDraftNow();
-  if(await showConfirm("你正在刷题中，确定要回到刷题主界面吗？\n放心，当前进度（包括这道题已经填的内容）已自动保存，下次点「继续上次练习」接着做。")) location.href = href;
+  if(await showConfirm("你正在刷题中，确定要回到刷题主界面吗？\n放心，当前进度（包括这道题已经填的内容）已自动保存，下次点「继续上次练习」接着做。")) leaveTo(href);
 });
 
 /* ===================== 首页：章节选择 ===================== */
@@ -498,21 +511,29 @@ document.addEventListener("visibilitychange", ()=>{
 });
 // 从"返回"恢复出来的旧页面（往返缓存）、别的页面改了存储：都重新读一遍，别拿内存里的旧数据接着用
 window.addEventListener("pageshow", e=>{ if(e.persisted) refreshFromStorage(); });
-window.addEventListener("storage", e=>{ if(e.key && e.key.indexOf(CFG.prefix+"_")===0) refreshFromStorage(); });
+window.addEventListener("storage", e=>{
+  if(!e.key) return refreshFromStorage();                    // 整个存储被清空
+  if(e.key === LS_INPROGRESS) return checkStale();           // 别的页面在答题（每打几个字就会存一次草稿）：只看要不要让位，不重画
+  if([LS_WRONGBOOK, LS_HISTORY, LS_DONE].includes(e.key)) refreshFromStorage();
+});
 function refreshFromStorage(){
   wrongbook = cleanWrongbook(loadJSON(LS_WRONGBOOK, {}));
   historyList = cleanHistory(loadJSON(LS_HISTORY, []));
   doneSet = loadJSON(LS_DONE, {}) || {};
+  if(checkStale()) return;
+  if(isActive("screen-home")) renderCatList();
+  if(isActive("screen-wrongbook")) renderWrongbook();
+  if(isActive("screen-history")) renderHistory();
+}
+function checkStale(){
   if(session && !session.finished && isActive("screen-quiz") && someoneElseIsNewer()){
     // 这场练习在别的页面里已经往后做了（或者已经开了新的）：这一页是旧的，再答下去只会把新进度盖掉
     session = null; activeSince = null; clearAutoAdvance();
     renderCatList(); showScreen("home");
     showAlert("这场练习在另一个页面里有更新的进度，这一页是旧的。\n已回到首页，点「继续上次练习」接着做。");
-    return;
+    return true;
   }
-  if(isActive("screen-home")) renderCatList();
-  if(isActive("screen-wrongbook")) renderWrongbook();
-  if(isActive("screen-history")) renderHistory();
+  return false;
 }
 
 /* ===================== 继续上次练习（进行中的进度实时存 localStorage） ===================== */
@@ -822,11 +843,11 @@ function recordAnswer(q, record){
     if(record.allCorrect){
       if(wb[q.id]){
         wb[q.id].correctStreak = num(wb[q.id].correctStreak) + 1;
-        if(wb[q.id].correctStreak >= MASTER_STREAK) delete wb[q.id];
+        if(wb[q.id].correctStreak >= MASTER_STREAK){ delete wb[q.id]; markRemoved([q.id]); }
       }
     } else {
       wb[q.id] = { cat:q.cat, type:q.type, text:q.text||"", code:q.code||"", options:q.options||null, correct:q.correct||null, ans:q.ans||null,
-        vocab:q.vocab||null, wrongCount:num((wb[q.id]||{}).wrongCount)+1, correctStreak:0, lastWrongAt:Date.now() };
+        ordered:!!q.ordered, vocab:q.vocab||null, wrongCount:num((wb[q.id]||{}).wrongCount)+1, correctStreak:0, lastWrongAt:Date.now() };
     }
   });
   markDone(q);
@@ -955,7 +976,7 @@ function renderWrongbook(){
   };
   $("clearWrongbookBtn").onclick = async ()=>{
     if(await showConfirm("确定清空错题本吗？所有错题记录都会被清除，此操作不可恢复。")){
-      wrongbook = {}; saveJSON(LS_WRONGBOOK, wrongbook); wbFilter = ""; renderWrongbook();
+      markRemoved(Object.keys(cleanWrongbook(loadJSON(LS_WRONGBOOK, {})))); wrongbook = {}; saveJSON(LS_WRONGBOOK, wrongbook); wbFilter = ""; renderWrongbook();
     }
   };
   items.sort((a,b)=>num(b.lastWrongAt)-num(a.lastWrongAt));
@@ -970,7 +991,7 @@ function renderWrongbook(){
   }).join("");
   list.querySelectorAll(".wb-remove").forEach(b=>{ b.onclick = async ()=>{
     if(!await showConfirm("把这道题移出错题本吗？")) return;
-    updateWrongbook(wb=>{ delete wb[b.dataset.id]; }); renderWrongbook();
+    updateWrongbook(wb=>{ delete wb[b.dataset.id]; }); markRemoved([b.dataset.id]); renderWrongbook();
   }; });
 }
 
@@ -994,6 +1015,7 @@ $("clearHistoryBtn").onclick = async ()=>{
 document.addEventListener("keydown", e=>{
   // 弹窗开着：Esc = 取消，回车 = 确定；别的键一律不往下传（以前回车会再点一次弹窗背后的那个按钮）
   if(hasShow("confirmBackdrop")){
+    if((e.key==="Enter" || e.key===" ") && e.target.closest && e.target.closest(".confirm-box button")) return;   // 焦点在「取消」上按回车就是取消
     if(e.key==="Escape"){ ($("confirmCancelBtn").hidden ? $("confirmOkBtn") : $("confirmCancelBtn")).click(); e.preventDefault(); }
     else if(e.key==="Enter"){ $("confirmOkBtn").click(); e.preventDefault(); }
     return;
@@ -1057,10 +1079,7 @@ function setupPullToRefresh(){
   function doRefresh(){
     // 页面没有 Service Worker：断网时 location.reload() 会变成浏览器错误页，改成重读本地数据 + 重绘
     if(navigator.onLine === false){
-      historyList = cleanHistory(loadJSON(LS_HISTORY, [])); wrongbook = cleanWrongbook(loadJSON(LS_WRONGBOOK, {}));
-      renderCatList();
-      if(isActive("screen-wrongbook")) renderWrongbook();
-      if(isActive("screen-history")) renderHistory();
+      refreshFromStorage();
       showTip("当前没有网络，已重新载入本地数据"); reset(true); refreshing = false; return;
     }
     try{ sessionStorage.setItem("ptr-fired", String(Date.now())); }catch(err){}

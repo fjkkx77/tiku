@@ -174,12 +174,14 @@ function serve() {
       const asked=document.getElementById("confirmBackdrop").classList.contains("show");document.getElementById("confirmCancelBtn").click();await w(30);
       return {asked,kept:JSON.parse(localStorage.getItem("mobileappquiz_inprogress")).answers.filter(Boolean).length};})()`);
     ok(r.asked && r.kept === 3, '续练卡片「重新练习」：已答过题先确认，取消则进度还在', r);
-    // 存储写满：要告诉人
-    await fresh('mobile-app/');
-    r = await c.ev(`(async()=>{${W8}let c="x".repeat(1024*1024),n=0;try{for(;;){localStorage.setItem("fill_"+n,c);n++;}}catch(e){}let s="y".repeat(512),m=0;try{for(;;){localStorage.setItem("f_"+m,s);m++;}}catch(e){}let k=0;try{for(;;){localStorage.setItem("t"+k,"z");k++;}}catch(e){}
-      ${start}const q=Q.session.queue[0];Q.pickOption(Object.keys(q.options).find(L=>L!==q.correct));await w(80);
-      const r={told:document.getElementById("confirmBackdrop").classList.contains("show"),msg:document.getElementById("confirmMsg").textContent.slice(0,14)};localStorage.clear();return r;})()`);
-    ok(r.told && /存不进/.test(r.msg), '浏览器空间写满：弹出提示，不再悄悄丢', r);
+    // 存储写满：要告诉人（用填空题：先打几个字，存草稿时才会真的多占空间、写失败）
+    await fresh('os/');
+    // 先进答题页，再把空间占满，然后点底部标签：存草稿失败的提示不能顶掉「确定要切换吗」这个问题（两者以前共用一个弹窗）
+    r = await c.ev(`(async()=>{${W8}${start}let c="x".repeat(1024*1024),n=0;try{for(;;){localStorage.setItem("fill_"+n,c);n++;}}catch(e){}let s="y".repeat(512),m=0;try{for(;;){localStorage.setItem("f_"+m,s);m++;}}catch(e){}let k=0;try{for(;;){localStorage.setItem("t"+k,"z");k++;}}catch(e){}
+      document.querySelector("#qText .blank-input").value="并发并发并发并发";document.querySelector('nav button[data-screen="history"]').click();await w(120);
+      const r={tip:document.getElementById("ptrTip").classList.contains("show")&&/存不进/.test(document.getElementById("ptrTip").textContent),ask:document.getElementById("confirmMsg").textContent.slice(0,24),cancelShown:!document.getElementById("confirmCancelBtn").hidden};
+      document.getElementById("confirmCancelBtn").click();await w(50);r.stay=document.getElementById("screen-quiz").classList.contains("active");localStorage.clear();return r;})()`);
+    ok(r.tip && /切换/.test(r.ask) && r.cancelShown && r.stay, '浏览器空间写满：用提示条说明，不顶掉正在问的确认框（点取消仍留在答题页）', r);
     // 坏数据、存储里的数字字段
     await c.goto(BASE + 'web-design/'); await c.ev(`localStorage.clear();localStorage.setItem("webquiz_wrongbook",'{"q1":null,"q2":"x"}');localStorage.setItem("webquiz_history",JSON.stringify([null,{date:1,scope:"x",total:'<img src=x onerror="window.__pwn=1">',correct:0,wrong:0,durationSec:1}]))`);
     await c.goto(BASE + 'web-design/');
@@ -195,6 +197,27 @@ function serve() {
       return {typed,esc,enter:document.getElementById("screen-result").classList.contains("active")};})()`);
     ok(r.typed, '键盘：焦点停在「下一题」按钮上时，字母键仍能选选项', r);
     ok(r.esc && r.enter, '确认弹窗：Esc = 取消，回车 = 确定', r);
+    // 焦点停在「取消」上按回车：取消（以前一律当成确定，清空错题本时会清掉）
+    await fresh('mobile-app/');
+    r = await c.ev(`(async()=>{${W8}${start}const q=Q.session.queue[0];Q.pickOption(Object.keys(q.options).find(L=>L!==q.correct));await w(20);Q.showScreen("wrongbook");await w(30);
+      document.getElementById("clearWrongbookBtn").click();await w(30);const cb=document.getElementById("confirmCancelBtn");cb.focus();
+      const ev=new KeyboardEvent("keydown",{key:"Enter",bubbles:true,cancelable:true});cb.dispatchEvent(ev);if(!ev.defaultPrevented)cb.click();await w(30);
+      return {open:document.getElementById("confirmBackdrop").classList.contains("show"),wb:Object.keys(JSON.parse(localStorage.getItem("mobileappquiz_wrongbook")||"{}")).length};})()`);
+    ok(!r.open && r.wb === 1, '确认弹窗：焦点在「取消」上按回车 = 取消，错题本没被清空', r);
+    // 错题本里多空题的参考答案保留 (1)(2) 编号
+    await fresh('english-vocab/');
+    r = await c.ev(`(async()=>{${start}Q.submitAnswer();Q.showScreen("wrongbook");return document.querySelector(".wrong-item .ans").textContent.slice(0,30);})()`);
+    ok(/\(1\)/.test(r) && /\(2\)/.test(r), '错题本里多空题的答案带 (1)(2) 编号', r);
+    // 数字后面多写个量词仍算对
+    await fresh('os/');
+    r = await c.ev(`(()=>{const g=(i,a)=>__quiz.gradeQuestion(QUESTIONS[i],a).allCorrect;return {ge:g(80,["256个","64KB"]),ci:g(84,["15位","14位","16K"]),big:g(80,["1256","64KB"])};})()`);
+    ok(r.ge && r.ci && !r.big, '数字答案：后面多写「个/位」算对，前后多一位数字不算', r);
+    // 别的页面只是在打字（存草稿）：这一页的错题本不整块重画
+    await fresh('mobile-app/');
+    r = await c.ev(`(async()=>{${W8}${start}const q=Q.session.queue[0];Q.pickOption(Object.keys(q.options).find(L=>L!==q.correct));await w(20);Q.finishQuiz();Q.showScreen("wrongbook");await w(30);
+      const f=document.createElement("iframe");f.src=location.href;document.body.appendChild(f);await new Promise(r=>f.onload=r);await w(200);
+      const first=document.querySelector(".wrong-item");f.contentWindow.document.getElementById("startBtn").click();await w(300);const same=document.querySelector(".wrong-item")===first;f.remove();return {same};})()`);
+    ok(r.same, '另一个页面在答题存进度时，这一页的错题本不跟着整块重画', r);
     // 背题模式：只看答案，不记对错
     await fresh('mobile-app/');
     r = await c.ev(`(async()=>{${start}document.getElementById("reciteBtn").click();Q.pickOption("A");Q.submitAnswer();const box=document.getElementById("answerBox").textContent;
@@ -242,6 +265,14 @@ function serve() {
     ok(!r.allowed.includes('other_project_secret') && r.allowed.includes('osquiz_wrongbook'), '导出备份：只装刷题站自己的数据，不带同域名下别的项目的', r.allowed);
     ok(JSON.stringify(r.ids) === '["q1","q2","q7"]' && r.q1 === 9 && JSON.stringify(r.h) === '[5,3]', '导入备份：是合并（本机较新的留着、缺的补上），导入两次也不翻倍', r);
     ok(r.evil === null && r.other === '别动我' && r.cards === SITES.length, '导入备份：清单以外的存储项一律不写，坏内容不会把首页弄坏', r);
+    // 本机已移出错题本的题，导入更早的备份后不复活；之后又答错（更新的）的照样能导进来
+    r = await c.ev(`(async()=>{const w=ms=>new Promise(r=>setTimeout(r,ms));localStorage.clear();
+      localStorage.setItem("osquiz_wbremoved",JSON.stringify({q1:500}));
+      const text=JSON.stringify({app:"tiku",version:1,items:{"osquiz_wrongbook":JSON.stringify({q1:{cat:"a",text:"t",lastWrongAt:100},q2:{cat:"a",text:"t",lastWrongAt:900}})}});
+      const p=importBackup(new File([text],"b.json"));await w(60);document.getElementById("confirmOkBtn").click();await p;
+      return Object.keys(JSON.parse(localStorage.getItem("osquiz_wrongbook")||"{}")).sort();})()`);
+    ok(JSON.stringify(r) === '["q2"]', '导入备份：本机移出过的题，比移出时间旧的不复活', r);
+    await c.ev('localStorage.clear()');
     await c.ev('localStorage.clear()');
     console.log('2. 逻辑检查完成');
 
@@ -293,6 +324,10 @@ function serve() {
           await swipe(W * .75, y2, W * .2, y2 + 4, 180);
           ok(await t.ev('__quiz.session.idx') === 1, `${W} 快速模式答对后马上左划：只到下一题，不连跳两题`, await t.ev('__quiz.session.idx'));
         }
+        // 进度条下面那一行：背题、快速模式、题目总览三个入口都在屏幕里、互不重叠，也不压住左边的题号
+        m = await t.ev(`(()=>{const ids=["quizProgressText","quizScoreText","reciteBtn","modeToggleBtn","overviewLink"].map(i=>document.getElementById(i).getBoundingClientRect());const W=document.documentElement.clientWidth;
+          const out=ids.filter(r=>r.left<0||r.right>W).length;let hit=0;for(let a=0;a<ids.length;a++)for(let b=a+1;b<ids.length;b++){const p=ids[a],q=ids[b];if(p.left<q.right-1&&q.left<p.right-1&&p.top<q.bottom-1&&q.top<p.bottom-1)hit++;}return {out,hit};})()`);
+        ok(m.out === 0 && m.hit === 0, `${W} 进度条下面一行的五样东西都在屏幕里、互不重叠`, m);
         // 答题时收起大标题：吸顶栏不超过屏高的 15%
         m = await t.ev('Math.round(document.querySelector(".topbar").getBoundingClientRect().height)');
         ok(m <= 800 * 0.15, `${W} 答题时吸顶栏高度 ${m} 不超过屏高 15%`, m);
