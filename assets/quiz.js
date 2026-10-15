@@ -1080,7 +1080,7 @@ function setupPullToRefresh(){
   const DAMPING  = 0.42;  // 阻尼系数：手指位移 × 它 = 指示器位移
   const MAX_PULL = 120;   // 再往下拉指示器也不动了
   const threshold = ()=>Math.min(100, Math.max(56, window.innerHeight * 0.1));
-  let startX=0, startY=0, pulling=false, locked=false, distance=0, refreshing=false, tipTimer=null;
+  let startX=0, startY=0, pulling=false, locked=false, distance=0, refreshing=false, tipTimer=null, unlockTimer=null;
   // 有浮层、或正在答题时都不接管手势（以后每加一个浮层，都要回来这里补一条）
   function blocked(){
     if(isActive("screen-quiz")) return true;         // 答题中：刷新会把人踢回首页，还没提交的输入会丢
@@ -1125,7 +1125,10 @@ function setupPullToRefresh(){
     startX = e.touches[0].clientX; startY = e.touches[0].clientY; pulling = true; locked = false;
   }, {passive:true});
   document.addEventListener("touchmove", e=>{
-    if(!pulling || refreshing) return;
+    // 刷新中锁住滚动：iOS Safari 发起重新加载后、新页面画出来之前会冻结绘制，
+    // 这时还能滑，滑出来的区域是一片空白（下拉刷新配方 v1.8）
+    if(refreshing){ e.preventDefault(); return; }
+    if(!pulling) return;
     const dx = e.touches[0].clientX-startX, dy = e.touches[0].clientY-startY;
     if(!locked){
       if(Math.abs(dy)<DEADZONE && Math.abs(dx)<DEADZONE) return;              // 还在死区，继续观察
@@ -1145,6 +1148,9 @@ function setupPullToRefresh(){
     el.classList.add("ptr-animate","ptr-loading");
     el.style.transform = "translateY("+threshold()+"px)";
     setTimeout(doRefresh, 260);   // 留一下 spinner 再动手，否则直接白屏像卡死
+    // 兜底：重新加载被取消或一直卡着时，10 秒后解锁，别让页面永远滑不动
+    clearTimeout(unlockTimer);
+    unlockTimer = setTimeout(()=>{ if(refreshing){ refreshing = false; reset(true); } }, 10000);
   }, {passive:true});
   // 触摸被系统打断（来电、系统手势）：收回指示器、不触发刷新（旧版没处理，指示器会停在半空）
   document.addEventListener("touchcancel", ()=>{ if(pulling && !refreshing){ pulling = false; locked = false; reset(true); } }, {passive:true});

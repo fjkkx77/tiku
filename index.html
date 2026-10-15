@@ -1089,7 +1089,7 @@ function setupPullToRefresh(){
   const MAX_PULL = 120;   // 再往下拉指示器也不动了
   function threshold(){ return Math.min(100, Math.max(56, window.innerHeight * 0.1)); }
 
-  let startX=0, startY=0, pulling=false, locked=false, distance=0, refreshing=false, tipTimer=null;
+  let startX=0, startY=0, pulling=false, locked=false, distance=0, refreshing=false, tipTimer=null, unlockTimer=null;
 
   // 有浮层/正在编辑时不接管手势（以后每加一个浮层，都要回来这里补一条）
   function blocked(){
@@ -1145,7 +1145,10 @@ function setupPullToRefresh(){
   }, { passive:true });
 
   document.addEventListener("touchmove", function(e){
-    if(!pulling || refreshing) return;
+    // 刷新中锁住滚动：iOS Safari 发起重新加载后、新页面画出来之前会冻结绘制，
+    // 这时还能滑，滑出来的区域是一片空白（下拉刷新配方 v1.8）
+    if(refreshing){ e.preventDefault(); return; }
+    if(!pulling) return;
     const dx = e.touches[0].clientX - startX;
     const dy = e.touches[0].clientY - startY;
     if(!locked){
@@ -1169,6 +1172,13 @@ function setupPullToRefresh(){
     el.style.transform = "translateY(" + threshold() + "px)";
     // 留一下 spinner 再动手，否则直接白屏像卡死
     setTimeout(doRefresh, 260);
+    // 兜底：重新加载被取消或一直卡着时，10 秒后解锁，别让页面永远滑不动
+    clearTimeout(unlockTimer);
+    unlockTimer = setTimeout(function(){ if(refreshing){ refreshing = false; reset(true); } }, 10000);
+  }, { passive:true });
+  // 触摸被系统打断（来电、系统手势）：收回指示器、不触发刷新（不处理的话指示器会停在半空）
+  document.addEventListener("touchcancel", function(){
+    if(pulling && !refreshing){ pulling = false; locked = false; reset(true); }
   }, { passive:true });
 }
 setupPullToRefresh();
