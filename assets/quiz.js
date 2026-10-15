@@ -58,6 +58,7 @@ document.body.insertAdjacentHTML("afterbegin", `
     <a class="home-btn" href="../" title="返回主页" aria-label="返回主页">🏠</a>
     <h1>${esc(CFG.title)}</h1>
     ${CFG.subtitle ? `<p>${esc(CFG.subtitle)}</p>` : ""}
+    <p class="quiz-scope" id="quizScope"></p>
   </header>
   <nav>
     <button data-screen="home" class="active">开始练习</button>
@@ -448,6 +449,8 @@ function showScreen(name){
   $("screen-"+name).classList.add("active");
   document.querySelectorAll("nav button").forEach(b=>b.classList.toggle("active", b.dataset.screen===name));
   document.body.classList.toggle("quizzing", name==="quiz");
+  // 答题时标题下面写「正在练习 · 范围」，让人一眼知道在刷哪一科、哪部分（2026-10-15 用户嫌答题页顶栏太窄、看不出在刷什么）
+  $("quizScope").textContent = (name==="quiz" && session && session.scopeLabel) ? "正在练习 · " + session.scopeLabel : "";
   if(name==="quiz") timerResume(); else timerPause();
   syncBackEntry(name);
   if(name==="wrongbook") renderWrongbook();

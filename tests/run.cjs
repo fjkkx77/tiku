@@ -250,6 +250,14 @@ function serve() {
     ok(/做过1/.test(r.txt) && r.n === 9, '首页显示每章做过几题；「只练没做过的题」跳过已做的', r);
     // 版本号盖了没有（改了共用文件却没跑 node tools/stamp.cjs，手机 10 分钟内会拿到旧文件）
     { let stale = false; try { require('child_process').execFileSync('node', [path.join(ROOT, 'tools', 'stamp.cjs'), '--check'], { stdio: 'ignore' }); } catch (e) { stale = true; } ok(!stale, '科目页里的版本号和共用文件对得上（对不上就跑 node tools/stamp.cjs）'); }
+    // 答题页顶栏：科目名一行放得下、下面写「正在练习 · 范围」；回到首页这行要消失（2026-10-15 用户选的方案 B）
+    await fresh('english-reading/');   // 标题最长的一科
+    r = await c.ev(`(async()=>{const w=ms=>new Promise(r=>setTimeout(r,ms));document.getElementById("startBtn").click();await w(200);
+      const h=document.querySelector("header h1"),p=document.getElementById("quizScope");
+      const q={lines:Math.round(h.getBoundingClientRect().height/parseFloat(getComputedStyle(h).fontSize)),scope:p.textContent,shown:getComputedStyle(p).display!=="none"};
+      document.querySelector('nav button[data-screen=home]').click();await w(60);document.getElementById("confirmOkBtn").click();await w(100);
+      q.homeShown=getComputedStyle(p).display!=="none";q.homeSub=[...document.querySelectorAll("header p")].filter(x=>getComputedStyle(x).display!=="none").length;return q;})()`);
+    ok(r.lines === 1 && /^正在练习 · 全部/.test(r.scope) && r.shown && !r.homeShown && r.homeSub === 1, '答题页顶栏：标题一行、显示练习范围；回首页恢复原副标题', r);
     /* ----- 汇总首页 ----- */
     await c.goto(BASE); await c.ev('localStorage.clear()'); await c.goto(BASE);
     r = await c.ev(`(async()=>{const out={};for(const s of SUBJECTS){const h=await (await fetch(s.href+"index.html")).text();const m=h.match(/prefix:\\s*"([^"]+)"/);out[s.key]=[s.prefix,m&&m[1]];}return out;})()`);
@@ -263,6 +271,20 @@ function serve() {
       i.dispatchEvent(new KeyboardEvent("keydown",{key:"Enter",isComposing:true,bubbles:true}));const composing=document.querySelectorAll(".folder-card").length;
       i.dispatchEvent(new KeyboardEvent("keydown",{key:"Enter",bubbles:true}));await w(30);return {composing,made:document.querySelectorAll(".folder-card").length};})()`);
     ok(r.composing === 0 && r.made === 1, '首页：输入法选字时按回车不创建文件夹，正常回车才创建', r);
+    // 文件夹展开/收起要记住（2026-10-15 用户要求：以前每次打开都是收起的）
+    {
+      const st = () => c.ev(`[...document.querySelectorAll(".folder-card")].map(x=>getComputedStyle(x.querySelector(".folder-body")).display!=="none")`);
+      await c.ev(`localStorage.clear();localStorage.setItem("tiku_folders",JSON.stringify([{id:"f1",name:"甲"},{id:"f2",name:"乙"}]))`); await c.goto(BASE);
+      const first = await st();
+      await c.ev('document.querySelectorAll(".folder-header")[0].click()'); await c.goto(BASE);
+      const opened = await st();
+      await c.ev('document.querySelectorAll(".folder-header")[0].click()'); await c.goto(BASE);
+      const closed = await st();
+      await c.ev(`localStorage.setItem("tiku_expanded_folders","{坏")`); await c.goto(BASE);
+      const broken = await c.ev('document.querySelectorAll(".folder-card").length');
+      ok(JSON.stringify([first, opened, closed]) === '[[false,false],[true,false],[false,false]]' && broken === 2,
+        '首页：文件夹展开/收起重新打开后照上次的样子（存储坏了也照常显示）', { first, opened, closed, broken });
+    }
     // 导出 → 清空 → 导入：数据原样回来；再导入一次不会翻倍；本机较新的错题不被旧备份盖掉
     r = await c.ev(`(async()=>{const w=ms=>new Promise(r=>setTimeout(r,ms));localStorage.clear();
       localStorage.setItem("osquiz_wrongbook",JSON.stringify({q1:{cat:"a",text:"t1",wrongCount:1,lastWrongAt:100},q2:{cat:"a",text:"t2",wrongCount:2,lastWrongAt:200}}));

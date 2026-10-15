@@ -258,8 +258,16 @@ const STORAGE_KEY = 'tiku_custom_names';
 const FOLDERS_KEY = 'tiku_folders';
 const SUBJECT_FOLDER_KEY = 'tiku_subject_folder';
 
-// 当前页面会话内的"文件夹展开"状态（不持久化，符合"默认折叠"设计）
-const expandedFolders = new Set();
+// 哪些文件夹是展开的：记在本机，下次打开照上次的样子（2026-10-15 用户要求；以前每次打开都是收起）。
+// 只是界面习惯，不进导出备份；存不进去也不弹提示（不影响数据）。
+const EXPANDED_KEY = 'tiku_expanded_folders';
+const expandedFolders = new Set(function(){
+  try { const v = JSON.parse(localStorage.getItem(EXPANDED_KEY) || '[]'); return Array.isArray(v) ? v.filter(function(x){ return typeof x === 'string'; }) : []; } catch(e) { return []; }
+}());
+function setExpanded(id, on) {
+  if (on) expandedFolders.add(id); else expandedFolders.delete(id);
+  try { localStorage.setItem(EXPANDED_KEY, JSON.stringify(Array.from(expandedFolders))); } catch(e) {}
+}
 // 当前打开的移入文件夹下拉菜单
 let openMenu = null;
 // 当前正在编辑（重命名）的输入框，科目卡片/文件夹改名时用来判断"点击别处应该只退出编辑，不触发下面的跳转/其他动作"
@@ -628,7 +636,7 @@ function toggleSubjectMenu(subj, itemEl) {
       const m = loadSubjectFolderMap();
       m[subj.key] = f.id;
       saveSubjectFolderMap(m);
-      expandedFolders.add(f.id);
+      setExpanded(f.id, true);
       closeOpenMenu();
       buildList();
     });
@@ -691,7 +699,7 @@ function renderNewFolderInput(menu, subj) {
     const map = loadSubjectFolderMap();
     map[subj.key] = newFolder.id;
     saveSubjectFolderMap(map);
-    expandedFolders.add(newFolder.id);
+    setExpanded(newFolder.id, true);
     closeOpenMenu();
     buildList();
   }
@@ -765,8 +773,7 @@ function buildFolderCard(folder, members, names) {
   }
 
   header.addEventListener('click', function() {
-    if (expandedFolders.has(folder.id)) expandedFolders.delete(folder.id);
-    else expandedFolders.add(folder.id);
+    setExpanded(folder.id, !expandedFolders.has(folder.id));
     buildList();
   });
 
@@ -788,7 +795,7 @@ function buildFolderCard(folder, members, names) {
       if (map[k] === folder.id) delete map[k];
     });
     saveSubjectFolderMap(map);
-    expandedFolders.delete(folder.id);
+    setExpanded(folder.id, false);
     buildList();
   });
 
@@ -842,7 +849,7 @@ function applyBatchMove(folderId) {
     else delete map[key];
   });
   saveSubjectFolderMap(map);
-  if (folderId) expandedFolders.add(folderId);
+  if (folderId) setExpanded(folderId, true);
   batchMode = false;
   batchSelected.clear();
   closeOpenMenu();

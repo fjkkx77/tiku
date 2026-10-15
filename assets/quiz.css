@@ -240,10 +240,12 @@ body.reciting .answer-box .correct-ans{color:var(--primary-dark);}
 /* 键盘快捷键说明：只在有鼠标的电脑上显示 */
 .key-hint{display:none;text-align:center;font-size:12px;color:var(--muted);margin-top:10px;}
 @media (hover:hover) and (pointer:fine){ .key-hint{display:block;} }
-/* 答题时收起大标题，把屏幕让给题目（小屏上标题栏+标签占了两成多屏高，键盘一弹就没地方了） */
-body.quizzing header{padding:8px 16px;}
+/* 答题时的顶栏：科目名放大，下面一行写「正在练习 · 范围」（2026-10-15 用户在三套方案里选的 B）。
+   以前为了给键盘让地方压到 15px 的窄条，用户嫌不显眼、看不出在刷什么科目。
+   字号随屏宽：最长的标题（11 个字）在 320 宽也不折行；左右各留 56px 给主页按钮，保证标题真居中。 */
+.quiz-scope{display:none;}
+body.quizzing header{padding:14px 56px;}
 body.quizzing header p{display:none;}
-body.quizzing header h1{font-size:15px;}
-body.quizzing .home-btn{width:32px;height:32px;font-size:16px;}
-body.quizzing .home-btn::after{content:"";position:absolute;inset:-6px;}
-body.quizzing nav button{padding:8px 4px;}
+body.quizzing header h1{font-size:clamp(17px,5.4vw,21px);}
+body.quizzing header p.quiz-scope{display:block;margin-top:4px;font-size:12px;opacity:.9;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+body.quizzing header p.quiz-scope:empty{display:none;}
