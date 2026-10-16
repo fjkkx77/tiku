@@ -264,27 +264,11 @@ function serve() {
     ok(Object.values(r).every(([a, b]) => a && a === b), '首页科目清单里的存储前缀和各科目页一致（导出备份靠它）', r);
     for (const [k, v] of [['tiku_folders', 'null'], ['tiku_folders', '{}'], ['tiku_folders', '[null]'], ['tiku_subject_folder', 'null'], ['tiku_custom_names', 'null']]) {
       await c.ev(`localStorage.clear();localStorage.setItem(${JSON.stringify(k)},${JSON.stringify(v)})`); await c.goto(BASE);
-      ok(await c.ev('document.querySelectorAll("a.item").length') === SITES.length, `首页：存储项 ${k}=${v} 坏了也照常显示科目`);
+      ok(await c.ev('document.querySelectorAll("#list .item[data-key]").length') === SITES.length, `首页：存储项 ${k}=${v} 坏了也照常显示科目`);
     }
-    await c.ev('localStorage.clear()'); await c.goto(BASE);
-    r = await c.ev(`(async()=>{const w=ms=>new Promise(r=>setTimeout(r,ms));document.querySelector(".new-folder-link").click();await w(30);const i=document.querySelector("#newFolderRow .menu-input");i.value="期末";
-      i.dispatchEvent(new KeyboardEvent("keydown",{key:"Enter",isComposing:true,bubbles:true}));const composing=document.querySelectorAll(".folder-card").length;
-      i.dispatchEvent(new KeyboardEvent("keydown",{key:"Enter",bubbles:true}));await w(30);return {composing,made:document.querySelectorAll(".folder-card").length};})()`);
-    ok(r.composing === 0 && r.made === 1, '首页：输入法选字时按回车不创建文件夹，正常回车才创建', r);
-    // 文件夹展开/收起要记住（2026-10-15 用户要求：以前每次打开都是收起的）
-    {
-      const st = () => c.ev(`[...document.querySelectorAll(".folder-card")].map(x=>getComputedStyle(x.querySelector(".folder-body")).display!=="none")`);
-      await c.ev(`localStorage.clear();localStorage.setItem("tiku_folders",JSON.stringify([{id:"f1",name:"甲"},{id:"f2",name:"乙"}]))`); await c.goto(BASE);
-      const first = await st();
-      await c.ev('document.querySelectorAll(".folder-header")[0].click()'); await c.goto(BASE);
-      const opened = await st();
-      await c.ev('document.querySelectorAll(".folder-header")[0].click()'); await c.goto(BASE);
-      const closed = await st();
-      await c.ev(`localStorage.setItem("tiku_expanded_folders","{坏")`); await c.goto(BASE);
-      const broken = await c.ev('document.querySelectorAll(".folder-card").length');
-      ok(JSON.stringify([first, opened, closed]) === '[[false,false],[true,false],[false,false]]' && broken === 2,
-        '首页：文件夹展开/收起重新打开后照上次的样子（存储坏了也照常显示）', { first, opened, closed, broken });
-    }
+    // 展开状态存坏了也照常显示分组（新建分组、展开收起记忆等 2026-10-16 改版后的用例在 tests/home.cjs）
+    await c.ev(`localStorage.clear();localStorage.setItem("tiku_folders",JSON.stringify([{id:"f1",name:"甲"},{id:"f2",name:"乙"}]));localStorage.setItem("tiku_expanded_folders","{坏")`); await c.goto(BASE);
+    ok(await c.ev('document.querySelectorAll("#list .folder-card").length') === 2, '首页：展开状态存坏了也照常显示分组');
     // 导出 → 清空 → 导入：数据原样回来；再导入一次不会翻倍；本机较新的错题不被旧备份盖掉
     r = await c.ev(`(async()=>{const w=ms=>new Promise(r=>setTimeout(r,ms));localStorage.clear();
       localStorage.setItem("osquiz_wrongbook",JSON.stringify({q1:{cat:"a",text:"t1",wrongCount:1,lastWrongAt:100},q2:{cat:"a",text:"t2",wrongCount:2,lastWrongAt:200}}));
@@ -298,7 +282,7 @@ function serve() {
       await imp();await imp();
       const wb=JSON.parse(localStorage.getItem("osquiz_wrongbook")),h=JSON.parse(localStorage.getItem("osquiz_history"));
       const bad=importBackup(new File(['{"app":"tiku","version":1,"items":{"evil_key":"1","tiku_folders":"null"}}'],"x.json"));await w(60);if(document.getElementById("confirmBackdrop").classList.contains("show"))document.getElementById("confirmOkBtn").click();await bad;
-      return {allowed,ids:Object.keys(wb).sort(),q1:wb.q1.wrongCount,h:h.map(x=>x.date),evil:localStorage.getItem("evil_key"),other:localStorage.getItem("other_project_secret"),cards:document.querySelectorAll("a.item").length};})()`);
+      return {allowed,ids:Object.keys(wb).sort(),q1:wb.q1.wrongCount,h:h.map(x=>x.date),evil:localStorage.getItem("evil_key"),other:localStorage.getItem("other_project_secret"),cards:document.querySelectorAll("#list .item[data-key]").length};})()`);
     ok(!r.allowed.includes('other_project_secret') && r.allowed.includes('osquiz_wrongbook'), '导出备份：只装刷题站自己的数据，不带同域名下别的项目的', r.allowed);
     ok(JSON.stringify(r.ids) === '["q1","q2","q7"]' && r.q1 === 9 && JSON.stringify(r.h) === '[5,3]', '导入备份：是合并（本机较新的留着、缺的补上），导入两次也不翻倍', r);
     ok(r.evil === null && r.other === '别动我' && r.cards === SITES.length, '导入备份：清单以外的存储项一律不写，坏内容不会把首页弄坏', r);
@@ -312,6 +296,9 @@ function serve() {
     await c.ev('localStorage.clear()');
     await c.ev('localStorage.clear()');
     console.log('2. 逻辑检查完成');
+    // 汇总首页改版（2026-10-16）：置顶、排序、分组、左滑、长按拖动、学习情况——自己开浏览器，含 320/390/430 三档真触摸
+    await require('./home.cjs').runHome(BASE, ok);
+    console.log('2b. 汇总首页检查完成');
 
     /* ---------- 3. 手势 + 4. 版面 ---------- */
     c.close();
@@ -402,7 +389,7 @@ function serve() {
               document.querySelectorAll("#screen-quiz .blank-input").forEach(el=>{const f=parseFloat(getComputedStyle(el).fontSize);if(f<16)out.push("${s2} "+el.tagName+" "+f);});
               const wf=[...document.styleSheets].flatMap(ss=>[...ss.cssRules]).find(r=>r.selectorText===".wb-filter");if(!wf||parseFloat(wf.style.fontSize)<16)out.push("${s2} 错题筛选 "+(wf&&wf.style.fontSize));return out;})()`));
           }
-          await t.goto(BASE); fs.push(...await t.ev('[...document.styleSheets].flatMap(ss=>[...ss.cssRules]).filter(r=>r.selectorText&&/menu-input|name-input/.test(r.selectorText)&&r.style.fontSize&&parseFloat(r.style.fontSize)<16).map(r=>"首页 "+r.selectorText+" "+r.style.fontSize)'));
+          await t.goto(BASE); fs.push(...await t.ev('[...document.styleSheets].flatMap(ss=>[...ss.cssRules]).filter(r=>r.selectorText&&/input/.test(r.selectorText)&&r.style.fontSize&&parseFloat(r.style.fontSize)<16).map(r=>"首页 "+r.selectorText+" "+r.style.fontSize)'));
           ok(fs.length === 0, `${W} 输入框、下拉框字号都不小于 16px`, fs);
           await t.goto(BASE + 'mobile-app/'); await t.ev('localStorage.clear()'); await t.goto(BASE + 'mobile-app/');
           await t.ev('document.getElementById("startBtn").click()'); await sleep(150);
