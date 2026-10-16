@@ -14,6 +14,8 @@ const LAYOUT = `(()=>{const out=[],L=document.getElementById("list");const pin=[
 const REAL = `localStorage.setItem("tiku_folders",JSON.stringify([{id:"f1",name:"第二学期"}]));
   localStorage.setItem("tiku_subject_folder",JSON.stringify({"web-design":"f1",os:"f1","software-engineering":"f1","mobile-app":"f1","english-listening":"f1","english-reading":"f1","english-vocab":"f1","english-translation":"f1"}));
   localStorage.setItem("tiku_expanded_folders",'["f1"]');`;
+// #list 的直接子元素：小标题写成「#标题」，科目写 key，文件夹写「F:名字」
+const SEQ = `[...document.getElementById("list").children].map(n=>n.matches(".sec-label")?"#"+n.textContent:n.matches(".folder-card")?"F:"+n.querySelector(".folder-name").textContent:n.dataset.key)`;
 const DESC = k => `document.querySelector('.item[data-key="${k}"] .desc').textContent`;
 
 async function runHome(BASE, ok) {
@@ -64,7 +66,8 @@ async function runHome(BASE, ok) {
     {
       await c.ev('togglePin("software-engineering")'); await sleep(50);
       const a = await c.ev(LAYOUT);
-      const tag = await c.ev(`!!document.querySelector('.item.pinned[data-key="software-engineering"] .pin-tag')`);
+      const seq = await c.ev(SEQ);
+      const tag = seq[0] === '#📌 置顶' && seq[1] === 'software-engineering' && seq[2] === '#全部' && !(await c.ev('!!document.querySelector(".pin-tag")'));
       await c.ev('togglePin("os")'); await sleep(50);
       const b = await c.ev(LAYOUT);
       await c.ev('togglePin("software-engineering");togglePin("os")'); await sleep(50);
@@ -72,7 +75,8 @@ async function runHome(BASE, ok) {
       ok(a[0][0] === '置顶' && JSON.stringify(a[0][1]) === '["software-engineering"]' && tag && !a[1][1].includes('software-engineering') && a[1][1].length === 7
         && JSON.stringify(b[0][1]) === '["software-engineering","os"]'
         && d.length === 1 && JSON.stringify(d[0][1]) === '["web-design","os","software-engineering","mobile-app","english-listening","english-reading","english-vocab","english-translation"]',
-        '置顶：排到最上面带 📌 并离开原文件夹；按置顶先后排；取消后回到原文件夹原位置', { a, b, d, tag });
+        '置顶：进「📌 置顶」分区（下面是「全部」）并离开原文件夹；按置顶先后排；取消后回到原文件夹原位置、分区标题消失', { a, b, d, tag, seq, after: await c.ev(SEQ + '.filter(x=>x[0]==="#")') });
+      ok((await c.ev(SEQ + '.filter(x=>x[0]==="#")')).length === 0, '没有置顶时不显示分区小标题');
       ok(await c.ev('document.querySelector(".folder-card .folder-count").textContent') === '(8)', '置顶：文件夹标题的数量只数里面显示的');
     }
     // 排序写回：没进文件夹的那几张换位，只动它们占着的位置，文件夹里的科目先后不变
@@ -135,11 +139,11 @@ async function runHome(BASE, ok) {
     {
       const r = await c.ev(`(async()=>{${W8}const fs=loadFolders();fs.push({id:"x1",name:"乙"},{id:"x2",name:"丙"});saveFolders(fs);render();
         const names=()=>[...document.querySelectorAll("#list > .folder-card .folder-name")].map(n=>n.textContent);
-        const before=names();toggleFolderPin("x2");await w(30);const pinned=names(),tag=!!document.querySelector('.folder-card[data-fid="x2"] .pin-tag');
+        const before=names();toggleFolderPin("x2");await w(30);const pinned=names(),seq=${SEQ},tag=seq[0]==="#📌 置顶"&&seq[1]==="F:丙"&&seq[2]==="#全部";
         reorderFolders([fs[0].id,"x1"].reverse());render();const swapped=names(),arr=loadFolders().map(f=>f.id);
         toggleFolderPin("x2");await w(30);return {before,pinned,tag,swapped,arr,after:names()};})()`);
       ok(JSON.stringify(r.before) === '["期末","乙","丙"]' && JSON.stringify(r.pinned) === '["丙","期末","乙"]' && r.tag && JSON.stringify(r.swapped) === '["丙","乙","期末"]' && r.arr[2] === 'x2' && JSON.stringify(r.after) === '["乙","期末","丙"]',
-        '文件夹置顶：排到前面带 📌，取消后回原位；换位只动参与的那几个的位置', r);
+        '文件夹置顶：进「📌 置顶」分区，取消后回原位；换位只动参与的那几个的位置', r);
     }
     // 底部不再有导出/导入按钮（⋯ 菜单里有），说明文字指向 ⋯
     ok(await c.ev('!document.querySelector(".backup-link")&&document.querySelector(".backup-note").textContent.includes("⋯")'), '底部：导出/导入只在 ⋯ 菜单里，说明文字指过去');
@@ -218,8 +222,8 @@ async function runHome(BASE, ok) {
       let m = await t.ev('({sw:document.documentElement.scrollWidth,over:[...document.querySelectorAll("#list .item")].filter(r=>r.scrollWidth>r.clientWidth+1).length})');
       ok(m.sw <= W && m.over === 0, `${W} 首页无横向溢出（含 40 字长名字）`, m);
       // 可点范围：右上角 ⋯ 44×44；卡片和文件夹上的小按钮 36×36
-      m = await t.ev(`(()=>{const a=document.getElementById("topMoreBtn").getBoundingClientRect();return {top:[Math.round(a.width),Math.round(a.height)],btn:Math.min(...[...document.querySelectorAll("#list .icon-btn")].filter(b=>b.offsetParent).map(b=>Math.min(b.getBoundingClientRect().width,b.getBoundingClientRect().height)))};})()`);
-      ok(m.top[0] >= 44 && m.top[1] >= 44 && m.btn >= 36, `${W} 首页可点范围够大`, m);
+      m = await t.ev(`(()=>{const a=document.getElementById("topMoreBtn").getBoundingClientRect();return {top:[Math.round(a.width),Math.round(a.height)],btns:document.querySelectorAll("#list button").length};})()`);
+      ok(m.top[0] >= 44 && m.top[1] >= 44 && m.btns === 0, `${W} 右上角 ⋯ 可点范围 44×44；列表里没有小图标按钮（操作都在左滑里）`, m);
       // 标题在 ⋯ 旁边仍然居中、不被它压住
       m = await t.ev(`(()=>{const h=document.querySelector("header h1").getBoundingClientRect(),rg=document.createRange();rg.selectNodeContents(document.querySelector("header p"));const p=rg.getBoundingClientRect(),b=document.getElementById("topMoreBtn").getBoundingClientRect(),W=document.documentElement.clientWidth;return {mid:Math.round(h.left+h.width/2-W/2),hit:p.right>b.left+6&&p.bottom>b.top&&p.top<b.bottom};})()`);
       ok(Math.abs(m.mid) <= 1 && !m.hit, `${W} 头部标题居中、副标题不压到 ⋯`, m);
@@ -246,16 +250,23 @@ async function runHome(BASE, ok) {
         const fy = await t.ev(`(()=>{const r=document.querySelector('.folder-header .folder-name').getBoundingClientRect();return r.top+r.height/2;})()`);
         await swipe(W * 0.8, fy, W * 0.2, fy + 3, 220);
         const labels = await t.ev('[...document.querySelectorAll(".lsw-acts.is-open .lsw-btn")].map(b=>b.textContent)');
-        const del = await t.ev('(()=>{const r=[...document.querySelectorAll(".lsw-acts.is-open .lsw-btn")][1].getBoundingClientRect();return [r.left+r.width/2,r.top+r.height/2];})()');
+        const del = await t.ev('(()=>{const r=[...document.querySelectorAll(".lsw-acts.is-open .lsw-btn")][2].getBoundingClientRect();return [r.left+r.width/2,r.top+r.height/2];})()');
         await T('touchStart', [{ x: del[0], y: del[1] }]); await T('touchEnd', []); await sleep(500);
         const asked = await t.ev('document.getElementById("confirmBackdrop").classList.contains("show")');
         await t.ev('document.getElementById("confirmCancelBtn").click()'); await sleep(400);
         const kept = await t.ev('document.querySelectorAll(".folder-card").length');
         await swipe(W * 0.8, fy, W * 0.2, fy + 3, 220);
-        const pin = await t.ev('(()=>{const r=[...document.querySelectorAll(".lsw-acts.is-open .lsw-btn")][0].getBoundingClientRect();return [r.left+r.width/2,r.top+r.height/2];})()');
+        const pin = await t.ev('(()=>{const r=[...document.querySelectorAll(".lsw-acts.is-open .lsw-btn")][1].getBoundingClientRect();return [r.left+r.width/2,r.top+r.height/2];})()');
         await T('touchStart', [{ x: pin[0], y: pin[1] }]); await T('touchEnd', []); await sleep(600);
-        const pinned = await t.ev('!!loadFolders()[0].pinned&&!!document.querySelector(".folder-card .pin-tag")');
-        ok(JSON.stringify(labels) === '["置顶","删除"]' && asked && kept === 1 && pinned, `${W} 文件夹标题左滑：置顶 / 删除（删除先确认）`, { labels, asked, kept, pinned });
+        const pinned = await t.ev('!!loadFolders()[0].pinned&&document.getElementById("list").firstElementChild.textContent==="📌 置顶"');
+        // 「重命名」：打开改名面板，输入框当场聚焦
+        const fy2 = await t.ev(`(()=>{const r=document.querySelector('.folder-header .folder-name').getBoundingClientRect();return r.top+r.height/2;})()`);
+        await swipe(W * 0.8, fy2, W * 0.15, fy2 + 3, 220);
+        const rn = await t.ev('(()=>{const r=[...document.querySelectorAll(".lsw-acts.is-open .lsw-btn")][0].getBoundingClientRect();return [r.left+r.width/2,r.top+r.height/2];})()');
+        await T('touchStart', [{ x: rn[0], y: rn[1] }]); await T('touchEnd', []); await sleep(500);
+        const renamer = await t.ev('!!document.querySelector("#sheet input")&&document.activeElement===document.querySelector("#sheet input")&&document.querySelector("#sheet h2").textContent==="重命名文件夹"');
+        await t.ev('closeSheet()');
+        ok(JSON.stringify(labels) === '["重命名","置顶","删除"]' && asked && kept === 1 && pinned && renamer, `${W} 文件夹标题左滑：重命名 / 置顶 / 删除（删除先确认，重命名当场聚焦）`, { labels, asked, kept, pinned, renamer });
       }
       // 长按拖动：文件夹里第一张往下拖过一张 → 换位，松手不跳转
       await reset(REAL);
@@ -297,6 +308,32 @@ async function runHome(BASE, ok) {
       [x, y] = await spot('.item[data-key="mobile-app"]');
       await T('touchStart', [{ x, y }]); await T('touchEnd', []); await sleep(1200);
       ok(/\/mobile-app\/$/.test(await t.ev('location.pathname')), `${W} 点科目进入科目页`);
+      // 面板开着时在面板上 / 遮罩上上下滑：后面的主页不许跟着滚（2026-10-16 用户 iPhone 报的穿透）
+      {
+        await reset(REAL);
+        await t.ev('window.scrollTo(0,300)'); await sleep(200);
+        const y0 = await t.ev('scrollY');
+        await t.ev('openSubjectSheet("os")'); await sleep(450);
+        const g = await t.ev('(()=>{const r=document.getElementById("sheet").getBoundingClientRect();return [r.left+r.width/2,r.top+r.height/2,r.top];})()');
+        await swipe(g[0], g[1], g[0], g[1] - 200, 260);          // 在面板上往上推
+        await swipe(W / 2, g[2] - 120, W / 2, g[2] - 320, 260);   // 在遮罩上往上推
+        await swipe(W / 2, 80, W / 2, 260, 260);                   // 在遮罩上往下拉
+        const y1 = await t.ev('scrollY'), still = await t.ev('!!document.getElementById("sheet")');
+        await t.ev('closeSheet()');
+        ok(y0 > 0 && y1 === y0 && still, `${W} 面板开着时上下滑：背景主页不跟着滚`, { y0, y1, still });
+      }
+      // 键盘弹出：面板底边抬到键盘上方（headless 没有真键盘，用假的 visualViewport 模拟键盘占掉 300px）
+      {
+        const r = await t.ev(`(async()=>{const w=ms=>new Promise(r=>setTimeout(r,ms));const H=innerHeight;
+          const fake=Object.assign(new EventTarget(),{height:H-300,offsetTop:0,width:innerWidth});
+          Object.defineProperty(window,"visualViewport",{configurable:true,get:()=>fake});
+          openSubjectSheet("os");await w(30);document.getElementById("actRename").click();await w(450);
+          const inp=document.querySelector("#sheet input").getBoundingClientRect(),sh=document.getElementById("sheet").getBoundingClientRect();
+          const out={H,inputBottom:Math.round(inp.bottom),sheetBottom:Math.round(sh.bottom),visible:H-300};
+          document.activeElement.blur();await w(120);out.afterBlur=Math.round(document.getElementById("sheet").getBoundingClientRect().bottom);
+          closeSheet();delete window.visualViewport;return out;})()`);
+        ok(r.sheetBottom <= r.visible + 1 && r.inputBottom <= r.visible && r.afterBlur >= r.H - 1, `${W} 键盘弹出时面板抬到键盘上面、输入框露出来；收起键盘面板落回底部`, r);
+      }
       // 底部面板往下拉关闭
       await reset();
       await t.ev('openSubjectSheet("os")'); await sleep(400);

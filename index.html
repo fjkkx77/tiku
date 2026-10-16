@@ -22,7 +22,8 @@
   .item .name{font-size:17px;font-weight:bold;min-width:0;overflow-wrap:anywhere;}
   .item .desc{font-size:13px;color:var(--muted);}
   .item .desc b{color:var(--text);}
-  .pin-tag{font-size:13px;flex-shrink:0;}
+  .sec-label{font-size:13px;font-weight:bold;color:var(--muted);margin:4px 4px -4px;}
+  .sec-label:first-child{margin-top:0;}
   .empty-note{font-size:12px;color:var(--muted);text-align:center;margin-top:24px;}
 
   /* 卡片上的按钮可点，其余部分点了＝进入科目 */
@@ -159,7 +160,7 @@
   /* 底部面板（重命名 / 移到文件夹 / 新建文件夹），能下拉关闭 */
   .mask{position:fixed;inset:0;z-index:60;background:rgba(12,16,22,.42);display:flex;align-items:flex-end;justify-content:center;animation:fadeIn .2s ease;}
   @keyframes fadeIn{from{opacity:0;}}
-  .sheet{position:relative;width:100%;max-width:520px;max-height:88vh;overflow-y:auto;background:var(--bg);border-radius:16px 16px 0 0;
+  .sheet{position:relative;width:100%;max-width:520px;max-height:88vh;max-height:88dvh;overflow-y:auto;background:var(--bg);border-radius:16px 16px 0 0;
     padding:22px 14px calc(14px + env(safe-area-inset-bottom));overscroll-behavior:contain;animation:sheetUp .32s var(--ease);}
   @keyframes sheetUp{from{transform:translateY(100%);}}
   .sheet::before{content:"";position:absolute;top:7px;left:50%;width:36px;height:5px;margin-left:-18px;border-radius:3px;background:#9ca3af;opacity:.5;}
@@ -443,22 +444,25 @@ function render() {
       + '<div class="name-row">'
       + (batchMode ? '<span class="batch-checkbox' + (sel ? ' checked' : '') + '">' + (sel ? '✓' : '') + '</span>' : '')
       + '<span class="name">' + esc(displayName(k, names)) + '</span>'
-      + (isPinned ? '<span class="pin-tag" title="已置顶">📌</span>' : '')
       + '</div><div class="desc">' + descHtml(s, subjectStats(s)) + '</div></a>';
   }
-  let h = pinned.map(function(k){ return card(k, true); }).join('');
-  // 置顶的文件夹排在其他文件夹前面（各自按数组顺序）
-  folders.filter(function(f){ return f.pinned; }).concat(folders.filter(function(f){ return !f.pinned; })).forEach(function(f){
+  const pinF = folders.filter(function(f){ return f.pinned; }), restF = folders.filter(function(f){ return !f.pinned; });
+  const anyPin = pinned.length + pinF.length > 0, anyRest = restF.length + loose.length > 0;
+  let h = anyPin ? '<div class="sec-label">📌 置顶</div>' : '';
+  h += pinned.map(function(k){ return card(k, true); }).join('');
+  pinF.forEach(folderCard);
+  if (anyPin && anyRest) h += '<div class="sec-label">全部</div>';
+  restF.forEach(folderCard);
+  function folderCard(f) {
     const ks = inFolder[f.id] || [], open = expandedFolders.has(f.id);
     h += '<div class="folder-card' + (open ? ' open' : '') + (f.pinned ? ' pinned' : '') + (batchMode ? ' batch-active' : '') + '" data-fid="' + esc(f.id) + '" data-k="f:' + esc(f.id) + '">'
       + '<div class="folder-header lsw-item" role="button" tabindex="0" aria-expanded="' + open + '">'
       + '<span class="chevron">▶</span><span class="folder-icon">📁</span><span class="folder-name">' + esc(f.name) + '</span><span class="folder-count">(' + ks.length + ')</span>'
-      + (f.pinned ? '<span class="pin-tag" title="已置顶">📌</span>' : '')
-      + '<button class="icon-btn folder-rename" type="button" title="重命名文件夹">✏️</button></div>'
+      + '</div>'
       + '<div class="folder-fold"' + (open ? '' : ' hidden') + '><div class="folder-body">'
       + (ks.length ? ks.map(function(k){ return card(k, false); }).join('') : '<div class="folder-empty-note">空文件夹：左滑科目点「更多」→「移到文件夹」</div>')
       + '</div></div></div>';
-  });
+  }
   h += loose.map(function(k){ return card(k, false); }).join('');
   $('list').innerHTML = h;
   renderBatchBar();
@@ -534,7 +538,7 @@ $('list').addEventListener('click', function(e){
     if (item) {
       const k = item.dataset.key;
     } else if (fc) {
-      if (btn.classList.contains('folder-rename')) renameFolder(fc.dataset.fid);
+
     }
     return;
   }
@@ -612,6 +616,8 @@ let sheetEl = null;
 function closeSheet() {
   if (!sheetEl) return;
   const s = sheetEl; sheetEl = null;
+  const vv = window.visualViewport;
+  if (vv) { vv.removeEventListener('resize', fitSheet); vv.removeEventListener('scroll', fitSheet); }
   s.mask.remove();
   if (s.onClose) s.onClose();
 }
@@ -625,8 +631,49 @@ function showSheet(build, opts) {
   mask.addEventListener('click', function(e){ if (e.target === mask) tryCloseSheet(); });
   document.body.appendChild(mask);
   sheetEl = { mask: mask, sheet: sheet, dirty: opts && opts.dirty, onClose: opts && opts.onClose };
+  const vv = window.visualViewport;
+  if (vv) { vv.addEventListener('resize', fitSheet); vv.addEventListener('scroll', fitSheet); }
   return sheet;
 }
+/* 键盘挡住输入框（2026-10-16 用户 iPhone 报）：iOS Safari 弹键盘时 position:fixed 的底部面板不会跟着上移，
+   被键盘盖住。用 visualViewport 量出「键盘以上还看得见的那一截」，把面板底边抬到那里。
+   只在面板里的输入框正聚焦时才认这个差值——没键盘时 visualViewport 和 innerHeight 也可能对不齐（day-rail 踩过），会凭空把面板顶上去 */
+function fitSheet() {
+  if (!sheetEl) return;
+  const vv = window.visualViewport, ae = document.activeElement;
+  const typing = !!(ae && /^(INPUT|TEXTAREA)$/.test(ae.tagName) && sheetEl.sheet.contains(ae));
+  const kb = vv && typing ? Math.max(0, Math.round(window.innerHeight - vv.height - vv.offsetTop)) : 0;
+  sheetEl.mask.style.paddingBottom = kb ? kb + 'px' : '';
+  sheetEl.sheet.style.maxHeight = kb ? (vv.height - 12) + 'px' : '';
+}
+document.addEventListener('focusin', fitSheet);
+document.addEventListener('focusout', function(){ setTimeout(fitSheet, 50); });
+
+/* 背景穿透（2026-10-16 用户 iPhone 报：在面板上上下滑，后面的主页跟着滚）：
+   浮层开着时拦下所有 touchmove，只有手指底下真有「还能往这个方向滚」的容器才放行。
+   做法照 data-Calculation / day-rail 已在真机验证过的那套：①每一下都重新判断（滚到头后浏览器会把这一下交给整页）
+   ②取元素用 elementFromPoint（Chrome 会把触摸 target 吸附到附近按钮）③4px 内不判，免得轻点也被吞 */
+let guardY = 0;
+document.addEventListener('touchstart', function(e){ if (e.touches[0]) guardY = e.touches[0].clientY; }, { capture: true, passive: true });
+document.addEventListener('touchmove', function(e){
+  if (!(sheetEl || confirmOpen())) return;
+  const t = e.touches[0]; if (!t) return;
+  const dy = t.clientY - guardY;
+  if (Math.abs(dy) < 4) return;
+  guardY = t.clientY;
+  if (sheetEl && !confirmOpen()) {
+    let n = document.elementFromPoint(t.clientX, t.clientY);
+    for (; n && n !== sheetEl.mask; n = n.parentElement) {
+      if (!sheetEl.sheet.contains(n)) break;
+      const oy = getComputedStyle(n).overflowY;
+      if ((oy === 'auto' || oy === 'scroll') && n.scrollHeight > n.clientHeight + 1) {
+        if (dy < 0 && n.scrollTop + n.clientHeight < n.scrollHeight - 1) return;   // 手指往上推＝往下滚，下面还有
+        if (dy > 0 && n.scrollTop > 0) return;                                       // 手指往下拉＝往上滚，上面还有
+      }
+    }
+  }
+  if (e.cancelable) e.preventDefault();
+}, { passive: false });
 async function tryCloseSheet() {
   if (!sheetEl) return;
   if (sheetEl.dirty && sheetEl.dirty()) { if (!await showConfirm('放弃这次修改？', '放弃', true)) return; }
@@ -1012,6 +1059,7 @@ const swipe = SwipeActions({
     if (el.matches('.folder-header')) {
       const fid = el.parentElement.dataset.fid, f = loadFolders().find(function(x){ return x.id === fid; });
       return [
+        { label: '重命名', icon: ICON.pencil, cls: 'lsw-more', onClick: function(){ swipe.close(true); renameFolder(fid); } },
         { label: f && f.pinned ? '取消置顶' : '置顶', icon: ICON.pin, cls: 'lsw-pin', onClick: function(){ toggleFolderPin(fid); } },
         { label: '删除', icon: ICON.trash, cls: 'lsw-del', onClick: function(){ swipe.close(true); deleteFolder(fid); } },
       ];
