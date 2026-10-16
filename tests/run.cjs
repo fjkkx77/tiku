@@ -274,7 +274,7 @@ function serve() {
       localStorage.setItem("osquiz_wrongbook",JSON.stringify({q1:{cat:"a",text:"t1",wrongCount:1,lastWrongAt:100},q2:{cat:"a",text:"t2",wrongCount:2,lastWrongAt:200}}));
       localStorage.setItem("osquiz_history",JSON.stringify([{date:5,scope:"x",total:1,correct:1,wrong:0},{date:3,scope:"y",total:1,correct:0,wrong:1}]));
       localStorage.setItem("other_project_secret","别动我");
-      let blob=null;const orig=URL.createObjectURL;URL.createObjectURL=b=>{blob=b;return orig.call(URL,b);};document.getElementById("exportBtn").click();await w(50);const text=await blob.text();
+      let blob=null;const orig=URL.createObjectURL;URL.createObjectURL=b=>{blob=b;return orig.call(URL,b);};exportBackup();await w(50);const text=await blob.text();
       const allowed=Object.keys(JSON.parse(text).items);
       localStorage.removeItem("osquiz_wrongbook");localStorage.removeItem("osquiz_history");
       localStorage.setItem("osquiz_wrongbook",JSON.stringify({q1:{cat:"a",text:"t1",wrongCount:9,lastWrongAt:999},q7:{cat:"a",text:"t7",wrongCount:1,lastWrongAt:50}}));

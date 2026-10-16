@@ -57,8 +57,8 @@ async function runHome(BASE, ok) {
     {
       const r = await c.ev(LAYOUT);
       const name = await c.ev(`document.querySelector('.item[data-key="os"] .name').textContent`);
-      const reset = await c.ev(`document.querySelector('.item[data-key="os"] .reset-btn').classList.contains("visible")`);
-      ok(r.length === 1 && r[0][0] === '第二学期' && r[0][1].length === 8 && name === 'OS 期末' && reset, '首页：旧数据（文件夹、改过的名字和「还原」按钮、展开状态）原样显示', { r, name, reset });
+      const btns = await c.ev(`document.querySelectorAll("#list .item button").length`);
+      ok(r.length === 1 && r[0][0] === '第二学期' && r[0][1].length === 8 && name === 'OS 期末' && btns === 0, '首页：旧数据（文件夹、改过的名字、展开状态）原样显示；科目卡片上不再有 ✏️ 📁 还原（左滑「更多」里有）', { r, name, btns });
     }
     // 置顶：排到最上面、带 📌、离开原文件夹；取消后回到原文件夹原位置
     {
@@ -114,20 +114,35 @@ async function runHome(BASE, ok) {
       ok(JSON.stringify(r.labels) === '["新建文件夹","选择多个","导出备份","导入备份"]' && r.empty && r.composing === 0 && r.made === 1 && !r.sheet && !r.menu && r.name === '期末',
         '⋯ 菜单四项；新建文件夹：空名不可点、输入法选字时回车不创建、正常回车创建并关面板', r);
     }
-    // 卡片上原来的按钮：✏️ 改名、「还原」、📁 移到文件夹 / 移出
+    // 「更多」→ 重命名：点下去的同一刻输入框就聚焦（不能等：iPhone 只认手势里的 focus，晚了不弹键盘）；没改不可点、去掉首尾空格、还原
     {
-      const r = await c.ev(`(async()=>{${W8}const card=()=>document.querySelector('.item[data-key="os"]');const href=location.href;
-        card().querySelector(".rename-btn").click();await w(80);const i=document.querySelector("#sheet input"),okb=document.querySelector("#sheet .b1");const same=okb.disabled;
-        i.value="  OS 复习  ";i.dispatchEvent(new Event("input"));okb.click();await w(30);
-        const renamed=card().querySelector(".name").textContent,shown=card().querySelector(".reset-btn").classList.contains("visible");
-        card().querySelector(".reset-btn").click();await w(30);const back=card().querySelector(".name").textContent,hidden=!card().querySelector(".reset-btn").classList.contains("visible");
-        card().querySelector(".folder-btn").click();await w(60);[...document.querySelectorAll("#sheet .opt")].find(b=>b.textContent.includes("期末")).click();await w(30);
+      const r = await c.ev(`(async()=>{${W8}const card=()=>document.querySelector('.item[data-key="os"]');
+        openSubjectSheet("os");await w(30);document.getElementById("actRename").click();
+        const i=document.querySelector("#sheet input");const focusedNow=document.activeElement===i;
+        const okb=document.querySelector("#sheet .b1");const same=okb.disabled;
+        i.value="  OS 复习  ";i.dispatchEvent(new Event("input"));okb.click();await w(30);const renamed=card().querySelector(".name").textContent;
+        openSubjectSheet("os");await w(30);document.getElementById("actReset").click();await w(30);const back=card().querySelector(".name").textContent;
+        openSubjectSheet("os");await w(30);document.getElementById("actMove").click();await w(60);[...document.querySelectorAll("#sheet .opt")].find(b=>b.textContent.includes("期末")).click();await w(30);
         const moved=${LAYOUT};
-        card().querySelector(".folder-btn").click();await w(60);document.getElementById("actMoveOut").click();await w(30);
-        return {same,renamed,shown,back,hidden,moved,out:${LAYOUT},stay:location.href===href};})()`);
-      ok(r.same && r.renamed === 'OS 复习' && r.shown && r.back === '操作系统' && r.hidden && r.stay, '卡片 ✏️ 改名（没改不可点、去掉首尾空格）、「还原」恢复原名，点按钮不会跳进科目', r);
-      ok(r.moved[0][0] === '期末' && JSON.stringify(r.moved[0][1]) === '["os"]' && r.out.length === 2 && r.out[1][1].includes('os'), '卡片 📁：移到文件夹 / 移出文件夹', { moved: r.moved, out: r.out });
+        openSubjectSheet("os");await w(30);document.getElementById("actMove").click();await w(60);document.getElementById("actMoveOut").click();await w(30);
+        document.getElementById("topMoreBtn").click();await w(30);document.getElementById("menuNewFolder").click();const nf=document.activeElement===document.querySelector("#sheet input");closeSheet();
+        return {focusedNow,nf,same,renamed,back,moved,out:${LAYOUT}};})()`);
+      ok(r.focusedNow && r.nf, '点「重命名」「新建文件夹」的同一刻输入框已聚焦（手机上才会直接弹键盘）', r);
+      ok(r.same && r.renamed === 'OS 复习' && r.back === '操作系统', '重命名：没改不可点、去掉首尾空格；「还原原名」恢复', r);
+      ok(r.moved[0][0] === '期末' && JSON.stringify(r.moved[0][1]) === '["os"]' && r.out.length === 2 && r.out[1][1].includes('os'), '移到文件夹 / 移出文件夹', { moved: r.moved, out: r.out });
     }
+    // 文件夹置顶：排到其他文件夹前面、带 📌；文件夹拖动只在同样置顶/不置顶的之间换位，写回只动它们占着的位置
+    {
+      const r = await c.ev(`(async()=>{${W8}const fs=loadFolders();fs.push({id:"x1",name:"乙"},{id:"x2",name:"丙"});saveFolders(fs);render();
+        const names=()=>[...document.querySelectorAll("#list > .folder-card .folder-name")].map(n=>n.textContent);
+        const before=names();toggleFolderPin("x2");await w(30);const pinned=names(),tag=!!document.querySelector('.folder-card[data-fid="x2"] .pin-tag');
+        reorderFolders([fs[0].id,"x1"].reverse());render();const swapped=names(),arr=loadFolders().map(f=>f.id);
+        toggleFolderPin("x2");await w(30);return {before,pinned,tag,swapped,arr,after:names()};})()`);
+      ok(JSON.stringify(r.before) === '["期末","乙","丙"]' && JSON.stringify(r.pinned) === '["丙","期末","乙"]' && r.tag && JSON.stringify(r.swapped) === '["丙","乙","期末"]' && r.arr[2] === 'x2' && JSON.stringify(r.after) === '["乙","期末","丙"]',
+        '文件夹置顶：排到前面带 📌，取消后回原位；换位只动参与的那几个的位置', r);
+    }
+    // 底部不再有导出/导入按钮（⋯ 菜单里有），说明文字指向 ⋯
+    ok(await c.ev('!document.querySelector(".backup-link")&&document.querySelector(".backup-note").textContent.includes("⋯")'), '底部：导出/导入只在 ⋯ 菜单里，说明文字指过去');
     // 左滑「更多」面板：置顶、改名后可还原、改回原名就不存自定义
     {
       const r = await c.ev(`(async()=>{${W8}openSubjectSheet("os");await w(30);const labels=[...document.querySelectorAll("#sheet .opt")].map(b=>b.textContent);document.getElementById("actRename").click();await w(80);
@@ -140,16 +155,17 @@ async function runHome(BASE, ok) {
       ok(JSON.stringify(r.labels) === '["置顶","重命名","移到文件夹…"]' && r.hasReset && r.cleared && JSON.stringify(r.pinned) === '["os"]', '「更多」面板：置顶 / 重命名 / 移到文件夹；改过名才出现还原；改回原名不存自定义', r);
       await c.ev('togglePin("os")');
     }
-    // 删除文件夹（🗑️）：正中确认框（取消不删），确定后科目回到外面
+    // 删除文件夹（左滑「删除」走的就是 deleteFolder）：正中确认框（取消不删），确定后科目回到外面
     {
-      const r = await c.ev(`(async()=>{${W8}applyMove(["os","web-design"],document.querySelector(".folder-card").dataset.fid);await w(20);
-        document.querySelector(".folder-card .folder-delete").click();await w(50);
+      const r = await c.ev(`(async()=>{${W8}saveFolders(loadFolders().filter(f=>f.name==="期末"));render();applyMove(["os","web-design"],document.querySelector(".folder-card").dataset.fid);await w(20);
+        const fid=document.querySelector(".folder-card").dataset.fid;const noTrash=!document.querySelector(".folder-card .danger");
+        deleteFolder(fid);await w(50);
         const asked=document.getElementById("confirmBackdrop").classList.contains("show"),msg=document.getElementById("confirmMsg").textContent;document.getElementById("confirmCancelBtn").click();await w(30);
         const kept=document.querySelectorAll(".folder-card").length;
-        document.querySelector(".folder-card .folder-delete").click();await w(50);document.getElementById("confirmOkBtn").click();await w(50);
-        return {asked,msg,kept,left:document.querySelectorAll(".folder-card").length,lay:${LAYOUT},map:localStorage.getItem("tiku_subject_folder")};})()`);
-      ok(r.asked && r.msg.includes('期末') && r.kept === 1 && r.left === 0 && r.lay.length === 1 && r.lay[0][1].length === 8 && r.map === '{}',
-        '删除文件夹：先确认（文案带名字），取消不删；确定后科目全部回来', r);
+        deleteFolder(fid);await w(50);document.getElementById("confirmOkBtn").click();await w(50);
+        return {noTrash,asked,msg,kept,left:document.querySelectorAll(".folder-card").length,lay:${LAYOUT},map:localStorage.getItem("tiku_subject_folder")};})()`);
+      ok(r.noTrash && r.asked && r.msg.includes('期末') && r.kept === 1 && r.left === 0 && r.lay.length === 1 && r.lay[0][1].length === 8 && r.map === '{}',
+        '删除文件夹：标题行没有 🗑️；先确认（文案带名字），取消不删；确定后科目全部回来', r);
     }
     // 选择多个（原来的批量整理）：点卡片是勾选不是跳转；移到新建的文件夹；完成后退出
     await reset();
@@ -223,6 +239,24 @@ async function runHome(BASE, ok) {
       [x, y] = await t.ev(`(()=>{const r=document.querySelector('.item[data-key="english-listening"] .desc').getBoundingClientRect();return [r.left+40,r.top+r.height/2];})()`);
       await T('touchStart', [{ x, y }]); await T('touchEnd', []); await sleep(500);
       ok(await t.ev('location.href') === href0 && !(await t.ev('swipe.isOpen()')), `${W} 左滑开着时点别的科目：只收回，不跳进去`);
+      // 文件夹标题行左滑：露出「置顶」「删除」；点「删除」弹确认框（取消不删）；点「置顶」生效
+      {
+        await reset(REAL);
+        await t.ev('document.querySelector(".folder-header").click()'); await sleep(450);   // 先收起（用户截图里是收起状态）
+        const fy = await t.ev(`(()=>{const r=document.querySelector('.folder-header .folder-name').getBoundingClientRect();return r.top+r.height/2;})()`);
+        await swipe(W * 0.8, fy, W * 0.2, fy + 3, 220);
+        const labels = await t.ev('[...document.querySelectorAll(".lsw-acts.is-open .lsw-btn")].map(b=>b.textContent)');
+        const del = await t.ev('(()=>{const r=[...document.querySelectorAll(".lsw-acts.is-open .lsw-btn")][1].getBoundingClientRect();return [r.left+r.width/2,r.top+r.height/2];})()');
+        await T('touchStart', [{ x: del[0], y: del[1] }]); await T('touchEnd', []); await sleep(500);
+        const asked = await t.ev('document.getElementById("confirmBackdrop").classList.contains("show")');
+        await t.ev('document.getElementById("confirmCancelBtn").click()'); await sleep(400);
+        const kept = await t.ev('document.querySelectorAll(".folder-card").length');
+        await swipe(W * 0.8, fy, W * 0.2, fy + 3, 220);
+        const pin = await t.ev('(()=>{const r=[...document.querySelectorAll(".lsw-acts.is-open .lsw-btn")][0].getBoundingClientRect();return [r.left+r.width/2,r.top+r.height/2];})()');
+        await T('touchStart', [{ x: pin[0], y: pin[1] }]); await T('touchEnd', []); await sleep(600);
+        const pinned = await t.ev('!!loadFolders()[0].pinned&&!!document.querySelector(".folder-card .pin-tag")');
+        ok(JSON.stringify(labels) === '["置顶","删除"]' && asked && kept === 1 && pinned, `${W} 文件夹标题左滑：置顶 / 删除（删除先确认）`, { labels, asked, kept, pinned });
+      }
       // 长按拖动：文件夹里第一张往下拖过一张 → 换位，松手不跳转
       await reset(REAL);
       let h = (await spot('.item[data-key="os"]'))[2];

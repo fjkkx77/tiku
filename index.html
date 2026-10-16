@@ -143,6 +143,9 @@
   .lsw-btn svg{width:20px;height:20px;}
   .lsw-more{background:var(--muted);}
   .lsw-pin{background:var(--primary-dark);}
+  .lsw-del{background:#dc2626;}
+  .folder-header{background:#fff;border-radius:10px;position:relative;}
+  .folder-card.open .folder-header{border-radius:10px 10px 0 0;}
   .lsw-btn:active{filter:brightness(.94);}
 
   /* 长按拖动排序（assets/drag.js 配套样式） */
@@ -228,7 +231,7 @@
   /* 备份 */
   .backup-row{display:flex;justify-content:center;gap:28px;margin-top:22px;}
   .backup-link{font-size:13px;color:var(--primary-dark);font-weight:bold;cursor:pointer;padding:12px 8px;margin:-12px -8px;touch-action:manipulation;}
-  .backup-note{font-size:12px;color:var(--muted);text-align:center;line-height:1.7;margin:10px auto 28px;max-width:520px;}
+  .backup-note{font-size:12px;color:var(--muted);text-align:center;line-height:1.7;margin:14px auto 28px;max-width:520px;}
   [role="button"]:focus-visible,.icon-btn:focus-visible{outline:2px solid var(--primary);outline-offset:2px;}
   button,input{font-family:inherit;}
   @media (prefers-reduced-motion:reduce){
@@ -250,12 +253,8 @@
   </header>
   <div class="list" id="list"></div>
   <div class="empty-note">以后新增科目会持续加在这里 · 左滑科目可置顶，长按可拖动排序</div>
-  <div class="backup-row">
-    <span class="backup-link" id="exportBtn" role="button" tabindex="0">⬇ 导出备份</span>
-    <span class="backup-link" id="importBtn" role="button" tabindex="0">⬆ 导入备份</span>
-    <input type="file" id="importFile" accept=".json,application/json" hidden>
-  </div>
-  <div class="backup-note"><span id="lastExport">上次导出：从未</span>。错题本和练习记录只存在这台设备的这个浏览器里：清一次浏览器数据、或很久没打开，都可能全没。<br>隔一阵点一下「导出备份」，存下的那个文件可以在任何设备上「导入」回来（导入是合并，不会冲掉已有的）。</div>
+  <input type="file" id="importFile" accept=".json,application/json" hidden>
+  <div class="backup-note"><span id="lastExport">上次导出：从未</span>。错题本和练习记录只存在这台设备的这个浏览器里：清一次浏览器数据、或很久没打开，都可能全没。<br>隔一阵点右上角 ⋯ 里的「导出备份」，存下的那个文件可以在任何设备上用「导入备份」导回来（导入是合并，不会冲掉已有的）。</div>
 </div>
 
 <div class="batch-bar" id="batchBar">
@@ -388,6 +387,13 @@ function reorderSubjects(keys) {
   slots.forEach(function(pos, i){ order[pos] = keys[i]; });
   return safeSet(ORDER_KEY, order);
 }
+// 文件夹同理：这几个原来占着数组里哪些位置，按新顺序填回去
+function reorderFolders(ids) {
+  const fs = loadFolders(), byId = {}, slots = [];
+  fs.forEach(function(f, i){ byId[f.id] = f; if (ids.indexOf(f.id) >= 0) slots.push(i); });
+  slots.forEach(function(pos, i){ fs[pos] = byId[ids[i]]; });
+  return saveFolders(fs);
+}
 function displayName(key, names) { return (names || loadNames())[key] || SUBJ_BY_KEY[key].defaultName; }
 function newFolderId() { return 'f_' + Date.now() + Math.random().toString(36).slice(2, 6); }
 
@@ -432,27 +438,25 @@ function render() {
   });
 
   function card(k, isPinned) {
-    const s = SUBJ_BY_KEY[k], custom = !!names[k], sel = batchMode && selected.has(k);
+    const s = SUBJ_BY_KEY[k], sel = batchMode && selected.has(k);
     return '<a class="item lsw-item' + (isPinned ? ' pinned' : '') + (batchMode ? ' batch-active' : '') + (sel ? ' batch-selected' : '') + '" href="' + s.href + '" data-key="' + k + '" data-k="r:' + k + '">'
       + '<div class="name-row">'
       + (batchMode ? '<span class="batch-checkbox' + (sel ? ' checked' : '') + '">' + (sel ? '✓' : '') + '</span>' : '')
       + '<span class="name">' + esc(displayName(k, names)) + '</span>'
       + (isPinned ? '<span class="pin-tag" title="已置顶">📌</span>' : '')
-      + '<button class="icon-btn rename-btn" type="button" title="重命名">✏️</button>'
-      + '<button class="reset-btn' + (custom ? ' visible' : '') + '" type="button" title="恢复原名">还原</button>'
-      + '<button class="icon-btn folder-btn" type="button" title="移入文件夹">📁</button>'
       + '</div><div class="desc">' + descHtml(s, subjectStats(s)) + '</div></a>';
   }
   let h = pinned.map(function(k){ return card(k, true); }).join('');
-  folders.forEach(function(f){
+  // 置顶的文件夹排在其他文件夹前面（各自按数组顺序）
+  folders.filter(function(f){ return f.pinned; }).concat(folders.filter(function(f){ return !f.pinned; })).forEach(function(f){
     const ks = inFolder[f.id] || [], open = expandedFolders.has(f.id);
-    h += '<div class="folder-card' + (open ? ' open' : '') + (batchMode ? ' batch-active' : '') + '" data-fid="' + esc(f.id) + '" data-k="f:' + esc(f.id) + '">'
-      + '<div class="folder-header" role="button" tabindex="0" aria-expanded="' + open + '">'
+    h += '<div class="folder-card' + (open ? ' open' : '') + (f.pinned ? ' pinned' : '') + (batchMode ? ' batch-active' : '') + '" data-fid="' + esc(f.id) + '" data-k="f:' + esc(f.id) + '">'
+      + '<div class="folder-header lsw-item" role="button" tabindex="0" aria-expanded="' + open + '">'
       + '<span class="chevron">▶</span><span class="folder-icon">📁</span><span class="folder-name">' + esc(f.name) + '</span><span class="folder-count">(' + ks.length + ')</span>'
-      + '<button class="icon-btn folder-rename" type="button" title="重命名文件夹">✏️</button>'
-      + '<button class="icon-btn danger folder-delete" type="button" title="删除文件夹">🗑️</button></div>'
+      + (f.pinned ? '<span class="pin-tag" title="已置顶">📌</span>' : '')
+      + '<button class="icon-btn folder-rename" type="button" title="重命名文件夹">✏️</button></div>'
       + '<div class="folder-fold"' + (open ? '' : ' hidden') + '><div class="folder-body">'
-      + (ks.length ? ks.map(function(k){ return card(k, false); }).join('') : '<div class="folder-empty-note">空文件夹，从科目卡片的📁按钮把科目移进来</div>')
+      + (ks.length ? ks.map(function(k){ return card(k, false); }).join('') : '<div class="folder-empty-note">空文件夹：左滑科目点「更多」→「移到文件夹」</div>')
       + '</div></div></div>';
   });
   h += loose.map(function(k){ return card(k, false); }).join('');
@@ -529,12 +533,8 @@ $('list').addEventListener('click', function(e){
     e.preventDefault(); e.stopPropagation();
     if (item) {
       const k = item.dataset.key;
-      if (btn.classList.contains('rename-btn')) renameSubject(k);
-      else if (btn.classList.contains('folder-btn')) moveSheet([k]);
-      else if (btn.classList.contains('reset-btn')) { deleteName(k); render(); }
     } else if (fc) {
       if (btn.classList.contains('folder-rename')) renameFolder(fc.dataset.fid);
-      else if (btn.classList.contains('folder-delete')) deleteFolder(fc.dataset.fid);
     }
     return;
   }
@@ -673,7 +673,8 @@ function inputSheet(o) {
       if (e.key === 'Enter') { e.preventDefault(); commit(); }
     });
   }, { dirty: function(){ return input && input.value.trim() !== (o.value || '').trim() && !!input.value.trim(); } });
-  setTimeout(function(){ input.focus(); if (o.value) input.select(); }, 60);
+  // 必须在这次点击的同一刻聚焦：iPhone 只认用户手势里的 focus()，延后（哪怕 60ms）就只选中不弹键盘（2026-10-16 用户真机报）
+  input.focus(); if (o.value) input.select();
 }
 
 /* ===================== 科目 / 文件夹上的操作 ===================== */
@@ -744,6 +745,14 @@ async function deleteFolder(fid) {
   Object.keys(map).forEach(function(k){ if (map[k] === fid) delete map[k]; });
   saveSubjectFolderMap(map);
   setExpanded(fid, false);
+  flip(render);
+}
+function toggleFolderPin(fid) {
+  const fs = loadFolders(), f = fs.find(function(x){ return x.id === fid; });
+  if (!f) return;
+  if (f.pinned) delete f.pinned; else f.pinned = true;
+  if (!saveFolders(fs)) return;
+  if (swipe) swipe.close(false);
   flip(render);
 }
 function togglePin(key) {
@@ -996,10 +1005,17 @@ function SheetDismiss(o){
 
 let drag = null;
 const swipe = SwipeActions({
-  root: $('list'), item: '.item[data-key]',
+  root: $('list'), item: '.item[data-key], .folder-header',
   blocked: function(){ return batchMode || anyOverlay() || (drag && drag.active()); },   // 按住等拿起时不算：横滑一出死区就取消长按（onLock）
   onLock: function(){ clearPress(); if (drag) drag.cancelHold(); },
   actions: function(el){
+    if (el.matches('.folder-header')) {
+      const fid = el.parentElement.dataset.fid, f = loadFolders().find(function(x){ return x.id === fid; });
+      return [
+        { label: f && f.pinned ? '取消置顶' : '置顶', icon: ICON.pin, cls: 'lsw-pin', onClick: function(){ toggleFolderPin(fid); } },
+        { label: '删除', icon: ICON.trash, cls: 'lsw-del', onClick: function(){ swipe.close(true); deleteFolder(fid); } },
+      ];
+    }
     const k = el.dataset.key, pinned = loadPinned().indexOf(k) >= 0;
     return [
       { label: '更多', icon: ICON.more, cls: 'lsw-more', onClick: function(){ openSubjectSheet(k); } },
@@ -1030,7 +1046,8 @@ drag = LongPressDrag({
     }
     const head = t.closest('.folder-card > .folder-header');
     if (head) {
-      const items = Array.prototype.slice.call(list.querySelectorAll(':scope > .folder-card'));
+      const pin = head.parentElement.classList.contains('pinned');
+      const items = Array.prototype.filter.call(list.querySelectorAll(':scope > .folder-card'), function(x){ return x.classList.contains('pinned') === pin; });
       return items.length > 1 ? { item: head.parentElement, box: list, items: items } : null;
     }
     return null;
@@ -1038,10 +1055,7 @@ drag = LongPressDrag({
   onBegin: function(){ clearPress(); swipe.close(false); closeMenu(); ptrCancel(); },
   commit: function(items){
     if (items[0].matches('.folder-card')) {
-      const byId = {}; loadFolders().forEach(function(f){ byId[f.id] = f; });
-      const next = items.map(function(s){ return byId[s.dataset.fid]; }).filter(Boolean);
-      loadFolders().forEach(function(f){ if (next.indexOf(byId[f.id]) < 0) next.push(f); });
-      saveFolders(next);
+      reorderFolders(items.map(function(s){ return s.dataset.fid; }));
     } else {
       const keys = items.map(function(r){ return r.dataset.key; });
       if (items[0].classList.contains('pinned')) savePinned(keys);
@@ -1179,8 +1193,6 @@ async function importBackup(file) {
   render();
   notify('导入完成：新增或更新 ' + addW + ' 道错题、' + addH + ' 条练习记录');
 }
-$('exportBtn').addEventListener('click', exportBackup);
-$('importBtn').addEventListener('click', function(){ $('importFile').click(); });
 $('importFile').addEventListener('change', function(e){
   const f = e.target.files && e.target.files[0];
   e.target.value = '';
