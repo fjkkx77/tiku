@@ -111,6 +111,17 @@
   }
 
   /* 头部右边的 ⋯（替掉原来的「批量整理」按钮，用户 2026-10-16 圈定保留）：钉在标题栏右侧，标题/副标题仍真正居中 */
+  /* 顶部小栏（2026-10-17）：横幅滚出屏幕后顶上滑下来，左边小标题、右边是同一个 ⋯（挪进来，回到顶上挪回去）。
+     用户：往下翻以后右上角的 ⋯ 被滚走了，还得滑回顶上找。横幅本身不动（10-16 用户定的「外观保持原来的样子」） */
+  .cbar{position:fixed;left:0;right:0;top:0;z-index:40;color:#fff;
+    background:linear-gradient(135deg,var(--primary),var(--primary-dark));box-shadow:0 2px 10px rgba(37,99,235,.25);
+    padding:env(safe-area-inset-top) 14px 0;transform:translateY(-100%);opacity:0;pointer-events:none;
+    transition:transform .22s cubic-bezier(.22,.68,.36,1),opacity .18s;}
+  .cbar.on{transform:none;opacity:1;pointer-events:auto;}
+  .cbar-in{position:relative;max-width:732px;margin:0 auto;height:52px;display:flex;align-items:center;}
+  .cbar-t{flex:1;min-width:0;font-size:17px;font-weight:bold;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .cbar .top-more{position:static;margin:0 -6px 0 0;}
+  @media (prefers-reduced-motion:reduce){.cbar{transition:none;}}
   .top-more{position:absolute;right:8px;top:50%;margin-top:-22px;width:44px;height:44px;border-radius:22px;border:0;padding:0;
     display:flex;align-items:center;justify-content:center;color:#fff;background:transparent;cursor:pointer;touch-action:manipulation;}
   .top-more span{width:34px;height:34px;border-radius:17px;background:rgba(255,255,255,.18);border:1px solid rgba(255,255,255,.35);display:flex;align-items:center;justify-content:center;transition:background .15s;}
@@ -269,6 +280,7 @@
   <svg class="ptr-spinner" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M21 12a9 9 0 1 1-6.219-8.56"></path></svg>
 </div>
 <div id="ptrTip"></div>
+<div class="cbar" id="cbar" aria-hidden="true"><div class="cbar-in"><span class="cbar-t">刷题合集</span></div></div>
 <div class="app">
   <header>
     <h1>刷题合集</h1>
@@ -622,6 +634,22 @@ function openMenu(btn, items) {
   btn.setAttribute('aria-expanded', 'true');
   const first = box.querySelector('.it'); if (first) first.focus({ preventScroll: true });
 }
+/* 顶部小栏：横幅底边滚到屏幕顶以上就滑下来，把 ⋯ 挪进去；回到顶上挪回横幅（同一个按钮，事件和状态不用同步） */
+(function(){
+  const bar = $('cbar'), slot = bar.querySelector('.cbar-in'), head = document.querySelector('.app > header'), btn = $('topMoreBtn');
+  let on = false;
+  function sync(){
+    const want = head.getBoundingClientRect().bottom <= 0;
+    if (want === on) return;
+    on = want;
+    if (menuEl) closeMenu();   // 菜单开着时按钮要换地方：先收掉，免得菜单挂在半空
+    bar.classList.toggle('on', on); bar.setAttribute('aria-hidden', on ? 'false' : 'true');
+    (on ? slot : head).appendChild(btn);
+  }
+  window.addEventListener('scroll', sync, { passive: true });
+  window.addEventListener('resize', sync);
+  sync();
+})();
 $('topMoreBtn').addEventListener('click', function(){
   if (menuEl) { closeMenu(); return; }
   openMenu(this, [

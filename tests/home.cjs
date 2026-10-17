@@ -351,6 +351,24 @@ async function runHome(BASE, ok) {
       ok(m.l >= 0 && m.r <= m.W, `${W} ⋯ 菜单整个在屏幕里`, m);
       await swipe(W / 2, 30, W / 2, 400, 350); await sleep(600);
       ok(await t.ev('window.__alive===1'), `${W} 菜单开着时下拉不刷新`);
+      // 顶部小栏（2026-10-17 用户：往下翻以后 ⋯ 被滚走了）：横幅滚出屏幕后 ⋯ 挪进小栏，点得到；回到顶上挪回去、横幅版面不变
+      await reset(REAL + 'localStorage.setItem("tiku_folders",JSON.stringify([{id:"f1",name:"第二学期"}].concat(Array.from({length:10},(_,i)=>({id:"x"+i,name:"文件夹"+i})))));');
+      const HEAD = '(()=>JSON.stringify([...document.querySelectorAll(".app > header, .app > header *")].map(e=>{const r=e.getBoundingClientRect();return [e.id||e.tagName,Math.round(r.left),Math.round(r.top),Math.round(r.width),Math.round(r.height)];})))()';
+      const NAV = '(()=>{const b=document.getElementById("topMoreBtn"),r=b.getBoundingClientRect(),h=document.elementFromPoint(r.left+r.width/2,r.top+r.height/2);return {on:document.getElementById("cbar").classList.contains("on"),inBar:document.getElementById("cbar").contains(b),top:Math.round(r.top),hit:!!h&&(h===b||b.contains(h)),long:document.documentElement.scrollHeight-innerHeight};})()';
+      const head0 = await t.ev(HEAD);
+      let n = await t.ev(NAV);
+      ok(!n.on && !n.inBar && n.hit && n.long > 300, `${W} 小栏：在顶上不出现，⋯ 在横幅里`, n);
+      await t.ev('window.scrollTo(0,document.documentElement.scrollHeight)'); await sleep(400);
+      n = await t.ev(NAV);
+      ok(n.on && n.inBar && n.hit && n.top >= 0 && n.top < 60, `${W} 小栏：滚到最底下，⋯ 在顶上小栏里、点得到`, n);
+      const p = await t.ev('(()=>{const r=document.getElementById("topMoreBtn").getBoundingClientRect();return [r.left+r.width/2,r.top+r.height/2];})()');
+      await T('touchStart', [{ x: p[0], y: p[1] }]); await T('touchEnd', []); await sleep(400);
+      m = await t.ev('(()=>{const e=document.querySelector(".menu");if(!e)return null;const r=e.getBoundingClientRect(),b=document.getElementById("topMoreBtn").getBoundingClientRect();return {top:Math.round(r.top),gap:Math.round(r.top-b.bottom),l:r.left,r:r.right,W:document.documentElement.clientWidth,bottom:r.bottom,H:innerHeight};})()');
+      ok(m && m.gap >= 0 && m.gap <= 12 && m.l >= 0 && m.r <= m.W && m.bottom <= m.H, `${W} 小栏：手指点 ⋯ → 菜单挂在按钮下面、整个在屏幕里`, m);
+      await t.ev('document.querySelector(".menu-mask").click()'); await sleep(200);
+      await t.ev('window.scrollTo(0,0)'); await sleep(400);
+      n = await t.ev(NAV);
+      ok(!n.on && !n.inBar && await t.ev(HEAD) === head0, `${W} 小栏：滚回顶上，⋯ 回到横幅，横幅版面跟一开始逐像素一样`, n);
       if (t.errors.length) ok(false, `${W} 首页手势：页面 JS 异常`, t.errors);
     } finally { t.close(); }
   }
