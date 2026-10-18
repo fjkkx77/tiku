@@ -117,6 +117,9 @@
     background:linear-gradient(135deg,var(--primary),var(--primary-dark));box-shadow:0 2px 10px rgba(37,99,235,.25);
     padding:env(safe-area-inset-top) 14px 0;transform:translateY(-100%);opacity:0;pointer-events:none;
     transition:transform .22s cubic-bezier(.22,.68,.36,1),opacity .18s;}
+  /* 宽屏上跟横幅同宽、同圆角（2026-10-18 用户报）：以前 left:0/right:0 通栏，电脑上一条蓝带横贯整个窗口、跟中间 760 的内容列对不上。
+     手机（不到 760 宽）上照旧通栏直角 */
+  @media (min-width:761px){ .cbar{max-width:760px;margin:0 auto;border-radius:0 0 16px 16px;} }
   .cbar.on{transform:none;opacity:1;pointer-events:auto;}
   .cbar-in{position:relative;max-width:732px;margin:0 auto;height:52px;display:flex;align-items:center;}
   .cbar-t{flex:1;min-width:0;font-size:17px;font-weight:bold;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}

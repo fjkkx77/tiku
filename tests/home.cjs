@@ -361,6 +361,8 @@ async function runHome(BASE, ok) {
       await t.ev('window.scrollTo(0,document.documentElement.scrollHeight)'); await sleep(400);
       n = await t.ev(NAV);
       ok(n.on && n.inBar && n.hit && n.top >= 0 && n.top < 60, `${W} 小栏：滚到最底下，⋯ 在顶上小栏里、点得到`, n);
+      m = await t.ev('(()=>{const b=document.getElementById("cbar"),r=b.getBoundingClientRect(),s=getComputedStyle(b);return {l:r.left,w:r.width,rad:s.borderBottomLeftRadius};})()');
+      ok(m.l === 0 && m.w === W && m.rad === '0px', `${W} 小栏：手机上照旧通栏直角（2026-10-18 只改电脑宽屏）`, m);
       const p = await t.ev('(()=>{const r=document.getElementById("topMoreBtn").getBoundingClientRect();return [r.left+r.width/2,r.top+r.height/2];})()');
       await T('touchStart', [{ x: p[0], y: p[1] }]); await T('touchEnd', []); await sleep(400);
       m = await t.ev('(()=>{const e=document.querySelector(".menu");if(!e)return null;const r=e.getBoundingClientRect(),b=document.getElementById("topMoreBtn").getBoundingClientRect();return {top:Math.round(r.top),gap:Math.round(r.top-b.bottom),l:r.left,r:r.right,W:document.documentElement.clientWidth,bottom:r.bottom,H:innerHeight};})()');
@@ -370,6 +372,18 @@ async function runHome(BASE, ok) {
       n = await t.ev(NAV);
       ok(!n.on && !n.inBar && await t.ev(HEAD) === head0, `${W} 小栏：滚回顶上，⋯ 回到横幅，横幅版面跟一开始逐像素一样`, n);
       if (t.errors.length) ok(false, `${W} 首页手势：页面 JS 异常`, t.errors);
+    } finally { t.close(); }
+  }
+  // 电脑宽屏：小栏跟横幅同宽同位置（2026-10-18 用户报：以前通栏，一条蓝带横贯整个窗口、跟中间的内容列对不上）
+  for (const W of [1280, 1707]) {
+    const t = await open(W, 600, 1);
+    try {
+      await t.send('Emulation.setTouchEmulationEnabled', { enabled: false });
+      await t.goto(BASE); await t.ev('localStorage.clear();localStorage.setItem("tiku_folders",JSON.stringify(Array.from({length:12},(_,i)=>({id:"x"+i,name:"文件夹"+i}))))'); await t.goto(BASE);
+      const head = await t.ev('(()=>{const r=document.querySelector(".app > header").getBoundingClientRect();return [Math.round(r.left),Math.round(r.width)];})()');
+      await t.ev('window.scrollTo(0,document.documentElement.scrollHeight)'); await sleep(400);
+      const m = await t.ev('(()=>{const b=document.getElementById("cbar"),r=b.getBoundingClientRect(),m=document.getElementById("topMoreBtn").getBoundingClientRect();return {on:b.classList.contains("on"),l:Math.round(r.left),w:Math.round(r.width),btnIn:m.left>=r.left&&m.right<=r.right};})()');
+      ok(m.on && m.l === head[0] && m.w === head[1] && m.btnIn, `${W} 电脑：小栏跟横幅同宽、⋯ 在小栏里`, { m, head });
     } finally { t.close(); }
   }
 }

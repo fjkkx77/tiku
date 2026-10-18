@@ -699,11 +699,45 @@ function blankHtml(q, idx){
   // 手机别自作主张：不要首字母大写、不要自动改词、不要拼写检查（代码和单词会被改坏）
   const noFix = `autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false"`;
   if(q.vocab) return `<textarea class="blank-input trans-area" data-idx="${idx}" rows="5" placeholder="请在此输入英语翻译…" ${noFix}></textarea><span class="reset-size-btn">⇕ 恢复</span>`;
-  return `<input type="text" class="blank-input" data-idx="${idx}" ${noFix}>`;
+  return `<span class="blank-input" role="textbox" aria-label="第${idx+1}空" data-idx="${idx}" contenteditable="${EDITABLE}" inputmode="text" ${noFix}></span>`;
 }
 function blankInputs(){ return [...document.querySelectorAll("#qText .blank-input, #qCode .blank-input")]; }
-// 填空框跟着内容变宽（默认窄一点，代码题里一行才不会被输入框撑断）
-function fitInput(inp){ if(inp.tagName==="INPUT") inp.style.width = Math.min(22, Math.max(5, inp.value.length + 2)) + "ch"; }
+/* 填空的空＝题干里的一条横线（2026-10-18 用户看对比图选的 B）：以前是单行 <input>，最宽 22 个字，
+   长一点的中文/英文就截在框里看不全。换成可编辑的行内 span：随字变长、到行尾自动折行，像纸质卷子。
+   补上 value / disabled 两个属性，判分、草稿、测试照旧按输入框的用法读写。 */
+const EDITABLE = (()=>{ try{ const d = document.createElement("span"); d.contentEditable = "plaintext-only"; return d.contentEditable==="plaintext-only" ? "plaintext-only" : "true"; }catch(e){ return "true"; } })();
+function initBlank(el){
+  if(el.tagName!=="SPAN" || "value" in el) return;
+  // 空着或只剩空格时挂 is-empty，显示占位横线（:empty 认不出只剩空格的，那样会缩成一小截点不着）
+  const sync = ()=>{ el.classList.toggle("is-empty", !el.textContent.trim()); };
+  Object.defineProperty(el, "value", { get(){ return el.textContent.replace(/[\r\n]+/g, " "); }, set(v){ el.textContent = v==null ? "" : String(v); sync(); } });
+  Object.defineProperty(el, "disabled", {
+    get(){ return el.getAttribute("contenteditable")==="false"; },
+    set(v){ el.setAttribute("contenteditable", v ? "false" : EDITABLE); el.setAttribute("aria-disabled", v ? "true" : "false"); }
+  });
+  // 空里不许换行：拖进来的多行文字、拦漏了的回车最后都在这里收成一行（删光后浏览器留的 <br> 也一并清掉）
+  el.addEventListener("input", ()=>{
+    if(el.querySelector("*") || /[\r\n]/.test(el.textContent)){
+      el.textContent = el.innerText.replace(/[\r\n]+/g, " ").replace(/ $/, "");
+      if(document.activeElement===el) focusBlank(el);
+    }
+    sync();
+  });
+  // 粘贴只要纯文字，多行并成一行
+  el.addEventListener("paste", e=>{
+    e.preventDefault();
+    const t = ((e.clipboardData || window.clipboardData).getData("text") || "").replace(/[\r\n]+/g, " ");
+    document.execCommand("insertText", false, t);
+  });
+  sync();
+}
+// 程序聚焦（翻到下一题、回车跳下一空）：光标放在已填内容的末尾，不放开头；下一空在屏幕外/键盘后面时滚过去
+function focusBlank(el){
+  el.focus();
+  if(el.tagName!=="SPAN") return;
+  const r = document.createRange(); r.selectNodeContents(el); r.collapse(false);
+  const sel = window.getSelection(); sel.removeAllRanges(); sel.addRange(r);
+}
 /* 还没提交的内容也要记下来：以前换一题、滑一下、切个标签，填到一半的十几个空就全没了 */
 let draftTimer = null;
 function keepDraft(){
@@ -758,23 +792,30 @@ function renderQuestion(){
     }
   } else {
     const inputs = blankInputs();
+    inputs.forEach(initBlank);
     if(saved){
       inputs.forEach((inp,i)=>{
         inp.value = (saved.userInputs||[])[i] || "";
         inp.classList.add(saved.assignment && saved.assignment[i]!==-1 ? "correct" : "wrong");
-        inp.disabled = true; fitInput(inp);
+        inp.disabled = true;
       });
       showAnswerBoxBlank(q, saved.allCorrect, saved.self, saved.userInputs);
     } else {
       if(Array.isArray(draft)) inputs.forEach((inp,i)=>{ inp.value = draft[i] || ""; });
       inputs.forEach((inp,i)=>{
-        fitInput(inp);
-        inp.addEventListener("input", ()=>{ fitInput(inp); keepDraft(); });
+        const enter = ()=>{ if(i<inputs.length-1) focusBlank(inputs[i+1]); else if(!recite) submitAnswer(); };
+        inp.addEventListener("input", keepDraft);
         inp.addEventListener("keydown", e=>{
           if(e.key!=="Enter" || e.isComposing || e.keyCode===229) return;   // 中文输入法按回车是在选字，不是要提交
           if(inp.tagName==="TEXTAREA" && !(e.ctrlKey||e.metaKey)) return;    // 翻译框里回车是换行；Ctrl/⌘+回车才提交
           e.preventDefault();
-          if(i<inputs.length-1) inputs[i+1].focus(); else if(!recite) submitAnswer();
+          enter();
+        });
+        // 横线空里的换行：安卓键盘的回车 keydown 是 229 拦不到，要在这里拦，当成回车（跳下一空/交卷）
+        if(inp.tagName==="SPAN") inp.addEventListener("beforeinput", e=>{
+          if(e.inputType!=="insertParagraph" && e.inputType!=="insertLineBreak") return;
+          e.preventDefault();
+          if(!e.isComposing) enter();
         });
       });
       if(showOnly){
@@ -782,7 +823,7 @@ function renderQuestion(){
         box.innerHTML = `${q.vocab?"参考译文":"参考答案"}：<span class="real">${esc(ansText(q))}</span>`;
       }
       // 滑动翻页时卡片是藏着的，这时不聚焦（不然划到填空题会误弹键盘）；背题时也不抢焦点
-      else if(inputs[0] && document.querySelector("#screen-quiz .qcard").style.visibility !== "hidden") inputs[0].focus();
+      else if(inputs[0] && document.querySelector("#screen-quiz .qcard").style.visibility !== "hidden") focusBlank(inputs[0]);
     }
   }
   document.querySelectorAll("#qText .reset-size-btn").forEach(b=>{ b.onclick = ()=>{ b.previousElementSibling.style.height = ""; }; });
@@ -855,6 +896,7 @@ function submitAnswer(){
   } else {
     const inputs = blankInputs();
     const userInputs = inputs.map(inp=>inp.value);
+    if(inputs.includes(document.activeElement)) document.activeElement.blur();   // 横线空锁住时焦点不会自己走（不像 <input disabled>），先收键盘
     inputs.forEach(inp=>{ inp.disabled = true; });
     const g = gradeQuestion(q, userInputs);
     inputs.forEach((inp,i)=>{ inp.classList.add(g.assignment[i]!==-1 ? "correct" : "wrong"); });
@@ -1054,7 +1096,8 @@ document.addEventListener("keydown", e=>{
   if(onBtn && onBtn.getAttribute("role")==="button" && (e.key==="Enter" || e.key===" ")){ onBtn.click(); e.preventDefault(); return; }
   if(e.key==="Escape" && isActive("screen-overview")){ closeOverview(); return; }
   if(!session || !isActive("screen-quiz") || isActive("screen-overview")) return;
-  if(e.ctrlKey || e.metaKey || e.altKey || (t.closest && t.closest("input, textarea, select"))) return;
+  // 填空的空是可编辑的 span（2026-10-18 起）：在空里打字时回车、←→ 归输入，不当快捷键
+  if(e.ctrlKey || e.metaKey || e.altKey || (t.closest && t.closest("input, textarea, select, [contenteditable]:not([contenteditable='false'])"))) return;
   // 焦点停在某个按钮上时，回车/空格归那个按钮自己；其余快捷键照常（以前鼠标点过「下一题」后字母键和方向键全部失灵）
   if(onBtn && (e.key==="Enter" || e.key===" ")) return;
   const q = currentQ(), answered = !!session.answers[session.idx];
@@ -1298,7 +1341,7 @@ function setupSwipeNav(){
     requestAnimationFrame(()=>setTimeout(swap, 0));
   }
   let editingField = null, pointerField = null, pointerAt = 0;
-  const FIELD_SEL = "input, textarea, select, [contenteditable='true']";
+  const FIELD_SEL = "input, textarea, select, [contenteditable]:not([contenteditable='false'])";
   // 时间从抬手算：焦点是松手那一下给的，按得久一点也不能被当成程序自动聚焦
   // 已经被自动聚焦的框再点一下不会有 focusin（iPhone 上这一下才弹键盘），所以轻点（手指没怎么动）已聚焦的框也算
   // pointerTap 每次按下先清掉：在框里拖动时浏览器会接管，只发 pointercancel 不发 pointerup，不清的话会沿用上一次轻点
@@ -1335,7 +1378,8 @@ function setupSwipeNav(){
     if(!locked){
       if(mx*mx + my*my < LOCK_DIST2){
         // 死区里就要拦：iOS 一旦开始自己处理这次触摸，后面的 touchmove 就拦不住了
-        if(Math.abs(mx)>Math.abs(my) && e.cancelable) e.preventDefault();
+        // 但代码框这类自己能横着滚的区域不拦，否则手指慢慢拖时代码框根本滚不动（2026-10-18 代码题改成不折行后）
+        if(Math.abs(mx)>Math.abs(my) && e.cancelable && !scrollerWants(e.target, mx<0 ? 1 : -1)) e.preventDefault();
         return;
       }
       const now0 = e.timeStamp || Date.now();

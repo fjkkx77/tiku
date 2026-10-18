@@ -102,7 +102,7 @@ function serve() {
     await c.ev(`localStorage.setItem("webquiz_inprogress",JSON.stringify({ids:["q0"],fps:["x"],answers:[null],idx:0,elapsed:0,scopeLabel:"t"}))`);
     await c.goto(BASE + 'web-design/');
     ok(await c.ev('document.getElementById("resumeCard").hidden') === true, '续练进度对不上题库时作废');
-    r = await c.ev(`(()=>{const Q=__quiz;Q.session={queue:[{id:"zz",type:"blank",cat:"x",text:"<b>x</b>{{}}<img src=x onerror=window.__pwn=1>",ans:["a"]}],idx:0,answers:[null],elapsed:0,scopeLabel:"t"};Q.showScreen("quiz");Q.renderQuestion();const t=document.getElementById("qText");return {tags:t.querySelectorAll("b,img").length,inputs:t.querySelectorAll("input").length};})()`);
+    r = await c.ev(`(()=>{const Q=__quiz;Q.session={queue:[{id:"zz",type:"blank",cat:"x",text:"<b>x</b>{{}}<img src=x onerror=window.__pwn=1>",ans:["a"]}],idx:0,answers:[null],elapsed:0,scopeLabel:"t"};Q.showScreen("quiz");Q.renderQuestion();const t=document.getElementById("qText");return {tags:t.querySelectorAll("b,img").length,inputs:t.querySelectorAll(".blank-input").length};})()`);
     await sleep(100);
     ok(r.tags === 0 && r.inputs === 1 && !(await c.ev('!!window.__pwn')), '题干里的 < > 按文字显示', r);
     for (const s of ['os', 'english-vocab', 'english-translation']) {
@@ -326,6 +326,65 @@ function serve() {
           await swipe(W / 2, y + 60, W / 2 + 6, y - 120, 200);
           ok(await t.ev('__quiz.session.idx') === 0, `${W} ${s} 竖划不翻页`);
         }
+        // 填空的空是横线（2026-10-18 用户报：方框最宽 22 个字，长中文/英文截在框里看不全）：真打字进去，长内容要折行、全看得见
+        {
+          await t.goto(BASE + 'os/'); await t.ev('localStorage.clear()'); await t.goto(BASE + 'os/');
+          await t.ev('document.getElementById("startBtn").click();(()=>{const Q=__quiz;Q.session.idx=Q.session.queue.findIndex(q=>(q.text||"").includes("操作系统的特征是"));Q.renderQuestion();})()'); await sleep(100);
+          const LONG = '点几点几点几点几点几点几点几点几点几点几点几点几点几点几点几';
+          await t.ev('(()=>{const b=document.querySelectorAll("#qText .blank-input")[0];b.scrollIntoView({block:"center"});b.focus();})()');
+          await t.send('Input.insertText', { text: LONG }); await sleep(600);
+          let m = await t.ev(`(()=>{const Q=__quiz,b=document.querySelectorAll("#qText .blank-input"),q=document.getElementById("qText");
+            return {v:b[0].value,lines:b[0].getClientRects().length,over:q.scrollWidth-q.clientWidth,draft:(Q.session.drafts[Q.session.idx]||[])[0],page:document.documentElement.scrollWidth};})()`);
+          ok(m.v === LONG && m.draft === LONG && m.lines >= 2 && m.over <= 0 && m.page <= W, `${W} 填空：打进去的长中文折行显示、一个字不截、草稿记下`, m);
+          await t.send('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 13 });
+          await t.send('Input.dispatchKeyEvent', { type: 'keyUp', key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 13 }); await sleep(100);
+          m = await t.ev('(()=>{const b=[...document.querySelectorAll("#qText .blank-input")];return {at:b.indexOf(document.activeElement),v0:b[0].value,br:b[0].querySelectorAll("br,div").length};})()');
+          ok(m.at === 1 && m.v0 === LONG && m.br === 0, `${W} 填空：回车跳到下一空、不在空里换行`, m);
+          await t.send('Input.insertText', { text: 'concurrency and resource sharing' });
+          await t.ev('__quiz.submitAnswer()'); await sleep(100);
+          m = await t.ev('(()=>{const b=[...document.querySelectorAll("#qText .blank-input")];return {ed:b.map(x=>x.getAttribute("contenteditable")),cls:b.map(x=>x.className),ui:__quiz.session.answers[__quiz.session.idx].userInputs};})()');
+          ok(m.ed.every(x => x === 'false') && m.cls[0].includes('wrong') && m.ui[0] === LONG && m.ui[1] === 'concurrency and resource sharing', `${W} 填空：提交后锁住、标对错、记下原文`, m);
+        }
+        // 横线空的几个边角（/code-review 2026-10-18）：多行文字进来收成一行；只剩空格也保持占位横线；横线上下都好点
+        {
+          await t.goto(BASE + 'os/'); await t.ev('localStorage.clear()'); await t.goto(BASE + 'os/');
+          await t.ev('document.getElementById("startBtn").click();(()=>{const Q=__quiz;Q.session.idx=Q.session.queue.findIndex(q=>(q.text||"").includes("操作系统的特征是"));Q.renderQuestion();})()'); await sleep(100);
+          await t.ev('(()=>{const b=document.querySelectorAll("#qText .blank-input")[0];b.scrollIntoView({block:"center"});b.focus();})()');
+          await t.send('Input.insertText', { text: '并发\n共享' }); await sleep(100);
+          let m = await t.ev('(()=>{const b=document.querySelectorAll("#qText .blank-input")[0];return {v:b.value,html:b.innerHTML,lines:b.getClientRects().length};})()');
+          ok(m.v === '并发 共享' && !/<|\n/.test(m.html) && m.lines === 1, `${W} 填空：多行文字进来收成一行`, m);
+          await t.ev('document.querySelectorAll("#qText .blank-input")[1].focus()');
+          await t.send('Input.insertText', { text: ' ' }); await sleep(100);
+          m = await t.ev('(()=>{const b=document.querySelectorAll("#qText .blank-input")[1];return {w:b.getBoundingClientRect().width,fs:parseFloat(getComputedStyle(b).fontSize)};})()');
+          ok(m.w >= 4 * m.fs, `${W} 填空：只打了个空格，横线不缩成一小截`, m);
+          // 可点高度：从中心往上下找 elementFromPoint 还是这个空的范围（空着的、填了字的各量一个）
+          const tapH = i => t.ev(`(()=>{const el=document.querySelectorAll("#qText .blank-input")[${i}],r=el.getClientRects()[0],x=r.left+Math.min(r.width/2,20),cy=r.top+r.height/2;const on=y=>{const p=document.elementFromPoint(x,y);return !!p&&(p===el||el.contains(p));};let up=0,dn=0;while(up<40&&on(cy-up-1))up++;while(dn<40&&on(cy+dn+1))dn++;return up+dn;})()`);
+          m = [await tapH(0), await tapH(2)];
+          ok(m.every(h => h >= 26), `${W} 填空：横线可点高度（填了字的、空着的）`, m);
+        }
+        // 代码题照 markdown 站：不折行、代码框里左右滑；在代码框里横划是滚代码，不翻页（2026-10-18 用户要求）
+        {
+          await t.goto(BASE + 'web-design/'); await t.ev('localStorage.clear()'); await t.goto(BASE + 'web-design/');
+          const idx = await t.ev('document.getElementById("startBtn").click();(()=>{const Q=__quiz;Q.session.idx=Q.session.queue.findIndex(q=>(q.code||"").includes("StyleSheet.css"));Q.renderQuestion();return Q.session.idx;})()'); await sleep(100);
+          const y = await t.ev('(()=>{const e=document.getElementById("qCode");e.scrollIntoView({block:"center"});const r=e.getBoundingClientRect();return r.top+r.height/2;})()'); await sleep(100);
+          let m = await t.ev('(()=>{const e=document.getElementById("qCode");return {ws:getComputedStyle(e).whiteSpace,sw:e.scrollWidth,cw:e.clientWidth,page:document.documentElement.scrollWidth};})()');
+          ok(m.ws === 'pre' && m.sw > m.cw && m.page <= W, `${W} 代码题：不折行，长行在代码框里、整页不横向溢出`, m);
+          // 在代码里的空填了字，这一行后面的代码还在同一行（空是 pre-wrap 时会被挤到下一行）
+          await t.ev('(()=>{const b=document.querySelector("#qCode .blank-input");b.focus();})()');
+          await t.send('Input.insertText', { text: 'navigation' }); await sleep(100);
+          m = await t.ev('(()=>{const b=document.querySelector("#qCode .blank-input"),n=b.nextSibling,r=document.createRange();r.setStart(n,0);r.setEnd(n,1);return {b:Math.round(b.getBoundingClientRect().bottom),n:Math.round(r.getBoundingClientRect().bottom),v:b.value};})()');
+          ok(m.v === 'navigation' && Math.abs(m.b - m.n) <= 4, `${W} 代码题：空里填了字，后面的代码不换行`, m);
+          await t.ev('(()=>{const e=document.getElementById("qCode");e.scrollLeft=0;e.scrollIntoView({block:"center"});})()'); await sleep(100);
+          await swipe(W * .7, y, W * .15, y + 3, 260);
+          m = await t.ev('({sl:document.getElementById("qCode").scrollLeft,idx:__quiz.session.idx})');
+          ok(m.sl > 0 && m.idx === idx, `${W} 代码题：在代码框里左划是滚代码、不翻页`, m);
+          // 手指慢慢拖：头几下只挪 1~2 像素（落在翻页的死区里），代码框照样要能滚（死区里不许把滚动拦掉）
+          // ⚠ 这条在无头 Chrome 里拦不出旧问题（把死区里的 scrollerWants 去掉它照样绿：Chrome 的触摸模拟不像 iOS 那样整次手势作废），只防「慢拖彻底坏掉」；真问题要 iPhone 真机看
+          await t.ev('document.getElementById("qCode").scrollLeft=0'); await sleep(50);
+          { const x0 = W * .7; await T('touchStart', x0, y); for (let k = 1; k <= 40; k++) { await T('touchMove', x0 - (k <= 4 ? k * 1.5 : 6 + (k - 4) * 5), y + 1); await sleep(16); } await T('touchEnd'); await sleep(600); }
+          m = await t.ev('({sl:document.getElementById("qCode").scrollLeft,idx:__quiz.session.idx})');
+          ok(m.sl > 0 && m.idx === idx, `${W} 代码题：手指慢慢拖也能滚代码框`, m);
+        }
         // 从输入框起手：框没在编辑就照常翻页；正在输入时不翻（2026-10-15 用户报：翻译框那一大块滑不动）
         {
           await t.goto(BASE + 'english-translation/'); await t.ev('localStorage.clear()'); await t.goto(BASE + 'english-translation/');
@@ -368,6 +427,7 @@ function serve() {
         await t.ev('document.getElementById("startBtn").click()'); await sleep(150);
         m = [await tapH('#overviewLink'), await tapH('#reciteBtn'), await tapH('#modeToggleBtn')]; ok(m.every(x => x >= 40), `${W} 「题目总览」「背题」「快速模式」可点高度`, m);
         // 题目区不许出现内部滚动：每个站每道题都量（2026-10-14 用户报：翻译题里「恢复」按钮伸出去 8px，题目区能横竖晃）
+        // 例外：代码块 2026-10-18 起不折行，长行本来就该左右滑（用户要求），只量竖向
         {
           const bad = [];
           for (const s2 of SITES) {
@@ -376,7 +436,7 @@ function serve() {
             // 每 25 题一次调用：一次量完一整个站，机器忙时会撞上 CDP 的 20 秒超时
             for (let from = 0; from < n; from += 25) {
               bad.push(...await t.ev(`(()=>{const Q=__quiz,out=[];
-                for(let i=${from};i<Math.min(${from + 25},Q.session.queue.length);i++){Q.session.idx=i;Q.renderQuestion();for(const id of ["qText","qCode"]){const el=document.getElementById(id);if(el.offsetParent&&(el.scrollWidth>el.clientWidth||el.scrollHeight>el.clientHeight))out.push("${s2} "+id+" 第"+(i+1)+"题 "+el.scrollWidth+"/"+el.clientWidth+"×"+el.scrollHeight+"/"+el.clientHeight);}}
+                for(let i=${from};i<Math.min(${from + 25},Q.session.queue.length);i++){Q.session.idx=i;Q.renderQuestion();for(const id of ["qText","qCode"]){const el=document.getElementById(id),codeX=id==="qCode"&&getComputedStyle(el).whiteSpace==="pre";if(el.offsetParent&&((!codeX&&el.scrollWidth>el.clientWidth)||el.scrollHeight>el.clientHeight))out.push("${s2} "+id+" 第"+(i+1)+"题 "+el.scrollWidth+"/"+el.clientWidth+"×"+el.scrollHeight+"/"+el.clientHeight);}}
                 return out;})()`));
             }
           }
