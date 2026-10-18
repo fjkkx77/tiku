@@ -90,10 +90,11 @@ span.blank-input{--pad:.3em;--gap:3px;--ul:#9ca3af;--ulw:1.5px;--fill:transparen
    里面的行高要跟盒子一样高（1.2）：继承的 1.8 倍行高比盒子高，空着时光标比盒子长、从横线底下戳出去（iPhone 截图）；
    overflow:hidden 让它的基线固定在盒子底边——不加的话可编辑的空盒子按里面那一行定基线，比旁边的字低 3~9px、还把行撑高（WebKit/Chrome 实测） */
 span.blank-input.is-empty{display:inline-block;min-width:4.5em;height:1.2em;line-height:1.2;overflow:hidden;box-sizing:content-box;vertical-align:calc(-.25em - var(--pad));}
-span.blank-input:focus{--ul:var(--primary);--ulw:2px;--fill:rgba(59,130,246,.08);}
+/* 正在填的那一空：横线变蓝加粗，不再垫浅蓝底（2026-10-18 用户看对比图选的：浅蓝底 + 横线 + 光标叠在一起乱） */
+span.blank-input:focus{--ul:var(--primary);--ulw:2px;}
+/* 配色口径（2026-10-18 用户定）：蓝＝你正在填的，绿＝对（含参考答案），红＝只标你错的地方，灰＝还没填 */
 span.blank-input.correct{--ul:var(--green);color:var(--green);}
 span.blank-input.wrong{--ul:var(--red);color:var(--red);}
-span.blank-input.wrong.is-empty{--fill:#fef2f2;}
 span.blank-input[contenteditable="false"]{cursor:default;}
 /* 翻译题的多行框：自己画完整边框，不依赖各平台原生外观 */
 :where(textarea).blank-input{-webkit-appearance:none;appearance:none;border:1.5px solid var(--primary);border-radius:6px;background:#f8fafc;padding:4px 8px;font-size:16px;min-width:90px;text-align:center;margin:2px;color:var(--text);box-shadow:none;}

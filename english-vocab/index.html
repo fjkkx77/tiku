@@ -9,7 +9,7 @@
 <meta name="theme-color" content="#2f6ff0" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#1f47b0" media="(prefers-color-scheme: dark)">
 <title>英语课后选词填空练习</title>
-<link rel="stylesheet" href="../assets/quiz.css?v=c5a2c38bb2">
+<link rel="stylesheet" href="../assets/quiz.css?v=bf03c0476b">
 </head>
 <body>
 <script>
@@ -21,7 +21,6 @@ const QUIZ = {
   intro: "六单元课后选词填空，共93空，每题含词表",
   font: "en",                 // 英语：系统 UI 字体 + Semibold
   wordlist: true,             // code 字段是词表：只给英文单词加粗
-  containsMinLen: 9999,       // 单词题只认完全一致（和已列出的备选写法）：多写个 s/ed 就是错的，不启用「包含也算对」
 };
 /* ===================== 题库数据 ===================== */
 // 单选 {type:"mcq", cat, text, options, correct}；填空 {type:"blank", cat, text(用{{}}标空), code?, ans:[每空一项，|分隔多个可接受答案], ordered?, vocab?}
@@ -34,6 +33,6 @@ const QUESTIONS = [
 {type:"blank", cat:"第六单元-选词填空", text:"选词填入各空格（参考下方词表，注意词形变化）\n\n1. For the time being, this computer system is still in its (1){{}} stages.\n\n2. There is a growing (2){{}} to regard money more highly than quality of life.\n\n3. The following table includes a list of subjects at the (3){{}} of scientific exploration.\n\n4. Computer technology in all its phases from (4){{}} to software has become less expensive.\n\n5. Problem solving, like other mental activities such as creativity, is hard to (5){{}} but generally easy to recognize.\n\n6. Due to his health problems, Richard has to give up hard (6){{}} work on his farm.\n\n7. My storybooks (7){{}} most of the space of my two bookshelves in my bedroom.\n\n8. I am eager to know where my (8){{}} classmates are now.\n\n9. Online stores are (9){{}} and continually increasing their market share.\n\n10. Cloud-based tools enable you to engage and (10){{}} your audience in real-time.\n\n11. It is amazing that Jack built a robot (11){{}}.\n\n12. Human beings are born with a (12){{}} to learn languages.\n\n13. Jack recommended to me a unique restaurant that (13){{}} in seafood.\n\n14. There are three promising (14){{}} for the job.\n\n15. Emily and her partners are (15){{}} their classroom presentation.", code:"【词表（选词填空，每词限用一次）】\n1 boom\n2 capacity\n3 candidate\n4 define\n5 encouragement\n6 experimental\n7 formal\n8 former\n9 frontier\n10 hardware\n11 occupy\n12 physical\n13 specialize\n14 tendency\n15 interact with\n16 of one’s own\n17 work on", ans:["experimental", "tendency", "frontier", "hardware", "define", "physical", "occupy", "former", "booming|boom", "interact with", "of his own|of one's own|of ones own", "capacity", "specializes|specialize", "candidates|candidate", "working on|work on"], ordered:true},
 ];
 </script>
-<script src="../assets/quiz.js?v=c5a2c38bb2"></script>
+<script src="../assets/quiz.js?v=bf03c0476b"></script>
 </body>
 </html>

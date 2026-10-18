@@ -9,7 +9,7 @@
 <meta name="theme-color" content="#2f6ff0" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#1f47b0" media="(prefers-color-scheme: dark)">
 <title>操作系统填空题练习</title>
-<link rel="stylesheet" href="../assets/quiz.css?v=c5a2c38bb2">
+<link rel="stylesheet" href="../assets/quiz.css?v=bf03c0476b">
 </head>
 <body>
 <script>
@@ -20,7 +20,6 @@ const QUIZ = {
   prefix: "osquiz",          // localStorage 前缀，沿用旧版，不能改（改了老的错题/记录就读不到了）
   intro: "已合并两份资料并去重",
   ansSep: "、",
-  containsMinLen: 2,
   // 本站专用的答案规范化：去掉标点，并忽略"性/方式/技术/管理"这类可有可无的后缀
   normalize: function(s){
     return (s||"").trim().toLowerCase()
@@ -138,6 +137,6 @@ const QUESTIONS = [
 {cat:"计算题精选", text:"设有一分页管理系统，逻辑地址空间最大为16页，每页2048字节，内存共8个块，则逻辑地址至少应为{{}}位，绝对地址应为{{}}位，内存空间共有{{}}。", ans:["15","14","16K"]},
 ];
 </script>
-<script src="../assets/quiz.js?v=c5a2c38bb2"></script>
+<script src="../assets/quiz.js?v=bf03c0476b"></script>
 </body>
 </html>

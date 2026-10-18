@@ -3,7 +3,7 @@
    以前每个站是一份完整拷贝，改着改着各自走样（同一个 bug 有的站修了有的没修），2026-10 合并成这一份。
 
    科目页只需要在引用本文件之前声明两样东西：
-     const QUIZ = { title, subtitle, prefix, intro, catWord?, font?, wordlist?, containsMinLen?, normalize? }
+     const QUIZ = { title, subtitle, prefix, intro, catWord?, font?, wordlist?, normalize? }
      const QUESTIONS = [ ...题库... ]
    题目对象：
      单选 {type:"mcq", cat, text, options:{A,B,C,D}, correct}
@@ -31,7 +31,6 @@ const CFG = Object.assign({
   catWord: "章节",           // 分类叫什么（听力站叫「单元」）
   font: "",                  // "code"＝题里是真代码（等宽字体）/ "en"＝英语（系统 UI 字体）/ 空＝默认
   wordlist: false,           // code 字段是词表：只给英文单词加粗
-  containsMinLen: 4,         // 用户答案"包含"完整正确答案也算对，正确答案至少要这么长才启用
   normalize: null,           // 自定义答案规范化函数（操作系统站有专用的）
   ansSep: "  /  "            // 多空参考答案之间的分隔符（操作系统站一直用「、」）
 }, typeof QUIZ !== "undefined" ? QUIZ : {});
@@ -296,17 +295,8 @@ const normalize = typeof CFG.normalize === "function" ? CFG.normalize
   : s => (s||"").trim().toLowerCase().replace(/[\s;；]/g,"");
 // iPhone 默认开「智能标点」，打 ' " 出来的是弯引号；判分前统一成直的
 function straighten(s){ return String(s==null?"":s).replace(/[‘’]/g,"'").replace(/[“”]/g,'"'); }
-// "包含也算对"放过的那部分：正确答案是数字（可带单位）时必须完全相等（15 ≠ 150）；
-// 紧贴在答案前面的是否定词时不算（"不可再现"不是"可再现"）
-const NUMERIC_RE = /^[\d.]+[a-z%]*$/i, NEGATION_RE = /[不非无未没]$/;
-function containsOk(u, o){
-  if(o.length < CFG.containsMinLen) return false;
-  const at = u.indexOf(o);
-  if(at < 0 || NEGATION_RE.test(u.slice(0, at))) return false;
-  // 数字答案：紧挨着的前后不能还是数字或小数点（15 ≠ 150、256 ≠ 1256；"256个""9次"仍算对）
-  if(NUMERIC_RE.test(o) && (/[\d.]/.test(u.charAt(at-1)) || /[\d.]/.test(u.charAt(at+o.length)))) return false;
-  return true;
-}
+// 「你写的内容里包含正确答案也算对」2026-10-18 起整个去掉了（用户定）：一整句乱写的话只要碰巧含「虚拟」就判对，
+// 看着又是绿色，很矛盾。现在只认规范化后完全一致、题库里用 | 列出的几种写法、以及并列几项换顺序
 // seq=true：这个空里的几项有先后（如安全序列 Q,P,R），不做"顺序无关"那一步
 function isCorrect(userInput, acceptStr, seq){
   userInput = straighten(userInput);
@@ -315,8 +305,6 @@ function isCorrect(userInput, acceptStr, seq){
   for(const opt of straighten(acceptStr).split("|")){
     const o = normalize(opt);
     if(u === o) return true;
-    // 只允许"用户答案包含完整正确答案"（容忍多写了无关字），不允许反向——否则答了半截也会判对
-    if(containsOk(u, o)) return true;
     if(seq) continue;
     // 顺序无关：按"和/、/，/,"拆开排序再比。必须先拆再 normalize（有的站 normalize 会把顿号逗号删掉）
     const splitRe = /[和、，,]/;
@@ -871,9 +859,9 @@ function showAnswerBoxBlank(q, allCorrect, self, userInputs){
   box.className = "answer-box show " + (allCorrect ? "right" : "wrong");
   if(q.vocab){
     if(self){   // 2026-10-14 以前是本人自评，那时的记录照原样显示
-      box.innerHTML = (allCorrect ? `✔ 你判定：译对了。` : `✘ 你判定：没译对。`) + ` 参考译文：<span class="real">${esc(ansText(q))}</span>`;
+      box.innerHTML = (allCorrect ? `✔ 你判定：译对了。` : `✘ 你判定：没译对。`) + ` 参考译文：<span class="real correct-ans">${esc(ansText(q))}</span>`;
     } else if(allCorrect){
-      box.innerHTML = `✔ 跟参考译文一致。 参考译文：<span class="real">${esc(ansText(q))}</span>`;
+      box.innerHTML = `✔ 跟参考译文一致。 参考译文：<span class="real correct-ans">${esc(ansText(q))}</span>`;
     } else {
       const mine = (userInputs||[])[0] || "";
       // 有几种写法时，拿最接近的那种来标
@@ -884,7 +872,7 @@ function showAnswerBoxBlank(q, allCorrect, self, userInputs){
         + (mine.trim() ? `<div class="trans-legend"><mark class="tw-extra">红色</mark> 参考译文里没有的词　<mark class="tw-miss">黄底</mark> 你漏掉或写错的词（大小写、标点不算错）</div>` : "");
     }
   } else {
-    box.innerHTML = (allCorrect ? `✔ 回答正确！` : `✘ 回答有误。`) + ` 参考答案：<span class="real">${esc(ansText(q))}</span>`;
+    box.innerHTML = (allCorrect ? `✔ 回答正确！` : `✘ 回答有误。`) + ` 参考答案：<span class="real correct-ans">${esc(ansText(q))}</span>`;
   }
 }
 function submitAnswer(){

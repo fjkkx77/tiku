@@ -122,10 +122,10 @@ function serve() {
     ok(r.same && r.inGroup && !r.outGroup, '只有标了可互换的那几个空能换位置（第 56 题 #navigation 的 3 个空）', r);
     ok(r.un === true, '标了 unordered 的题换顺序填仍判对', r);
     await fresh('os/');
-    r = await c.ev(`(()=>{const Q=__quiz,g=(i,a)=>Q.gradeQuestion(QUESTIONS[i],a).allCorrect;return {seqRev:g(83,["R,P,Q"]),seqOk:g(83,["Q,P,R"]),un:g(0,["虚拟","异步","共享","并发"]),fifo:g(81,["7","9"]),n150:g(84,["150","14","16K"]),neg:g(9,["不可再现"]),pos:g(9,["可再现性"]),more:g(22,["操作系统"])};})()`);
+    r = await c.ev(`(()=>{const Q=__quiz,g=(i,a)=>Q.gradeQuestion(QUESTIONS[i],a).allCorrect;return {seqRev:g(83,["R,P,Q"]),seqOk:g(83,["Q,P,R"]),un:g(0,["虚拟","异步","共享","并发"]),fifo:g(81,["7","9"]),n150:g(84,["150","14","16K"]),neg:g(9,["不可再现"]),pos:g(9,["可再现性"]),more:g(22,["操作系统"]),junk:g(0,["救恩的基督教的细节虚拟世界安安静静","共享","异步","并发"])};})()`);
     ok(!r.seqRev && r.seqOk, '安全序列：顺序反了判错，对的判对', r);
     ok(r.un && !r.fifo, '操作系统：真无序的题换序判对，FIFO/LRU 填反判错', r);
-    ok(!r.n150 && !r.neg && r.pos && r.more, '「包含也算对」：数字多一位、前面加否定词不算；多写无关的字仍算', r);
+    ok(!r.n150 && !r.neg && r.pos && !r.more && !r.junk, '「包含也算对」已去掉（2026-10-18 用户定）：多写字、乱写一句碰巧含答案、数字多一位、加否定词都不算；规范化后一致的仍算', r);
     await fresh('english-vocab/');
     r = await c.ev(`(()=>{const Q=__quiz,q=QUESTIONS[0],ref=q.ans.map(x=>x.split("|")[0]);const t=ref.slice();t[8]=t[8]+"s";const u=ref.slice();u[1]="\\u2018"+"x";return {ok:Q.gradeQuestion(q,ref).allCorrect,plural:Q.gradeQuestion(q,t).assignment[8],curly:Q.isCorrect("of one\\u2019s own","of one's own")};})()`);
     ok(r.ok && r.plural === -1 && r.curly, '英语选词：多写一个 s 判错；iPhone 的弯撇号当直撇号', r);
@@ -225,8 +225,8 @@ function serve() {
     ok(/\(1\)/.test(r) && /\(2\)/.test(r), '错题本里多空题的答案带 (1)(2) 编号', r);
     // 数字后面多写个量词仍算对
     await fresh('os/');
-    r = await c.ev(`(()=>{const g=(i,a)=>__quiz.gradeQuestion(QUESTIONS[i],a).allCorrect;return {ge:g(80,["256个","64KB"]),ci:g(84,["15位","14位","16K"]),big:g(80,["1256","64KB"])};})()`);
-    ok(r.ge && r.ci && !r.big, '数字答案：后面多写「个/位」算对，前后多一位数字不算', r);
+    r = await c.ev(`(()=>{const g=(i,a)=>__quiz.gradeQuestion(QUESTIONS[i],a).allCorrect;return {ge:g(80,["256个","64KB"]),ci:g(84,["15位","14位","16K"]),big:g(80,["1256","64KB"]),exact:g(80,["256","64KB"])};})()`);
+    ok(!r.ge && !r.ci && !r.big && r.exact, '数字答案：只认完全一致——后面多写「个/位」、前后多一位数字都不算（2026-10-18 去掉「包含也算对」后）', r);
     // 别的页面只是在打字（存草稿）：这一页的错题本不整块重画
     await fresh('mobile-app/');
     r = await c.ev(`(async()=>{${W8}${start}const q=Q.session.queue[0];Q.pickOption(Object.keys(q.options).find(L=>L!==q.correct));await w(20);Q.finishQuiz();Q.showScreen("wrongbook");await w(30);
@@ -344,6 +344,11 @@ function serve() {
           await t.ev('__quiz.submitAnswer()'); await sleep(100);
           m = await t.ev('(()=>{const b=[...document.querySelectorAll("#qText .blank-input")];return {ed:b.map(x=>x.getAttribute("contenteditable")),cls:b.map(x=>x.className),ui:__quiz.session.answers[__quiz.session.idx].userInputs};})()');
           ok(m.ed.every(x => x === 'false') && m.cls[0].includes('wrong') && m.ui[0] === LONG && m.ui[1] === 'concurrency and resource sharing', `${W} 填空：提交后锁住、标对错、记下原文`, m);
+          // 配色口径（2026-10-18 用户定）：答错时参考答案也是绿的（以前跟着红框一起变红），空着答错的不垫粉底
+          m = await t.ev(`(()=>{const c=v=>{const e=document.createElement("i");e.style.color=v;document.body.appendChild(e);const x=getComputedStyle(e).color;e.remove();return x;};
+            const b=document.querySelectorAll("#qText .blank-input"),bg=getComputedStyle(b[3]).backgroundImage;
+            return {real:getComputedStyle(document.querySelector("#answerBox .real")).color,green:c("var(--green)"),emptyFill:/254, 242, 242/.test(bg)};})()`);
+          ok(m.real === m.green && !m.emptyFill, `${W} 填空：答错时参考答案是绿的、空着答错的不垫粉底`, m);
         }
         // 手机上点「下一题」不自动聚焦（2026-10-18 用户报：iPhone 键盘直接弹出来，题还没看完）
         {

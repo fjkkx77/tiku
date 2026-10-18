@@ -21,7 +21,7 @@ const MIME = { '.html': 'text/html; charset=utf-8', '.css': 'text/css; charset=u
   } finally { c.close(); srv.close(); }
   console.log(`共 ${total} 条，结果变了 ${changed} 条`);
   if (process.argv.includes('--write')) {
-    snap.note = '判分结果快照。最初是 2026-10-07 合并前 8 个旧站的结果；2026-10-10 有意改了判分规则（多空题默认按位置判、数字和否定词不再"包含也算对"、英语选词两站只认完全一致、弯引号当直引号）后重新生成。改判分逻辑后跑 tests/run.cjs 对照，不一致就是改坏了（除非是有意改的，那就用 tests/regen-snapshot.cjs 看清变化再重新生成，并在提交说明里写清楚）';
+    snap.note = '判分结果快照。最初是 2026-10-07 合并前 8 个旧站的结果；2026-10-18 去掉了「包含正确答案也算对」（多写字一律不算，用户定），260 条由对变错；2026-10-10 有意改了判分规则（多空题默认按位置判、数字和否定词不再"包含也算对"、英语选词两站只认完全一致、弯引号当直引号）后重新生成。改判分逻辑后跑 tests/run.cjs 对照，不一致就是改坏了（除非是有意改的，那就用 tests/regen-snapshot.cjs 看清变化再重新生成，并在提交说明里写清楚）';
     fs.writeFileSync(FILE, JSON.stringify(snap)); console.log('已写回 ' + path.basename(FILE));
   }
 })().catch(e => { console.error('FAIL', e); process.exit(1); });
