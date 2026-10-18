@@ -114,6 +114,30 @@ span.blank-input[contenteditable="false"]{cursor:default;}
 .answer-box.right{background:#ecfdf3;color:#15803d;}
 .answer-box.wrong{background:#fef2f2;color:#b91c1c;}
 .answer-box .real{font-weight:bold;}
+/* 参考答案逐空列出（2026-10-19 用户报：「a / b / c」挤成一段，分不清哪个答案是哪一空，长答案还从中间断开）。
+   每空一行，左边编号＝题里那一空旁边的编号；答案是一整块（inline-block），放不下就整块换到下一行，比一整行还长才在里面折 */
+.ans-head{font-weight:bold;}
+.ans-head .ans-score{font-weight:normal;margin-left:6px;}
+.ans-cap{margin-top:4px;font-size:12.5px;color:var(--muted);}
+.ans-list{list-style:none;margin:8px 0 0;padding:0;display:flex;flex-direction:column;gap:5px;}
+.ans-row{display:flex;align-items:flex-start;gap:8px;background:#fff;border-radius:6px;padding:6px 9px;}
+.ans-no{flex:none;min-width:20px;height:20px;padding:0 5px;border-radius:10px;margin-top:1px;
+  font:bold 12px/20px -apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;text-align:center;color:#fff;background:var(--green);}
+.ans-row.bad .ans-no{background:var(--red);}
+.ans-body{min-width:0;flex:1;line-height:1.55;}
+.ans-main{display:inline-block;max-width:100%;overflow-wrap:anywhere;color:var(--green);font-weight:600;font-size:15px;}
+.ans-alt{display:block;font-size:12.5px;color:var(--muted);overflow-wrap:anywhere;}
+.ans-mine{font-size:12.5px;color:var(--red);}
+.ans-mine.none{color:var(--muted);}
+.ans-mine s{text-decoration-thickness:1px;}
+body.font-code .ans-main,body.font-code .ans-alt .v,body.font-code .ans-mine s{font-family:"SF Mono",Menlo,Consolas,"Roboto Mono","PingFang SC","Microsoft YaHei",monospace;}
+/* 题里每一空旁边的编号（提交后才出现，作答时题面保持原样）。数字用 ::before 画，不进题目的文字内容 */
+.blank-no{display:inline-block;vertical-align:.12em;min-width:1.45em;height:1.45em;padding:0 .3em;margin:0 .05em 0 .15em;border-radius:.73em;
+  font:bold 11px/1.45em -apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;text-align:center;color:#fff;background:var(--green);white-space:nowrap;}
+.blank-no.bad{background:var(--red);}
+.blank-no::before{content:attr(data-no);}
+body.reciting .ans-main{color:var(--primary-dark);}
+body.reciting .ans-no,body.reciting .blank-no{background:var(--primary);}
 footer.qfoot{display:flex;gap:10px;margin-top:14px;}
 footer.qfoot .btn{flex:1;min-width:0;white-space:nowrap;padding-left:6px;padding-right:6px;}   /* 320 宽时「上一题」不再折成两行 */
 .stat-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;text-align:center;margin:10px 0;}

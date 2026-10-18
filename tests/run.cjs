@@ -105,6 +105,30 @@ function serve() {
     // 2026-10-19 用户报快速连点「下一题」触发双击放大：整页和会滚的框都要是 manipulation（只留拖动 + 双指缩放）
     r = await c.ev(`["html","body",".q-text",".q-code"].map(s=>getComputedStyle(document.querySelector(s)).touchAction)`);
     ok(r.every(v => v === 'manipulation'), '整页去掉双击放大（双指缩放保留）', r);
+    // 2026-10-19 用户报参考答案「a / b / c」挤一段：分不清哪个是哪一空、长答案从中间断开。改成每空一行、题里每空挂同号编号
+    for (const W of [320, 375, 390]) {
+      await c.send('Emulation.setDeviceMetricsOverride', { width: W, height: 844, deviceScaleFactor: 1, mobile: true, screenWidth: W, screenHeight: 844 });
+      r = await c.ev(`(async()=>{const Q=__quiz,i=QUESTIONS.findIndex(q=>(q.ans||[]).join().includes("Cal(Num1, Num2);"));
+        Q.session={queue:[QUESTIONS[i]],idx:0,answers:[null],drafts:{},elapsed:0,scopeLabel:"t"};Q.showScreen("quiz");Q.renderQuestion();
+        const b=[...document.querySelectorAll("#qCode .blank-input")];b[0].value="Cal(Num1, Num2);";b[1].value="Cal(Num1, Num2);";
+        Q.submitAnswer();await new Promise(r=>setTimeout(r,50));
+        const rows=[...document.querySelectorAll("#answerBox .ans-row")],nos=[...document.querySelectorAll("#qCode .blank-no")];
+        const asg=Q.session.answers[0].assignment;
+        // 每个答案都是一整块：只要放得下一行，就只占一行（以前「Random r = new / Random();」从中间断开）
+        // 折了行的，单行的自然宽度必须确实超过这一行能用的宽度（只有放不下才准在里面折）
+        const split=[...document.querySelectorAll("#answerBox .ans-main")].filter(e=>{const lh=parseFloat(getComputedStyle(e).lineHeight)||20;if(e.getBoundingClientRect().height<=lh*1.5)return false;
+          const k=e.cloneNode(true);k.style.whiteSpace="nowrap";k.style.maxWidth="none";k.style.position="absolute";e.parentNode.appendChild(k);const w=k.getBoundingClientRect().width;k.remove();return w<=e.parentNode.clientWidth;}).map(e=>e.textContent);
+        return {n:b.length,rows:rows.length,nos:nos.map(e=>e.dataset.no).join(),noText:document.getElementById("qCode").textContent.includes("①"),
+          match:rows.every((r,k)=>r.classList.contains(asg[k]!==-1?"ok":"bad")&&nos[k].classList.contains("bad")===(asg[k]===-1)),
+          mine:rows[1].querySelector(".ans-mine s")&&rows[1].querySelector(".ans-mine s").textContent,empty:rows[3].querySelector(".ans-mine.none")!==null,split};})()`);
+      ok(r.n === 6 && r.rows === 6 && r.nos === '1,2,3,4,5,6' && r.match, `${W} 参考答案每空一行，题里每空编号与之对应、对错颜色一致`, r);
+      ok(r.mine === 'Cal(Num1, Num2);' && r.empty && r.split.length === 0, `${W} 参考答案：错的写出你填的、没填的标没填、答案不从中间断开`, r);
+      r = await c.ev(`(()=>{const Q=__quiz,i=QUESTIONS.findIndex(q=>(q.ans||[]).join().includes("Random r = new Random();"));
+        Q.session={queue:[QUESTIONS[i]],idx:0,answers:[null],drafts:{},elapsed:0,scopeLabel:"t"};Q.renderQuestion();Q.submitAnswer();
+        const e=document.querySelector("#answerBox .ans-main");return {t:e.textContent,h:e.getBoundingClientRect().height,lh:parseFloat(getComputedStyle(e).lineHeight)};})()`);
+      if (W >= 375) ok(r.t === 'Random r = new Random();' && r.h < r.lh * 1.5, `${W} 「Random r = new Random();」整句一行`, r);
+    }
+    await c.send('Emulation.setDeviceMetricsOverride', { width: 390, height: 844, deviceScaleFactor: 1, mobile: true, screenWidth: 390, screenHeight: 844 });
     r = await c.ev(`(()=>{const Q=__quiz;Q.session={queue:[{id:"zz",type:"blank",cat:"x",text:"<b>x</b>{{}}<img src=x onerror=window.__pwn=1>",ans:["a"]}],idx:0,answers:[null],elapsed:0,scopeLabel:"t"};Q.showScreen("quiz");Q.renderQuestion();const t=document.getElementById("qText");return {tags:t.querySelectorAll("b,img").length,inputs:t.querySelectorAll(".blank-input").length};})()`);
     await sleep(100);
     ok(r.tags === 0 && r.inputs === 1 && !(await c.ev('!!window.__pwn')), '题干里的 < > 按文字显示', r);
@@ -350,7 +374,7 @@ function serve() {
           // 配色口径（2026-10-18 用户定）：答错时参考答案也是绿的（以前跟着红框一起变红），空着答错的不垫粉底
           m = await t.ev(`(()=>{const c=v=>{const e=document.createElement("i");e.style.color=v;document.body.appendChild(e);const x=getComputedStyle(e).color;e.remove();return x;};
             const b=document.querySelectorAll("#qText .blank-input"),bg=getComputedStyle(b[3]).backgroundImage;
-            return {real:getComputedStyle(document.querySelector("#answerBox .real")).color,green:c("var(--green)"),emptyFill:/254, 242, 242/.test(bg)};})()`);
+            return {real:getComputedStyle(document.querySelector("#answerBox .ans-main")).color,green:c("var(--green)"),emptyFill:/254, 242, 242/.test(bg)};})()`);
           ok(m.real === m.green && !m.emptyFill, `${W} 填空：答错时参考答案是绿的、空着答错的不垫粉底`, m);
         }
         // 手机上点「下一题」不自动聚焦（2026-10-18 用户报：iPhone 键盘直接弹出来，题还没看完）

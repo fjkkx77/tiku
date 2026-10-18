@@ -395,6 +395,34 @@ function ansText(q, sep){
   const list = q.ans || [];
   return q.ordered && list.length>1 ? list.map((a,i)=>`(${i+1})${firstAns(a)}`).join("　") : list.map(firstAns).join(sep || CFG.ansSep);
 }
+/* 答题页的参考答案：每空一行、带编号（2026-10-19 用户报「a / b / c」一段里分不清哪个是哪一空）。
+   传了 userInputs 就是判过分的：对的空编号绿、错的红，错的下面写「你填：…」；没传（背题）就只列答案。
+   题库里用 | 列的其他写法只列跟第一种不止差空格的（Cal(Num1,Num2); 这种只是少个空格，列出来是噪音） */
+function ansListHtml(q, userInputs, assignment, allCorrect){
+  const list = q.ans || [], many = list.length > 1, judged = !!userInputs;
+  const squash = s=>String(s).replace(/\s+/g, "");
+  return `<ol class="ans-list">` + list.map((a,i)=>{
+    const alts = String(a).split("|"), main = alts[0];
+    const extra = alts.slice(1).filter((x,j,arr)=>squash(x)!==squash(main) && arr.findIndex(y=>squash(y)===squash(x))===j);
+    const ok = judged ? (assignment ? assignment[i]!==-1 : allCorrect) : true;
+    const mine = judged ? String(userInputs[i]||"").trim() : "";
+    return `<li class="ans-row ${ok?"ok":"bad"}">${many ? `<span class="ans-no">${i+1}</span>` : ""}<div class="ans-body">`
+      + `<span class="ans-main">${esc(main)}</span>`
+      + (extra.length ? `<span class="ans-alt">也可写成 ${extra.map(x=>`<span class="v">${esc(x)}</span>`).join("、")}</span>` : "")
+      + (ok ? "" : mine ? `<div class="ans-mine">你填：<s>${esc(mine)}</s></div>` : `<div class="ans-mine none">没填</div>`)
+      + `</div></li>`;
+  }).join("") + `</ol>`;
+}
+// 提交后给题里每一空前面挂上编号，跟下面参考答案的编号对上（只有一空的题不挂）
+function numberBlanks(inputs, assignment, allCorrect){
+  if(inputs.length < 2) return;
+  inputs.forEach((inp,i)=>{
+    const prev = inp.previousElementSibling;
+    if(prev && prev.classList.contains("blank-no")) prev.remove();
+    const ok = assignment ? assignment[i]!==-1 : allCorrect;
+    inp.insertAdjacentHTML("beforebegin", `<span class="blank-no${ok?"":" bad"}" data-no="${i+1}" aria-hidden="true"></span>`);
+  });
+}
 // 复习/错题列表里展示的题干：代码块一起带上；没有题干的（听力题）就把选项列出来
 function plainText(q){
   let t = (q.text||"").replace(/\{\{\}\}/g,"____");
@@ -788,7 +816,8 @@ function renderQuestion(){
         inp.classList.add(saved.assignment && saved.assignment[i]!==-1 ? "correct" : "wrong");
         inp.disabled = true;
       });
-      showAnswerBoxBlank(q, saved.allCorrect, saved.self, saved.userInputs);
+      if(!q.vocab) numberBlanks(inputs, saved.assignment, saved.allCorrect);
+      showAnswerBoxBlank(q, saved.allCorrect, saved.self, saved.userInputs, saved.assignment);
     } else {
       if(Array.isArray(draft)) inputs.forEach((inp,i)=>{ inp.value = draft[i] || ""; });
       inputs.forEach((inp,i)=>{
@@ -809,7 +838,8 @@ function renderQuestion(){
       });
       if(showOnly){
         box.className = "answer-box show right";
-        box.innerHTML = `${q.vocab?"参考译文":"参考答案"}：<span class="real">${esc(ansText(q))}</span>`;
+        if(q.vocab) box.innerHTML = `参考译文：<span class="real">${esc(ansText(q))}</span>`;
+        else { numberBlanks(inputs, null, true); box.innerHTML = `<div class="ans-head">参考答案</div>` + ansListHtml(q); }
       }
       // 只在电脑上（有鼠标）自动聚焦第一空，方便直接打字。手机上不聚焦：点「下一题」时 iPhone 会把键盘直接弹出来，
       // 题还没看完就让人输入（2026-10-18 用户报）；想填的时候点一下横线就好
@@ -854,7 +884,7 @@ function showAnswerBoxMcq(q, allCorrect, userOpt){
   box.innerHTML = `<b>我的答案：</b><span class="my-ans${allCorrect?"":" wrong-color"}">${userOpt ? esc(userOpt) : "未作答"}</span>`
     + `　　<b>正确答案：</b><span class="correct-ans">${esc(q.correct)}. ${esc(q.options[q.correct])}</span>`;
 }
-function showAnswerBoxBlank(q, allCorrect, self, userInputs){
+function showAnswerBoxBlank(q, allCorrect, self, userInputs, assignment){
   const box = $("answerBox");
   box.className = "answer-box show " + (allCorrect ? "right" : "wrong");
   if(q.vocab){
@@ -872,7 +902,11 @@ function showAnswerBoxBlank(q, allCorrect, self, userInputs){
         + (mine.trim() ? `<div class="trans-legend"><mark class="tw-extra">红色</mark> 参考译文里没有的词　<mark class="tw-miss">黄底</mark> 你漏掉或写错的词（大小写、标点不算错）</div>` : "");
     }
   } else {
-    box.innerHTML = (allCorrect ? `✔ 回答正确！` : `✘ 回答有误。`) + ` 参考答案：<span class="real correct-ans">${esc(ansText(q))}</span>`;
+    const n = (q.ans||[]).length, inputs = userInputs || [];
+    const right = assignment ? assignment.filter(x=>x!==-1).length : (allCorrect ? n : 0);
+    const score = n > 1 && !allCorrect ? `<span class="ans-score">${n} 空对了 ${right} 空</span>` : "";
+    box.innerHTML = `<div class="ans-head">${allCorrect ? "✔ 回答正确" : "✘ 回答有误"}${score}</div>`
+      + `<div class="ans-cap">参考答案${q.unordered ? "（不分先后）" : ""}</div>` + ansListHtml(q, inputs, assignment, allCorrect);
   }
 }
 function submitAnswer(){
@@ -891,7 +925,8 @@ function submitAnswer(){
     inputs.forEach(inp=>{ inp.disabled = true; });
     const g = gradeQuestion(q, userInputs);
     inputs.forEach((inp,i)=>{ inp.classList.add(g.assignment[i]!==-1 ? "correct" : "wrong"); });
-    showAnswerBoxBlank(q, g.allCorrect, false, userInputs);
+    if(!q.vocab) numberBlanks(inputs, g.assignment, g.allCorrect);
+    showAnswerBoxBlank(q, g.allCorrect, false, userInputs, g.assignment);
     record = { allCorrect: g.allCorrect, userInputs, assignment: g.assignment };
   }
   recordAnswer(q, record);
