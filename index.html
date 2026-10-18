@@ -27,6 +27,7 @@
 })();
 </script>
 <title>刷题合集</title>
+<link rel="stylesheet" href="assets/sync-panel.css?v=291ac17706">
 <style>
   /* 外观＝2026-10-15 之前的样子（2026-10-16 用户看过 iOS 风格改版后决定回到原来的界面风格，只保留新的逻辑和交互） */
   :root{ --primary:#3b82f6; --primary-dark:#2563eb; --bg:#f3f4f6; --text:#1f2937; --muted:#6b7280; --border:#e5e7eb; --danger:#dc2626; --press:#eef2f7; --ease:cubic-bezier(.2,.9,.3,1); }
@@ -275,6 +276,12 @@
   @media (prefers-reduced-motion:reduce){
     *,*::before,*::after{animation-duration:.01ms!important;transition-duration:.01ms!important;}
   }
+  /* 多设备同步（2026-10-19）：面板是存档组件 sync-panel，配色变量接到本站；底部面板本身是灰底，输入框和按钮用白底才分得开 */
+  .sync-sheet{--accent:var(--primary);--text:var(--text);--text-2:var(--muted);--text-3:var(--muted);--surface-2:#fff;--line:var(--border);--danger:var(--danger);}
+  .sync-sheet .sp-title{text-align:center;}
+  /* 横幅里那一行「☁ 已同步 · 刚刚」：蓝底上用白字，出错用浅红 */
+  header .sp-line{margin:6px 0 0;font-size:12px;color:rgba(255,255,255,.88);}
+  header .sp-line.bad{color:#fecaca;}
 </style>
 </head>
 <body>
@@ -288,12 +295,13 @@
   <header>
     <h1>刷题合集</h1>
     <p>各科目练习题网站入口 · 持续更新</p>
+    <p class="sp-line" id="syncLine" hidden></p>
     <button class="top-more" id="topMoreBtn" type="button" aria-label="更多操作" aria-haspopup="menu" aria-expanded="false"><span></span></button>
   </header>
   <div class="list" id="list"></div>
   <div class="empty-note">以后新增科目会持续加在这里 · 左滑科目可置顶，长按可拖动排序</div>
   <input type="file" id="importFile" accept=".json,application/json" hidden>
-  <div class="backup-note"><span id="lastExport">上次导出：从未</span>。错题本和练习记录只存在这台设备的这个浏览器里：清一次浏览器数据、或很久没打开，都可能全没。<br>隔一阵点右上角 ⋯ 里的「导出备份」，存下的那个文件可以在任何设备上用「导入备份」导回来（导入是合并，不会冲掉已有的）。</div>
+  <div class="backup-note"><span id="lastExport">上次导出：从未</span>。<span id="backupWhere">错题本和练习记录只存在这台设备的这个浏览器里：清一次浏览器数据、或很久没打开，都可能全没。</span><br>隔一阵点右上角 ⋯ 里的「导出备份」，存下的那个文件可以在任何设备上用「导入备份」导回来（导入是合并，不会冲掉已有的）。</div>
 </div>
 
 <div class="batch-bar" id="batchBar">
@@ -314,6 +322,10 @@
   </div>
 </div>
 
+<script src="assets/sync-core.js?v=291ac17706"></script>
+<script src="assets/sync-client.js?v=291ac17706"></script>
+<script src="assets/sync-panel.js?v=291ac17706"></script>
+<script src="assets/tiku-sync.js?v=291ac17706"></script>
 <script src="assets/drag.js?v=2.0.0"></script>
 <script>
 const SUBJECTS = [
@@ -359,6 +371,7 @@ const ICON = {
   check:'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7"/></svg>',
   checkB:'<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7"/></svg>',
   dl:'<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12M7 10l5 5 5-5M5 15v4h14v-4"/></svg>',
+  cloud:'<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 18h10a4 4 0 0 0 .6-7.96A6 6 0 0 0 6.1 9.2 4.5 4.5 0 0 0 7 18z"/></svg>',
   ul:'<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 15V3M7 8l5-5 5 5M5 15v4h14v-4"/></svg>',
   pencil:'<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M14 6l4 4"/></svg>',
   folder:'<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>',
@@ -390,7 +403,7 @@ function readKeys(key) {
 }
 // 写不进去（空间满了 / 存储被禁用）必须让人知道
 function safeSet(key, val) {
-  try { localStorage.setItem(key, JSON.stringify(val)); return true; }
+  try { localStorage.setItem(key, JSON.stringify(val)); if (window.TikuSync) TikuSync.changed(); return true; }
   catch(e) { notify('浏览器存不进数据了（空间已满或存储被禁用），这次改动没有保存'); return false; }
 }
 let notifyTimer = null;
@@ -661,8 +674,45 @@ $('topMoreBtn').addEventListener('click', function(){
     '-',
     { label: '导出备份', icon: ICON.dl, id: 'menuExport', onClick: exportBackup },
     { label: '导入备份', icon: ICON.ul, id: 'menuImport', onClick: function(){ $('importFile').click(); } },
+    '-',
+    { label: '多设备同步', icon: ICON.cloud, id: 'menuSync', onClick: openSyncSheet },
   ]);
 });
+
+/* ===================== 多设备同步（2026-10-19，设计稿用户确认过） =====================
+   同步本身在 assets/tiku-sync.js（首页和 8 个科目页都加载，谁改了谁上传）；这里只有入口、面板和横幅里那一行状态 */
+function paintSync() {
+  const T = window.TikuSync; if (!T) return;
+  SyncPanel.paintLine($('syncLine'), T.client);
+  $('backupWhere').textContent = T.client.active()
+    ? '已开启多设备同步：在这台设备上的改动会自动传到其他设备，导出备份可以再留一份离线副本。'
+    : '错题本和练习记录只存在这台设备的这个浏览器里：清一次浏览器数据、或很久没打开，都可能全没。';
+}
+function openSyncSheet() {
+  const T = window.TikuSync;
+  if (!T) { notify('同步功能没加载上，刷新一下再试'); return; }
+  let panel = null;
+  const sh = showSheet(function(sh){
+    sh.classList.add('sync-sheet');
+    sh.innerHTML = SyncPanel.markup({ title: '多设备同步', noun: '文件夹、错题本、练习记录和进度' });
+    panel = SyncPanel.bind(sh, {
+      client: T.client, toast: notify, close: closeSheet, onChange: paintSync,
+      confirm: function(title, text, ok, fn){ showConfirm(title + '\n' + text, ok, true).then(function(y){ if (y) fn(); }); }
+    });
+  }, { dirty: function(){ return !!panel && panel.dirty(); } });
+  panel.fill();
+  return sh;
+}
+if (window.TikuSync) {
+  TikuSync.client.onState(paintSync);
+  setInterval(paintSync, 30000);   // 「刚刚 / 3 分钟前」要跟着时间走
+  /* 另一台设备的改动同步过来了：重画列表。正在拖动排序时先不画（画了手里拖着的那张卡就没了），松手后再画 */
+  window.addEventListener('tiku-sync-applied', function syncRepaint(){
+    if (document.body.classList.contains('dragging')) { setTimeout(syncRepaint, 400); return; }
+    render();
+  });
+}
+paintSync();
 
 /* ===================== 底部面板（操作面板 / 输入面板） ===================== */
 // 同一时间只开一个（HIG Sheets）；下拉可以关（SheetDismiss，存档组件 references/组件_iOS手势）
@@ -1271,7 +1321,7 @@ function mergeItem(key, incoming) {
     safeSet(key, out); return 0;
   }
   if (cur == null) {
-    if (/_exammode$|_recite$/.test(key)) { if (incoming === 'true' || incoming === 'false') { try { localStorage.setItem(key, incoming); } catch(e) {} } }
+    if (/_exammode$|_recite$/.test(key)) { if (incoming === 'true' || incoming === 'false') { try { localStorage.setItem(key, incoming); } catch(e) {} if (window.TikuSync) TikuSync.changed(); } }
     else { const v = parseJSON(incoming, null); if (v != null) safeSet(key, v); }
   }
   return 0;

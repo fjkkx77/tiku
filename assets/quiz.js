@@ -234,8 +234,10 @@ function toast(msg, ms){
   tip.textContent = msg; tip.classList.add("show");
   clearTimeout(toastTimer); toastTimer = setTimeout(()=>tip.classList.remove("show"), ms || 1800);
 }
+/* 多设备同步（assets/tiku-sync.js）：存储一改就喊一声，它防抖后上传；没开同步时什么也不做 */
+function syncChanged(){ if(window.TikuSync) window.TikuSync.changed(); }
 function saveJSON(key,val){
-  try{ localStorage.setItem(key, JSON.stringify(val)); return true; }
+  try{ localStorage.setItem(key, JSON.stringify(val)); syncChanged(); return true; }
   catch(e){
     // 存不进去（空间满了 / 存储被禁用）：必须让人知道，否则错题和进度悄悄丢了都不知道。一次打开只提示一回
     // 用不挡操作的提示条，不用确认弹窗：两者共用一个遮罩，正在问"确定要切换吗"时弹出来会替人把那个问题答成"确定"
@@ -708,7 +710,7 @@ function checkStale(){
     // 这场练习在别的页面里已经往后做了（或者已经开了新的）：这一页是旧的，再答下去只会把新进度盖掉
     session = null; activeSince = null; clearAutoAdvance();
     renderCatList(); showScreen("home");
-    showAlert("这场练习在另一个页面里有更新的进度，这一页是旧的。\n已回到首页，点「继续上次练习」接着做。");
+    showAlert("这场练习在另一个页面（或另一台设备）上有更新的进度，这一页是旧的。\n已回到首页，点「继续上次练习」接着做。");
     return true;
   }
   return false;
@@ -732,7 +734,7 @@ function saveProgress(){
     sid: session.sid, savedAt: session.savedAt
   });
 }
-function clearProgress(){ try{ localStorage.removeItem(LS_INPROGRESS); }catch(e){} }
+function clearProgress(){ try{ localStorage.removeItem(LS_INPROGRESS); }catch(e){} syncChanged(); }
 function loadSaved(){
   const s = loadJSON(LS_INPROGRESS, null);
   if(!s || !Array.isArray(s.ids) || !Array.isArray(s.answers)) return null;
@@ -815,6 +817,7 @@ if($("modeToggleBtn")){
   $("modeToggleBtn").onclick = ()=>{
     examMode = !examMode;
     try{ localStorage.setItem(LS_EXAMMODE, examMode ? "true" : "false"); }catch(e){}
+    syncChanged();
     applyModeToggleUI();
   };
   applyModeToggleUI();
@@ -831,10 +834,19 @@ function applyReciteUI(){
 $("reciteBtn").onclick = ()=>{
   recite = !recite;
   try{ localStorage.setItem(LS_RECITE, recite ? "true" : "false"); }catch(e){}
+  syncChanged();
   applyReciteUI();
   if(session && isActive("screen-quiz")) renderQuestion();
 };
 applyReciteUI();
+
+/* 另一台设备的改动同步过来了（tiku-sync.js 落地后发这个事件）：两个开关重读一遍，错题本/记录/做过的题/进度交给 refreshFromStorage */
+window.addEventListener("tiku-sync-applied", ()=>{
+  const em = HAS_MCQ && (lsGet(LS_EXAMMODE) ?? "true") === "true", rc = lsGet(LS_RECITE) === "true";
+  if(em !== examMode){ examMode = em; if($("modeToggleBtn")) applyModeToggleUI(); }
+  if(rc !== recite){ recite = rc; applyReciteUI(); if(session && isActive("screen-quiz")) renderQuestion(); }
+  refreshFromStorage();
+});
 
 /* ===================== 出题 ===================== */
 function blankHtml(q, idx){

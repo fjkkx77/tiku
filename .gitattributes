@@ -1,0 +1,5 @@
+# 多设备同步的存档组件副本：要和存档正本（references/组件_多设备同步）逐字节一致，换行符不许被 git 改
+assets/sync-core.js -text
+assets/sync-client.js -text
+assets/sync-panel.js -text
+assets/sync-panel.css -text

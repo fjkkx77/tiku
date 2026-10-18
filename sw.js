@@ -15,6 +15,8 @@ self.addEventListener("fetch", e => {
   // 只管本站自己目录下的文件（同一个域名下还有别的项目，不碰它们）
   const scope = new URL(self.registration.scope).pathname;
   if (url.pathname.indexOf(scope) !== 0) return;
+  // 多设备同步的接口（Vercel 上同源的 /api/sync）永远走网络、不进缓存：断网时拿到一份旧的云端数据去合并，只会白撞冲突
+  if (url.pathname.indexOf(scope + "api/") === 0) return;
   const key = url.origin + url.pathname;
   e.respondWith(
     fetch(req).then(res => {

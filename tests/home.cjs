@@ -115,8 +115,8 @@ async function runHome(BASE, ok) {
         i.dispatchEvent(new KeyboardEvent("keydown",{key:"Enter",isComposing:true,bubbles:true}));const composing=document.querySelectorAll(".folder-card").length;
         i.dispatchEvent(new KeyboardEvent("keydown",{key:"Enter",bubbles:true}));await w(30);
         return {labels,empty,composing,made:document.querySelectorAll(".folder-card").length,sheet:!!document.getElementById("sheet"),menu:!!document.querySelector(".menu"),name:document.querySelector(".folder-name").textContent};})()`);
-      ok(JSON.stringify(r.labels) === '["新建文件夹","选择多个","导出备份","导入备份"]' && r.empty && r.composing === 0 && r.made === 1 && !r.sheet && !r.menu && r.name === '期末',
-        '⋯ 菜单四项；新建文件夹：空名不可点、输入法选字时回车不创建、正常回车创建并关面板', r);
+      ok(JSON.stringify(r.labels) === '["新建文件夹","选择多个","导出备份","导入备份","多设备同步"]' && r.empty && r.composing === 0 && r.made === 1 && !r.sheet && !r.menu && r.name === '期末',
+        '⋯ 菜单五项（2026-10-19 加了多设备同步）；新建文件夹：空名不可点、输入法选字时回车不创建、正常回车创建并关面板', r);
     }
     // 「更多」→ 重命名：点下去的同一刻输入框就聚焦（不能等：iPhone 只认手势里的 focus，晚了不弹键盘）；没改不可点、去掉首尾空格、还原
     {
