@@ -119,11 +119,11 @@
 
   /* 合并后的整份列表拼回各个键。只写真的变了的键，写了才通知页面重画 */
   function setLocal(list) {
-    const meta = loadMeta(), items = meta.items, live = new Map(), dead = new Set();
+    const meta = loadMeta(), items = meta.items, live = new Map(), dead = new Set(), stampOf = new Map();
     (list || []).forEach(e => {
       if (!e || !e.id) return;
       if (e.deletedAt) { dead.add(e.id); items[e.id] = [null, e.updatedAt || e.deletedAt]; }
-      else { live.set(e.id, e.v); items[e.id] = [hash(JSON.stringify(e.v)), e.updatedAt || 0]; }
+      else { live.set(e.id, e.v); stampOf.set(e.id, e.updatedAt || 0); }
     });
     let changed = false;
     const put = (k, val, empty) => {
@@ -169,16 +169,30 @@
         else if (dead.has(P + '|' + s) && rawDel(P + suf)) changed = true;
       });
     });
+    /* 修改记录只记**这台设备真存下来了的**（写完再读一遍）。存不下的——这台还是旧缓存的脚本、不认识新加的科目；
+       值不合法；超过 100 条被挤掉的练习记录；存储满了——一律不记：记了的话下次读不到它，会被当成「本机删掉了」，
+       墓碑一传，所有设备上都没了（/code-review 指出）。不记的话它只是这台设备上没有，云端那份照样留着 */
+    const after = current();
+    live.forEach((v, id) => {
+      if (after.has(id)) items[id] = [hash(JSON.stringify(after.get(id))), stampOf.get(id)];
+      else delete items[id];
+    });
     saveMeta(meta);
     if (changed) { try { window.dispatchEvent(new Event('tiku-sync-applied')); } catch (e) { /* 老浏览器没有 Event 构造器：页面下次打开自然是新的 */ } }
   }
 
-  /* 包一层 fetch：读云端时记下云端有几条（getLocal 第一次接上同步码时要知道「云端是不是已经有数据」） */
+  /* 过期墓碑（删了 120 天以上）两头都滤掉：本机早就清了，云端那份不滤的话永远留着、每次同步都要再合一遍（/code-review 指出） */
+  const fresh = list => (Array.isArray(list) ? list : []).filter(e => !(e && e.deletedAt && Date.now() - e.deletedAt > TOMB_MS));
+
+  /* 包一层 fetch：读云端时记下云端有几条（getLocal 第一次接上同步码时要知道「云端是不是已经有数据」），顺带滤过期墓碑 */
   async function fetchWrap(url, init) {
+    if (init && init.method === 'POST' && typeof init.body === 'string') {
+      try { const b = JSON.parse(init.body); if (b && b.doc) { b.doc.items = fresh(b.doc.items); init = Object.assign({}, init, { body: JSON.stringify(b) }); } } catch (e) { /* 原样发 */ }
+    }
     const r = await fetch(url, init);
     if (init && init.method && init.method !== 'GET') return r;
     let j = null; try { j = await r.json(); } catch (e) { j = null; }
-    if (j && j.ok && j.doc) lastPullCount = Array.isArray(j.doc.items) ? j.doc.items.length : 0;
+    if (j && j.ok && j.doc) { j.doc.items = fresh(j.doc.items); lastPullCount = j.doc.items.length; }
     return { status: r.status, json: () => Promise.resolve(j) };
   }
 
@@ -192,14 +206,31 @@
   const enable0 = client.enable;
   client.enable = function (c) {
     const code = String(c == null ? '' : c).trim();
-    if (SyncClient.CODE_RE.test(code) && loadMeta().code !== code) saveMeta({ code: code, seeded: false, items: {} });
+    if (SyncClient.CODE_RE.test(code) && loadMeta().code !== code) { saveMeta({ code: code, seeded: false, items: {} }); lastPullCount = -1; }
     return enable0(c);
   };
 
+  /* 「什么时候改的」要按**改的那一刻**记，不能等到下次同步才发现：
+     离线时、同步关着时改的东西，要是等联网/重新开同步那一刻才记时间，就会比别的设备真正更晚的改动还「新」，把它冲掉（/code-review 指出）。
+     所以每次写存储（防抖 300ms）就扫一遍记下时间——只要这台设备接过同步码（第一次同步还没跑完时不扫，那时要按 intrinsic 的规矩定时间） */
+  let stampTimer = 0, progTimer = 0;
+  function stampNow() { clearTimeout(stampTimer); const m = loadMeta(); if (m.code && m.seeded) getLocal(); }
+  /* 只是「继续上次练习」变了（填空时每打几个字就存一次草稿）：等停手 4 秒再传，免得一边打字一边整份上传、费流量。
+     页面切走时这份等待立刻转成待传，跟着一起冲出去（下面的监听排在同步件自己的冲刷前面） */
+  function progNow() { if (progTimer) { clearTimeout(progTimer); progTimer = 0; if (client.active()) client.schedule(); } }
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') { stampNow(); progNow(); } });
+  window.addEventListener('pagehide', () => { stampNow(); progNow(); });
+
   window.TikuSync = {
     client: client, api: API, PREFIXES: PREFIXES,
-    /** 页面每次写了存储就喊一声：防抖后同步（没开同步时什么也不做） */
-    changed: function () { if (client.active()) client.schedule(); },
+    /** 页面每次写了存储就喊一声（带上键名）：记下改动时间，防抖后同步 */
+    changed: function (key) {
+      if (key && /_wbremoved$/.test(key)) return;      // 移出记号不同步（本机推出来的）
+      clearTimeout(stampTimer); stampTimer = setTimeout(stampNow, 300);
+      if (!client.active()) return;
+      if (key && /_inprogress$/.test(key)) { clearTimeout(progTimer); progTimer = setTimeout(progNow, 4000); return; }
+      client.schedule();
+    },
     _getLocal: getLocal, _setLocal: setLocal   // 给测试用
   };
   client.start();

@@ -27,7 +27,7 @@
 })();
 </script>
 <title>刷题合集</title>
-<link rel="stylesheet" href="assets/sync-panel.css?v=291ac17706">
+<link rel="stylesheet" href="assets/sync-panel.css?v=4b4d038989">
 <style>
   /* 外观＝2026-10-15 之前的样子（2026-10-16 用户看过 iOS 风格改版后决定回到原来的界面风格，只保留新的逻辑和交互） */
   :root{ --primary:#3b82f6; --primary-dark:#2563eb; --bg:#f3f4f6; --text:#1f2937; --muted:#6b7280; --border:#e5e7eb; --danger:#dc2626; --press:#eef2f7; --ease:cubic-bezier(.2,.9,.3,1); }
@@ -322,10 +322,10 @@
   </div>
 </div>
 
-<script src="assets/sync-core.js?v=291ac17706"></script>
-<script src="assets/sync-client.js?v=291ac17706"></script>
-<script src="assets/sync-panel.js?v=291ac17706"></script>
-<script src="assets/tiku-sync.js?v=291ac17706"></script>
+<script src="assets/sync-core.js?v=4b4d038989"></script>
+<script src="assets/sync-client.js?v=4b4d038989"></script>
+<script src="assets/sync-panel.js?v=4b4d038989"></script>
+<script src="assets/tiku-sync.js?v=4b4d038989"></script>
 <script src="assets/drag.js?v=2.0.0"></script>
 <script>
 const SUBJECTS = [
@@ -402,8 +402,10 @@ function readKeys(key) {
   return v.filter(function(k){ if (typeof k !== 'string' || !SUBJ_BY_KEY[k] || seen[k]) return false; seen[k] = 1; return true; });
 }
 // 写不进去（空间满了 / 存储被禁用）必须让人知道
+/* 多设备同步（assets/tiku-sync.js）：存储一改就喊一声（带键名），它记下改动时间、防抖后上传；没开同步时只记时间 */
+function syncChanged(key) { if (window.TikuSync) TikuSync.changed(key); }
 function safeSet(key, val) {
-  try { localStorage.setItem(key, JSON.stringify(val)); if (window.TikuSync) TikuSync.changed(); return true; }
+  try { localStorage.setItem(key, JSON.stringify(val)); syncChanged(key); return true; }
   catch(e) { notify('浏览器存不进数据了（空间已满或存储被禁用），这次改动没有保存'); return false; }
 }
 let notifyTimer = null;
@@ -688,19 +690,25 @@ function paintSync() {
     ? '已开启多设备同步：在这台设备上的改动会自动传到其他设备，导出备份可以再留一份离线副本。'
     : '错题本和练习记录只存在这台设备的这个浏览器里：清一次浏览器数据、或很久没打开，都可能全没。';
 }
+/* 面板只建一次、绑一次，每次打开挂进新的底部面板里：SyncPanel.bind 会给同步状态加一个监听、没有解绑的办法，
+   每次打开都重建的话，关掉的面板还挂在监听上、越攒越多（/code-review 指出） */
+let syncPanelEl = null, syncPanel = null;
 function openSyncSheet() {
   const T = window.TikuSync;
   if (!T) { notify('同步功能没加载上，刷新一下再试'); return; }
-  let panel = null;
-  const sh = showSheet(function(sh){
-    sh.classList.add('sync-sheet');
-    sh.innerHTML = SyncPanel.markup({ title: '多设备同步', noun: '文件夹、错题本、练习记录和进度' });
-    panel = SyncPanel.bind(sh, {
+  if (!syncPanelEl) {
+    syncPanelEl = document.createElement('div');
+    syncPanelEl.innerHTML = SyncPanel.markup({ title: '多设备同步', noun: '文件夹、错题本、练习记录和进度' });
+    syncPanel = SyncPanel.bind(syncPanelEl, {
       client: T.client, toast: notify, close: closeSheet, onChange: paintSync,
       confirm: function(title, text, ok, fn){ showConfirm(title + '\n' + text, ok, true).then(function(y){ if (y) fn(); }); }
     });
-  }, { dirty: function(){ return !!panel && panel.dirty(); } });
-  panel.fill();
+  }
+  const sh = showSheet(function(sh){
+    sh.classList.add('sync-sheet');
+    sh.appendChild(syncPanelEl);
+  }, { dirty: function(){ return syncPanel.dirty(); } });
+  syncPanel.fill();
   return sh;
 }
 if (window.TikuSync) {
@@ -1321,7 +1329,7 @@ function mergeItem(key, incoming) {
     safeSet(key, out); return 0;
   }
   if (cur == null) {
-    if (/_exammode$|_recite$/.test(key)) { if (incoming === 'true' || incoming === 'false') { try { localStorage.setItem(key, incoming); } catch(e) {} if (window.TikuSync) TikuSync.changed(); } }
+    if (/_exammode$|_recite$/.test(key)) { if (incoming === 'true' || incoming === 'false') { try { localStorage.setItem(key, incoming); } catch(e) {} syncChanged(key); } }
     else { const v = parseJSON(incoming, null); if (v != null) safeSet(key, v); }
   }
   return 0;

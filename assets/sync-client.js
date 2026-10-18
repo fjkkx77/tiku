@@ -1,4 +1,4 @@
-/* 多设备同步 · 调度层（sync-client.js）  v1.1.0
+/* 多设备同步 · 调度层（sync-client.js）  v1.1.1
    ─────────────────────────────────────────────────────────────
    什么时候同步、和服务端怎么说话、同步码存哪、状态是什么——都在这一层。
    合并算法不在这儿，在 sync-core.js（这一层只调用它的 syncOnce）。界面不在这儿，在 sync-panel.js。
@@ -20,7 +20,7 @@
 (function (root) {
   'use strict';
 
-  const VERSION = '1.1.0';
+  const VERSION = '1.1.1';
   const CODE_RE = /^[A-Za-z0-9\-_]{8,64}$/;
 
   /* 同步码默认存在自己的 localStorage 键里（和出处一样：{on, code, at}）。
@@ -35,6 +35,12 @@
   }
 
   class Unsupported extends Error {}
+
+  /** 字符串按 UTF-8 编码有多少字节（keepalive 的 64KB 限制按字节算） */
+  function utf8Bytes(s) {
+    if (root.TextEncoder) return new root.TextEncoder().encode(s).length;
+    return unescape(encodeURIComponent(s)).length;
+  }
 
   function create(opts) {
     const o = Object.assign({
@@ -86,9 +92,11 @@
       const payload = { code: code(), baseVersion: base, doc };
       if (o.space) payload.space = o.space;
       const body = JSON.stringify(payload);
-      /* keepalive 让请求在页面被关掉之后也能发完（浏览器限制 64KB，超了就走普通请求） */
+      /* keepalive 让请求在页面被关掉之后也能发完（浏览器限制 64KB，超了就走普通请求）。
+         ⚠️ 限制按**字节**算：中文一个字 UTF-8 是 3 个字节，按 body.length（字符数）算的话 3 万字就有 8 万多字节，
+            浏览器直接拒掉这次请求、每次上传都失败（v1.1.1 修，刷题合集 /code-review 指出） */
       const init = { method: 'POST', headers: { 'Content-Type': o.postType }, body };
-      if (body.length < 60000) init.keepalive = true;
+      if (utf8Bytes(body) < 60000) init.keepalive = true;
       const r = await o.fetch(o.api, init);
       const j = await readJSON(r);
       if (j) checkSpace(j);
@@ -142,12 +150,17 @@
       if (!active() || !pending) return;
       clearTimeout(timer);
       if (busy) { again = true; return; }   // 正在同步：那一趟会顺带把这次的改动带上
-      pending = false;
-      push((o.getLocal() || []).filter(e => !(o.dropDemo && e && e.demo)), st.version).then(res => {
+      /* 冲刷这一趟也算「正在同步」：不然页面切走又马上切回来时，syncNow 会跟它并发，
+         晚回来的冲刷结果把版本号改回旧的、半路就显示「已同步」（v1.1.1 修） */
+      busy = true; pending = false;
+      running = push((o.getLocal() || []).filter(e => !(o.dropDemo && e && e.demo)), st.version).then(res => {
         if (res && res.conflict) { pending = true; return; }
         st.version = res.version; st.at = Date.now(); prefs.set('at', st.at);
-        if (active()) setState('ok');
-      }).catch(() => { pending = true; });
+        if (active() && !again) setState('ok');
+      }).catch(() => { pending = true; }).then(() => {
+        busy = false;
+        if (again) { again = false; syncNow(); }   // 冲刷期间又叫过同步（比如切回来了）：接着跑一趟完整的
+      });
     }
 
     /** 开启（或换）同步码：本机数据会和云端那份合并，不会覆盖。返回错误文字，成功返回 null */

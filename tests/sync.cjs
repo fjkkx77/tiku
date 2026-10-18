@@ -143,6 +143,40 @@ async function runSync(ok) {
     await sync(Bd); await sleep(100);
     ok(await Bd.ev(`[...document.querySelectorAll('#list .folder-name, #list .folder-title, #list *')].some(e=>e.children.length===0&&e.textContent==='实时')`), 'B 的首页开着：A 新建的文件夹同步过来后当场出现在列表里');
 
+    /* ---------- 4b. /code-review 之后补的几条 ---------- */
+    const ckey = () => [...R.store.keys()].find(x => x.indexOf('tiku:') === 0);
+    const editCloud = fn => { const k = ckey(), d = JSON.parse(R.store.get(k)); fn(d.items); R.store.set(k, JSON.stringify(d)); };
+    // 云端有这台设备存不下的（新加的科目、这台还是旧脚本；不合法的值）：同步几次也不能被当成「本机删了」、把墓碑传上去
+    editCloud(items => { items.push({ id: 'zzznewquiz|wb|q1', updatedAt: Date.now(), v: { cat: '新科目', wrongCount: 1 } }, { id: 'webquiz|rc', updatedAt: Date.now() + 5, v: 'maybe' }); });
+    await go(Bd, ''); await sync(Bd); await sync(Bd); await Bd.ev(`saveName('english-vocab','触发一次上传')`); await sync(Bd); await sync(Bd);
+    m = cloud().items.filter(e => e.id === 'zzznewquiz|wb|q1' || e.id === 'webquiz|rc').map(e => e.id + (e.deletedAt ? ' 墓碑' : ' 活着'));
+    ok(m.length === 2 && m.every(x => /活着/.test(x)), '存不下的远端条目：同步几轮也不会被当成本机删了（不传墓碑、别的设备上不会被删）', m);
+    editCloud(items => { const i = items.findIndex(e => e.id === 'webquiz|rc'); if (i >= 0) items.splice(i, 1); });
+    // 离线时改的：按改的那一刻记时间——联网后不能盖掉另一台设备更晚的改动
+    await Bd.send('Network.enable'); await Bd.send('Network.emulateNetworkConditions', { offline: true, latency: 0, downloadThroughput: -1, uploadThroughput: -1 });
+    await Bd.ev(`saveName('english-reading','B离线时改的')`); await sleep(1500);
+    await A.ev(`saveName('english-reading','A后来改的')`); await sync(A);
+    await Bd.send('Network.emulateNetworkConditions', { offline: false, latency: 0, downloadThroughput: -1, uploadThroughput: -1 }); await sleep(200);
+    await sync(Bd); await sync(A);
+    m = { A: await A.ev(`loadNames()['english-reading']`), B: await Bd.ev(`loadNames()['english-reading']`) };
+    ok(m.A === 'A后来改的' && m.B === 'A后来改的', '离线时改的：联网后不会盖掉另一台设备更晚的改动（按改的那一刻记时间）', m);
+    // 删了 120 天以上的墓碑：云端那份也清掉，不永远留着
+    editCloud(items => { items.push({ id: 'n|zz-old', updatedAt: Date.now() - 200 * 864e5, deletedAt: Date.now() - 200 * 864e5 }); });
+    await A.ev(`saveName('english-translation','顺手改一下')`); await sync(A);
+    ok(!cloud().items.some(e => e.id === 'n|zz-old'), '删了 120 天以上的墓碑：下一次上传时从云端清掉');
+    // 面板反复开关：同步状态的监听只挂一次
+    m = await A.ev(`(async()=>{let n=0;const C=TikuSync.client,o=C.onState;C.onState=f=>{n++;return o(f)};const w=ms=>new Promise(r=>setTimeout(r,ms));
+      for(let i=0;i<5;i++){openSyncSheet();await w(120);closeSheet();await w(60);}C.onState=o;openSyncSheet();await w(120);const k=document.querySelectorAll('.sp-code').length;const st=document.querySelector('#sheet [data-sp="state"]').textContent;closeSheet();return {n,k,st};})()`);
+    ok(m.n <= 1 && m.k === 1 && /已同步|同步中/.test(m.st), '同步面板反复开关：监听只挂一次，面板照样显示状态', m);
+    // 填空打字（只是「继续上次练习」变了）：不立刻整份上传，停手 4 秒再传
+    await go(A, 'os/'); await A.ev(`(async()=>{document.getElementById('startBtn').click();await new Promise(r=>setTimeout(r,100));return 1;})()`); await sync(A);
+    const p0 = log.filter(x => x.m === 'POST').length;
+    await A.ev(`(()=>{const b=document.querySelector('#qText .blank-input');b.focus();b.textContent='打字中';b.dispatchEvent(new Event('input',{bubbles:true}));})()`);
+    await sleep(2500); const p1 = log.filter(x => x.m === 'POST').length;
+    await sleep(3500); const p2 = log.filter(x => x.m === 'POST').length;
+    ok(p1 === p0 && p2 > p1, '填空打字只改了进度：2.5 秒内不上传，停手 4 秒后再传', { 之前: p0, '2.5秒': p1, '6秒': p2 });
+    await go(A, '');
+
     /* ---------- 5. 跨域（页面在 GitHub Pages、接口在 Vercel）：简单请求、只放行白名单来源 ---------- */
     const gh = site(null, []); await new Promise(r => gh.listen(ghPort, '127.0.0.1', r));
     const G = await open(390, 844, 1); devs.push(G);

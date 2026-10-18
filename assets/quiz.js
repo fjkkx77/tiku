@@ -235,9 +235,9 @@ function toast(msg, ms){
   clearTimeout(toastTimer); toastTimer = setTimeout(()=>tip.classList.remove("show"), ms || 1800);
 }
 /* 多设备同步（assets/tiku-sync.js）：存储一改就喊一声，它防抖后上传；没开同步时什么也不做 */
-function syncChanged(){ if(window.TikuSync) window.TikuSync.changed(); }
+function syncChanged(key){ if(window.TikuSync) window.TikuSync.changed(key); }
 function saveJSON(key,val){
-  try{ localStorage.setItem(key, JSON.stringify(val)); syncChanged(); return true; }
+  try{ localStorage.setItem(key, JSON.stringify(val)); syncChanged(key); return true; }
   catch(e){
     // 存不进去（空间满了 / 存储被禁用）：必须让人知道，否则错题和进度悄悄丢了都不知道。一次打开只提示一回
     // 用不挡操作的提示条，不用确认弹窗：两者共用一个遮罩，正在问"确定要切换吗"时弹出来会替人把那个问题答成"确定"
@@ -734,7 +734,7 @@ function saveProgress(){
     sid: session.sid, savedAt: session.savedAt
   });
 }
-function clearProgress(){ try{ localStorage.removeItem(LS_INPROGRESS); }catch(e){} syncChanged(); }
+function clearProgress(){ try{ localStorage.removeItem(LS_INPROGRESS); }catch(e){} syncChanged(LS_INPROGRESS); }
 function loadSaved(){
   const s = loadJSON(LS_INPROGRESS, null);
   if(!s || !Array.isArray(s.ids) || !Array.isArray(s.answers)) return null;
@@ -817,7 +817,7 @@ if($("modeToggleBtn")){
   $("modeToggleBtn").onclick = ()=>{
     examMode = !examMode;
     try{ localStorage.setItem(LS_EXAMMODE, examMode ? "true" : "false"); }catch(e){}
-    syncChanged();
+    syncChanged(LS_EXAMMODE);
     applyModeToggleUI();
   };
   applyModeToggleUI();
@@ -834,7 +834,7 @@ function applyReciteUI(){
 $("reciteBtn").onclick = ()=>{
   recite = !recite;
   try{ localStorage.setItem(LS_RECITE, recite ? "true" : "false"); }catch(e){}
-  syncChanged();
+  syncChanged(LS_RECITE);
   applyReciteUI();
   if(session && isActive("screen-quiz")) renderQuestion();
 };
