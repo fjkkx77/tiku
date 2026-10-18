@@ -129,6 +129,50 @@ function serve() {
       if (W >= 375) ok(r.t === 'Random r = new Random();' && r.h < r.lh * 1.5, `${W} 「Random r = new Random();」整句一行`, r);
     }
     await c.send('Emulation.setDeviceMetricsOverride', { width: 390, height: 844, deviceScaleFactor: 1, mobile: true, screenWidth: 390, screenHeight: 844 });
+    // 2026-10-19 用户定：1~4 空的普通题默认一行（老样子、分号隔开），能点「逐空对照」切过去再切回来；判分严格按答案；判错差一两个字时提示「差一点」
+    await fresh('os/');
+    r = await c.ev(`(async()=>{const Q=__quiz,q=QUESTIONS[0],g=a=>Q.gradeQuestion(q,a).allCorrect;
+      const strict={short:g(["并发","共享性","异步性","虚拟性"]),full:g(["虚拟性","并发性","共享性","异步性"]),suffix:Q.gradeQuestion(QUESTIONS[1],["系统软件性"]).allCorrect};
+      Q.session={queue:[q,QUESTIONS[1]],idx:0,answers:[null,null],drafts:{},elapsed:0,scopeLabel:"t"};Q.showScreen("quiz");Q.renderQuestion();
+      const b=[...document.querySelectorAll("#qText .blank-input")];["并发","共享","",""].forEach((v,k)=>b[k].value=v);Q.submitAnswer();
+      const box=document.getElementById("answerBox"),snap=()=>({one:box.querySelectorAll(".ans-one").length,sep:box.querySelectorAll(".ans-sep").length,rows:box.querySelectorAll(".ans-row").length,
+        nos:document.querySelectorAll("#qText .blank-no").length,tg:(box.querySelector(".ans-toggle")||{}).textContent,near:[...box.querySelectorAll(".ans-near")].map(e=>e.textContent)});
+      const line=snap();box.querySelector(".ans-toggle").click();const list=snap();box.querySelector(".ans-toggle").click();const back=snap();
+      // 答案整块：每个答案（连同后面的分号）都只占一行
+      const split=[...box.querySelectorAll(".ans-one")].filter(e=>e.getBoundingClientRect().height>parseFloat(getComputedStyle(box).lineHeight||"20")*1.5).length;
+      Q.session.idx=1;Q.renderQuestion();document.querySelector("#qText .blank-input").value="系统";Q.submitAnswer();
+      const single={tg:!!box.querySelector(".ans-toggle"),near:(box.querySelector(".ans-near")||{}).textContent};
+      return {strict,line,list,back,split,single};})()`);
+    ok(r.strict.short === false && r.strict.full === true && r.strict.suffix === false, '判分严格：「并发」不算「并发性」，词尾多写「性」也不算', r.strict);
+    ok(r.line.one === 4 && r.line.sep === 3 && r.line.rows === 0 && r.line.nos === 0 && r.line.tg === '逐空对照 ▸' && r.split === 0, '1~4 空的题默认一行、分号隔开、题里不挂编号', r.line);
+    ok(r.list.rows === 4 && r.list.nos === 4 && r.list.tg === '收成一行 ▴' && r.back.rows === 0 && r.back.nos === 0 && r.back.one === 4, '「逐空对照」切过去有编号、再切回一行编号摘掉', { list: r.list, back: r.back });
+    ok(r.line.near.length === 2 && r.line.near.every(t => t.includes('少了「性」')) && r.list.near.length === 2, '差一点：「并发」提示少了「性」（一行和逐空两种样式都有）', r.line.near);
+    ok(r.single.tg === false && /「系统」少了「软件」/.test(r.single.near || ''), '只有一空的题不给切换；差一点：系统 → 少了「软件」', r.single);
+    // 差一点不能把意思不同的答案也说成「差一点」（/code-review 指出的）；提示里显示原样的字，不是规范化后的小写
+    r = await c.ev(`(()=>{const n=(m,a)=>{const h=__quiz.nearText(m,a);return h?h.text:"";};return {no:[n("LIFO","FIFO"),n("线程","进程"),n("异步","同步"),n("3","2"),n("不可再现性","可再现性"),n("=","!=")],
+      yes:[n("可再现性","可再现"),n("getElement","getElementById"),n("x; i < y; i++","x; i <= y; i++"),n("存与辅存的容量之","主存与辅存的容量之和")]};})()`);
+    ok(r.no.every(t => t === '') && r.yes[0] === '多了「性」' && r.yes[1] === '少了「ById」' && r.yes[2] === '有 1 处不一样' && r.yes[3] === '有 2 处不一样', '差一点：只认结尾少写/多写和长答案里一两处不同，短词换字、开头加「不」不提示', r);
+    // 改了答案的题指纹会变：进行中的练习、做过的题、错题本都要接上（不处理的话续练卡片直接作废）
+    r = await c.ev(`(()=>{__quiz.showScreen("home");__quiz.session=null;const A=__quiz.CFG.fpAlias,now=__quiz.fp(QUESTIONS[0]),old=Object.keys(A).find(k=>A[k]===now);
+      localStorage.setItem("osquiz_inprogress",JSON.stringify({ids:["q0","q1"],fps:[old,__quiz.fp(QUESTIONS[1])],answers:[null,null],idx:0,elapsed:0,scopeLabel:"t"}));
+      localStorage.setItem("osquiz_done",JSON.stringify({[old]:1}));
+      localStorage.setItem("osquiz_wrongbook",JSON.stringify({q0:{cat:QUESTIONS[0].cat,type:"blank",text:QUESTIONS[0].text,code:"",ans:["并发性|并发","共享性|共享","异步性|异步","虚拟性|虚拟"],wrongCount:1,correctStreak:0,lastWrongAt:1}}));
+      return {old:!!old,now};})()`);
+    await c.goto(BASE + 'os/');
+    const mig = await c.ev(`(()=>{const d=JSON.parse(localStorage.getItem("osquiz_done")),p=JSON.parse(localStorage.getItem("osquiz_inprogress"));
+      return {card:!document.getElementById("resumeCard").hidden,done:Object.keys(d),fps0:p&&p.fps[0],wbAns:__quiz.wrongbook.q0&&__quiz.wrongbook.q0.ans.join()};})()`);
+    ok(r.old && mig.card && mig.fps0 === r.now && mig.done.length === 1 && mig.done[0] === r.now && mig.wbAns === '并发性,共享性,异步性,虚拟性',
+      '改过答案的题：续练进度、做过的题、错题本都接上新指纹', mig);
+    // 错题本：代码题逐空列出（题里空前写 ①②），短题一行
+    await fresh('web-design/');
+    r = await c.ev(`(async()=>{const Q=__quiz,pick=k=>QUESTIONS[QUESTIONS.findIndex(q=>(q.ans||[]).join().includes(k))];const qs=[pick("Cookie"),pick("Cal(Num1, Num2);")];
+      Q.session={queue:qs,idx:0,answers:[null,null],drafts:{},elapsed:0,scopeLabel:"t"};Q.showScreen("quiz");
+      for(let k=0;k<2;k++){Q.session.idx=k;Q.renderQuestion();document.querySelectorAll("#qText .blank-input,#qCode .blank-input").forEach(x=>x.value="zz");Q.submitAnswer();}
+      Q.showScreen("wrongbook");await new Promise(r=>setTimeout(r,50));
+      const items=[...document.querySelectorAll(".wrong-item")].map(e=>({rows:e.querySelectorAll(".ans-row").length,one:e.querySelectorAll(".ans-one").length,circ:/①/.test(e.querySelector(".qtext").textContent)}));
+      return items;})()`);
+    ok(r.length === 2 && r.some(i => i.rows === 6 && i.circ) && r.some(i => i.rows === 0 && i.one === 1 && !i.circ), '错题本：代码题逐空列出且题里空前有编号，短题一行', r);
+    await c.goto(BASE + 'web-design/');
     r = await c.ev(`(()=>{const Q=__quiz;Q.session={queue:[{id:"zz",type:"blank",cat:"x",text:"<b>x</b>{{}}<img src=x onerror=window.__pwn=1>",ans:["a"]}],idx:0,answers:[null],elapsed:0,scopeLabel:"t"};Q.showScreen("quiz");Q.renderQuestion();const t=document.getElementById("qText");return {tags:t.querySelectorAll("b,img").length,inputs:t.querySelectorAll(".blank-input").length};})()`);
     await sleep(100);
     ok(r.tags === 0 && r.inputs === 1 && !(await c.ev('!!window.__pwn')), '题干里的 < > 按文字显示', r);
@@ -149,10 +193,10 @@ function serve() {
     ok(r.same && r.inGroup && !r.outGroup, '只有标了可互换的那几个空能换位置（第 56 题 #navigation 的 3 个空）', r);
     ok(r.un === true, '标了 unordered 的题换顺序填仍判对', r);
     await fresh('os/');
-    r = await c.ev(`(()=>{const Q=__quiz,g=(i,a)=>Q.gradeQuestion(QUESTIONS[i],a).allCorrect;return {seqRev:g(83,["R,P,Q"]),seqOk:g(83,["Q,P,R"]),un:g(0,["虚拟","异步","共享","并发"]),fifo:g(81,["7","9"]),n150:g(84,["150","14","16K"]),neg:g(9,["不可再现"]),pos:g(9,["可再现性"]),more:g(22,["操作系统"]),junk:g(0,["救恩的基督教的细节虚拟世界安安静静","共享","异步","并发"])};})()`);
+    r = await c.ev(`(()=>{const Q=__quiz,g=(i,a)=>Q.gradeQuestion(QUESTIONS[i],a).allCorrect;return {seqRev:g(83,["R,P,Q"]),seqOk:g(83,["Q,P,R"]),un:g(0,["虚拟性","异步性","共享性","并发性"]),fifo:g(81,["7","9"]),n150:g(84,["150","14","16K"]),neg:g(9,["不可再现"]),pos:g(9,["可再现。"]),suffix:g(9,["可再现性"]),more:g(22,["操作系统"]),junk:g(0,["救恩的基督教的细节虚拟世界安安静静","共享","异步","并发"])};})()`);
     ok(!r.seqRev && r.seqOk, '安全序列：顺序反了判错，对的判对', r);
     ok(r.un && !r.fifo, '操作系统：真无序的题换序判对，FIFO/LRU 填反判错', r);
-    ok(!r.n150 && !r.neg && r.pos && !r.more && !r.junk, '「包含也算对」已去掉（2026-10-18 用户定）：多写字、乱写一句碰巧含答案、数字多一位、加否定词都不算；规范化后一致的仍算', r);
+    ok(!r.n150 && !r.neg && r.pos && !r.suffix && !r.more && !r.junk, '「包含也算对」已去掉（2026-10-18 用户定）：多写字、乱写一句碰巧含答案、数字多一位、加否定词都不算；多写「性」也不算（2026-10-19 判分改严）；只差标点的仍算', r);
     await fresh('english-vocab/');
     r = await c.ev(`(()=>{const Q=__quiz,q=QUESTIONS[0],ref=q.ans.map(x=>x.split("|")[0]);const t=ref.slice();t[8]=t[8]+"s";const u=ref.slice();u[1]="\\u2018"+"x";return {ok:Q.gradeQuestion(q,ref).allCorrect,plural:Q.gradeQuestion(q,t).assignment[8],curly:Q.isCorrect("of one\\u2019s own","of one's own")};})()`);
     ok(r.ok && r.plural === -1 && r.curly, '英语选词：多写一个 s 判错；iPhone 的弯撇号当直撇号', r);
@@ -246,10 +290,10 @@ function serve() {
       const ev=new KeyboardEvent("keydown",{key:"Enter",bubbles:true,cancelable:true});cb.dispatchEvent(ev);if(!ev.defaultPrevented)cb.click();await w(30);
       return {open:document.getElementById("confirmBackdrop").classList.contains("show"),wb:Object.keys(JSON.parse(localStorage.getItem("mobileappquiz_wrongbook")||"{}")).length};})()`);
     ok(!r.open && r.wb === 1, '确认弹窗：焦点在「取消」上按回车 = 取消，错题本没被清空', r);
-    // 错题本里多空题的参考答案保留 (1)(2) 编号
+    // 错题本里多空题（选词题 14 空以上）逐空列出，题干自带 (1)(2) 编号，不再另挂 ①②
     await fresh('english-vocab/');
-    r = await c.ev(`(async()=>{${start}Q.submitAnswer();Q.showScreen("wrongbook");return document.querySelector(".wrong-item .ans").textContent.slice(0,30);})()`);
-    ok(/\(1\)/.test(r) && /\(2\)/.test(r), '错题本里多空题的答案带 (1)(2) 编号', r);
+    r = await c.ev(`(async()=>{${start}Q.submitAnswer();Q.showScreen("wrongbook");const e=document.querySelector(".wrong-item"),t=e.querySelector(".qtext").textContent;return {rows:e.querySelectorAll(".ans-row").length,n:Q.session.queue[0].ans.length,num:/\\(1\\)____/.test(t)&&/\\(2\\)____/.test(t),circ:/①/.test(t)};})()`);
+    ok(r.rows === r.n && r.n >= 14 && r.num && !r.circ, '错题本里多空题逐空列出，题干的 (1)(2) 编号保留、不重复挂 ①②', r);
     // 数字后面多写个量词仍算对
     await fresh('os/');
     r = await c.ev(`(()=>{const g=(i,a)=>__quiz.gradeQuestion(QUESTIONS[i],a).allCorrect;return {ge:g(80,["256个","64KB"]),ci:g(84,["15位","14位","16K"]),big:g(80,["1256","64KB"]),exact:g(80,["256","64KB"])};})()`);
@@ -374,7 +418,7 @@ function serve() {
           // 配色口径（2026-10-18 用户定）：答错时参考答案也是绿的（以前跟着红框一起变红），空着答错的不垫粉底
           m = await t.ev(`(()=>{const c=v=>{const e=document.createElement("i");e.style.color=v;document.body.appendChild(e);const x=getComputedStyle(e).color;e.remove();return x;};
             const b=document.querySelectorAll("#qText .blank-input"),bg=getComputedStyle(b[3]).backgroundImage;
-            return {real:getComputedStyle(document.querySelector("#answerBox .ans-main")).color,green:c("var(--green)"),emptyFill:/254, 242, 242/.test(bg)};})()`);
+            return {real:getComputedStyle(document.querySelector("#answerBox .correct-ans, #answerBox .ans-main")).color,green:c("var(--green)"),emptyFill:/254, 242, 242/.test(bg)};})()`);
           ok(m.real === m.green && !m.emptyFill, `${W} 填空：答错时参考答案是绿的、空着答错的不垫粉底`, m);
         }
         // 手机上点「下一题」不自动聚焦（2026-10-18 用户报：iPhone 键盘直接弹出来，题还没看完）

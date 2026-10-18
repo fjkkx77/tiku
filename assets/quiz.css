@@ -119,6 +119,22 @@ span.blank-input[contenteditable="false"]{cursor:default;}
 .ans-head{font-weight:bold;}
 .ans-head .ans-score{font-weight:normal;margin-left:6px;}
 .ans-cap{margin-top:4px;font-size:12.5px;color:var(--muted);}
+/* 一行样式（老样子，2026-10-19 用户要留着给 1~4 空的题）：每个答案连同后面的「；」是一整块，放不下整块换行，不从中间断开 */
+.ans-one{display:inline-block;max-width:100%;overflow-wrap:anywhere;}
+/* 分隔的「；」用灰色常规字重：答案自己结尾带 ; 的代码（Random r = new Random();）不会跟分隔符混成一团 */
+.ans-sep{color:var(--muted);font-weight:normal;margin:0 .2em 0 .05em;}
+/* 两种样式之间切换：小号文字按钮，热区靠内边距撑到 32px 高 */
+.ans-toggle{-webkit-appearance:none;appearance:none;border:none;background:none;font:inherit;font-size:13px;font-weight:normal;color:var(--primary-dark);
+  padding:7px 6px;margin:-7px -6px -7px 4px;cursor:pointer;white-space:nowrap;touch-action:manipulation;vertical-align:baseline;}
+.ans-top{display:flex;align-items:baseline;justify-content:space-between;gap:8px;}
+.ans-top .ans-toggle{margin:-7px -6px -7px 0;flex:none;}
+/* 「差一点」：只是提示，判错照旧 */
+.ans-near{font-size:12.5px;color:#92400e;}
+.ans-mine .ans-near{display:inline-block;margin-left:8px;}
+.answer-box > .ans-near{margin-top:4px;}
+/* 错题本、结果页里的逐空列表：卡片本身是白的，行底换浅灰 */
+.wrong-item .ans-list,.review-item .ans-list{margin-top:6px;}
+.wrong-item .ans-row,.review-item .ans-row{background:#f8fafc;}
 .ans-list{list-style:none;margin:8px 0 0;padding:0;display:flex;flex-direction:column;gap:5px;}
 .ans-row{display:flex;align-items:flex-start;gap:8px;background:#fff;border-radius:6px;padding:6px 9px;}
 .ans-no{flex:none;min-width:20px;height:20px;padding:0 5px;border-radius:10px;margin-top:1px;

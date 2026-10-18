@@ -9,7 +9,7 @@
 <meta name="theme-color" content="#2f6ff0" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#1f47b0" media="(prefers-color-scheme: dark)">
 <title>软件工程练习题</title>
-<link rel="stylesheet" href="../assets/quiz.css?v=9ee9259db3">
+<link rel="stylesheet" href="../assets/quiz.css?v=2bcc53601e">
 </head>
 <body>
 <script>
@@ -17,6 +17,8 @@
 const QUIZ = {
   title: "软件工程练习题",
   subtitle: "错题本 · 练习记录",
+  // 2026-10-19 判分改严删了一批「|」备选写法，这些题的指纹变了：旧 → 新（做过的题、续练进度、错题本靠它接上，见 quiz.js migrateFp）
+  fpAlias: {"dri4lm":"1l3c0gq","1q7s23l":"1k08gx","h0kejh":"12x3kvz","t6uv3i":"eim5t8","wbgxov":"6kx8hd","1obv1zq":"47nfaq","2wbsoo":"1jiglvs"},
   prefix: "rjgcquiz",          // localStorage 前缀，沿用旧版，不能改（改了老的错题/记录就读不到了）
   intro: "单选题72题 + 填空题84题，按知识点/模拟套卷分类",
   font: "code",               // 题里是真代码：用等宽字体
@@ -28,7 +30,7 @@ const QUESTIONS = [
 {type:"blank", cat:"软件工程概述", text:"1. 软件包括程序、数据和{{}}。", ans:["文档"]},
 {type:"blank", cat:"软件工程概述", text:"2. 维护活动实质上是经历了一次压缩和简化了的{{}}和开发的全过程。", ans:["软件定义"]},
 {type:"blank", cat:"软件工程概述", text:"3. 软件定义时期包括{{}}、可行性研究和需求分析。", ans:["问题定义"]},
-{type:"blank", cat:"软件工程概述", text:"4. 过程通常用{{}}型来描述。", ans:["软件生命周期模|软件生命周期模型"]},
+{type:"blank", cat:"软件工程概述", text:"4. 过程通常用{{}}型来描述。", ans:["软件生命周期模"]},
 {type:"blank", cat:"软件工程概述", text:"5. 软件维护过程中修改软件以适应环境的变化是{{}}维护。", ans:["适应性"]},
 {type:"blank", cat:"软件工程概述", text:"6. 软件工程分为传统方法和{{}}。", ans:["面向对象方法"]},
 {type:"blank", cat:"软件工程概述", text:"7. 软件工程的三要素是过程、工具和{{}}。", ans:["方法"]},
@@ -39,7 +41,7 @@ const QUESTIONS = [
 {type:"blank", cat:"可行性研究", text:"2. 货币的时间价值是用{{}}来表示的。", ans:["银行利率"]},
 {type:"blank", cat:"可行性研究", text:"3. 可行性研究中使用现有的技术能否实现这个系统属于{{}}。", ans:["技术可行性"]},
 {type:"blank", cat:"可行性研究", text:"4. 数据流三个重要属性包括数据流的名字、{{}}和流向。", ans:["数据组成"]},
-{type:"blank", cat:"可行性研究", text:"5. 系统经济效益=新系统增加的收入＋{{}}。", ans:["新系统节省的费用|节省的运行费用"]},
+{type:"blank", cat:"可行性研究", text:"5. 系统经济效益=新系统增加的收入＋{{}}。", ans:["新系统节省的费用"]},
 {type:"blank", cat:"可行性研究", text:"6. 数据流图和{{}}共同构成可行性研究阶段的逻辑模型。", ans:["数据字典"]},
 {type:"blank", cat:"可行性研究", text:"7. DFD的四个要素是源点/终点、数据流、数据存储和{{}}。", ans:["处理"]},
 {type:"blank", cat:"可行性研究", text:"8. 系统流程图是概括地描绘{{}}的传统工具。", ans:["物理系统"]},
@@ -60,7 +62,7 @@ const QUESTIONS = [
 {type:"blank", cat:"总体设计", text:"3. 软件开发中的抽象分为数据的抽象和{{}}。", ans:["过程的抽象"]},
 {type:"blank", cat:"总体设计", text:"4. 面向数据流的设计方法定义了一些不同的“映射”，利用这些映射可以把{{}}变换成软件结构。", ans:["数据流图"]},
 {type:"blank", cat:"总体设计", text:"5. 衡量模块独立性的两个准则是耦合性和{{}}。", ans:["内聚性"]},
-{type:"blank", cat:"总体设计", text:"6. 软件设计分{{}}和详细设计两个阶段。", ans:["总体设计|概要设计"]},
+{type:"blank", cat:"总体设计", text:"6. 软件设计分{{}}和详细设计两个阶段。", ans:["总体设计"]},
 {type:"blank", cat:"总体设计", text:"7. {{}}是一个模块直接控制(调用)的模块数目。", ans:["扇出"]},
 {type:"blank", cat:"总体设计", text:"8. 信息流有两种类型分别是变换流和{{}}。", ans:["事务流"]},
 
@@ -70,7 +72,7 @@ const QUESTIONS = [
 {type:"blank", cat:"详细设计", text:"3. 在详细设计阶段，除了对模块内的算法进行设计，还应对模块内的{{}}进行设计。", ans:["数据结构"]},
 {type:"blank", cat:"详细设计", text:"4. 已知V(G)=9，则判定节点数是{{}}。", ans:["8"]},
 {type:"blank", cat:"详细设计", text:"5. 在详细设计中表格工具包括判定树和{{}}。", ans:["判定表"]},
-{type:"blank", cat:"详细设计", text:"6. McCabe方法根据程序控制流的复杂程度定量度量程序的复杂程度，这样度量出的结果称为{{}}。", ans:["程序的环形复杂度|环形复杂度"]},
+{type:"blank", cat:"详细设计", text:"6. McCabe方法根据程序控制流的复杂程度定量度量程序的复杂程度，这样度量出的结果称为{{}}。", ans:["程序的环形复杂度"]},
 {type:"blank", cat:"详细设计", text:"7. 过程设计语言是一种介于自然语言和{{}}之间的语言。", ans:["形式化语言"]},
 {type:"blank", cat:"详细设计", text:"8. 结构化程序设计的三种基本结构是顺序、{{}}、循环。", ans:["选择"]},
 
@@ -78,9 +80,9 @@ const QUESTIONS = [
 {type:"blank", cat:"实现与测试", text:"1. 通常把编码和{{}}统称为实现。", ans:["测试"]},
 {type:"blank", cat:"实现与测试", text:"2. 从流图的角度点覆盖等价{{}}。", ans:["语句覆盖"]},
 {type:"blank", cat:"实现与测试", text:"3. 软件测试方法一般分为：静态测试和{{}}。", ans:["动态测试"]},
-{type:"blank", cat:"实现与测试", text:"4. 软件测试计划是在{{}}阶段制定的。", ans:["总体设计|概要设计"]},
-{type:"blank", cat:"实现与测试", text:"5. 白盒测试的主要方法包括{{}}和基本路径测试。", ans:["逻辑覆盖测试|逻辑覆盖"]},
-{type:"blank", cat:"实现与测试", text:"6. 把程序所有可能的执行路径都进行检查的测试叫{{}}。", ans:["穷举测试|穷尽测试"]},
+{type:"blank", cat:"实现与测试", text:"4. 软件测试计划是在{{}}阶段制定的。", ans:["总体设计"]},
+{type:"blank", cat:"实现与测试", text:"5. 白盒测试的主要方法包括{{}}和基本路径测试。", ans:["逻辑覆盖测试"]},
+{type:"blank", cat:"实现与测试", text:"6. 把程序所有可能的执行路径都进行检查的测试叫{{}}。", ans:["穷举测试"]},
 {type:"blank", cat:"实现与测试", text:"7. 软件测试在软件生命周期中横跨两个阶段分别是单元测试和{{}}。", ans:["综合测试"]},
 {type:"blank", cat:"实现与测试", text:"8. 黑盒测试和白盒测试都属于{{}}。", ans:["动态测试"]},
 
@@ -205,6 +207,6 @@ const QUESTIONS = [
 {type:"blank", cat:"模拟题第六套", text:"18. 需求分析产生的文档是{{}}。", ans:["需求规格说明书"]},
 ];
 </script>
-<script src="../assets/quiz.js?v=9ee9259db3"></script>
+<script src="../assets/quiz.js?v=2bcc53601e"></script>
 </body>
 </html>

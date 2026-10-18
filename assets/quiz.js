@@ -3,7 +3,8 @@
    以前每个站是一份完整拷贝，改着改着各自走样（同一个 bug 有的站修了有的没修），2026-10 合并成这一份。
 
    科目页只需要在引用本文件之前声明两样东西：
-     const QUIZ = { title, subtitle, prefix, intro, catWord?, font?, wordlist?, normalize? }
+     const QUIZ = { title, subtitle, prefix, intro, catWord?, font?, wordlist?, normalize?, fpAlias? }
+     （fpAlias：改了某道题的答案后填「旧指纹 → 新指纹」，见 migrateFp）
      const QUESTIONS = [ ...题库... ]
    题目对象：
      单选 {type:"mcq", cat, text, options:{A,B,C,D}, correct}
@@ -31,8 +32,7 @@ const CFG = Object.assign({
   catWord: "章节",           // 分类叫什么（听力站叫「单元」）
   font: "",                  // "code"＝题里是真代码（等宽字体）/ "en"＝英语（系统 UI 字体）/ 空＝默认
   wordlist: false,           // code 字段是词表：只给英文单词加粗
-  normalize: null,           // 自定义答案规范化函数（操作系统站有专用的）
-  ansSep: "  /  "            // 多空参考答案之间的分隔符（操作系统站一直用「、」）
+  normalize: null            // 自定义答案规范化函数（操作系统站有专用的）
 }, typeof QUIZ !== "undefined" ? QUIZ : {});
 const Q = QUESTIONS;
 Q.forEach((q,i)=>{ q.id = "q"+i; if(!q.type) q.type = "blank"; });
@@ -288,6 +288,34 @@ function relocateWrongbook(){
   });
   if(changed){ wrongbook = out; saveJSON(LS_WRONGBOOK, wrongbook); }
 }
+/* 题库里改了某道题的答案，它的指纹就变了（指纹里含答案）：做过的题、续练进度、错题本都按指纹认题，
+   不处理的话进行中的练习会被当成「题库改过」整个作废、做过的题也不算做过了。
+   2026-10-19 判分改严时删掉了一批「|」备选写法，科目页在 QUIZ.fpAlias 里写了「旧指纹 → 新指纹」，
+   这里把存着的旧指纹换成新的。换过一遍以后旧指纹就不在了，再跑什么也不做 */
+function migrateFp(){
+  const A = CFG.fpAlias;
+  if(!A || typeof A !== "object") return;
+  // 同一道题以后再改一次答案，就再加一条「上一次的新指纹 → 这次的」：这里顺着链一直找到最新的
+  const to = f=>{ const seen = new Set(); while(Object.prototype.hasOwnProperty.call(A, f) && !seen.has(f)){ seen.add(f); f = A[f]; } return f; };
+  const d = loadJSON(LS_DONE, {});
+  if(d && typeof d === "object" && !Array.isArray(d) && Object.keys(d).some(k=>to(k)!==k)){
+    Object.keys(d).forEach(k=>{ const n = to(k); if(n!==k){ d[n] = d[k]; delete d[k]; } });
+    if(saveJSON(LS_DONE, d)) doneSet = d;
+  }
+  const p = loadJSON(LS_INPROGRESS, null);
+  if(p && typeof p === "object" && Array.isArray(p.fps) && p.fps.some(f=>to(f)!==f)){ p.fps = p.fps.map(to); saveJSON(LS_INPROGRESS, p); }
+  // 错题本条目里存着当时的题目和答案：答案换成现在的，指纹才对得上。
+  // 按新指纹找题（同一位置的优先），题同时挪了位置也能接上——接上以后由下面的 relocateWrongbook 搬到新位置
+  const byFp = new Map(); Q.forEach(q=>{ const f = FP.get(q.id); if(!byFp.has(f)) byFp.set(f, q); });
+  const fix = Object.keys(wrongbook).map(id=>{
+    const e = wrongbook[id]; if(!e) return null;
+    const n = to(fp(e)); if(n===fp(e)) return null;
+    const q = QBYID[id] && FP.get(id)===n ? QBYID[id] : byFp.get(n);
+    return q ? [id, q.ans] : null;
+  }).filter(Boolean);
+  if(fix.length){ updateWrongbook(wb=>{ fix.forEach(([id, ans])=>{ if(wb[id]) wb[id].ans = ans; }); }); }
+}
+migrateFp();
 relocateWrongbook();
 
 /* ===================== 判分 ===================== */
@@ -393,12 +421,78 @@ function firstAns(a){ return String(a).split("|")[0]; }
 function ansText(q, sep){
   if(q.type==="mcq") return `${q.correct}. ${(q.options||{})[q.correct]||""}`;
   const list = q.ans || [];
-  return q.ordered && list.length>1 ? list.map((a,i)=>`(${i+1})${firstAns(a)}`).join("　") : list.map(firstAns).join(sep || CFG.ansSep);
+  return q.ordered && list.length>1 ? list.map((a,i)=>`(${i+1})${firstAns(a)}`).join("；") : list.map(firstAns).join(sep || "；");
 }
-/* 答题页的参考答案：每空一行、带编号（2026-10-19 用户报「a / b / c」一段里分不清哪个是哪一空）。
-   传了 userInputs 就是判过分的：对的空编号绿、错的红，错的下面写「你填：…」；没传（背题）就只列答案。
+/* 填空题的参考答案有两种样式（2026-10-19 用户定，两种都留）：
+   一行：老样子「参考答案：a；b；c」，答案之间用「；」（以前是「 / 」，跟代码里的 / 混），每个答案整块不拆——1~4 空的普通题默认用它，紧凑
+   逐空：题里每一空前挂编号，下面每空一行、同号同色——空在代码里、或者 5 空及以上默认用它（一行挤不下、分不清哪个是哪一空）
+   两种之间点「逐空对照 ▸ / 收成一行 ▴」切换，这次练习里记住每道题选的 */
+const LIST_MIN_BLANKS = 5;
+const ansView = Object.create(null);
+function prefersList(q){ const n = (q.ans||[]).length; return n > 1 && (n >= LIST_MIN_BLANKS || (q.code||"").includes("{{}}")); }
+function ansMode(q){ return (q.ans||[]).length < 2 ? "line" : (ansView[q.id] || (prefersList(q) ? "list" : "line")); }
+// 一行样式：分号贴在前一个答案后面，换行时不会有一行以「；」开头
+function oneLineHtml(items, num){
+  return items.map((t,i)=>`<span class="ans-one">${num ? `(${i+1})` : ""}${esc(t)}${i < items.length-1 ? `<span class="ans-sep">；</span>` : ""}</span>`).join("");
+}
+function ansLineHtml(q){ const list = q.ans || []; return oneLineHtml(list.map(firstAns), q.ordered && list.length > 1); }
+/* 「差一点」（2026-10-19 用户要的，判分改严以后配套）：判错的空里，你填的离正确答案只差一点时说清楚差在哪。
+   只是提示，照样判错、照样进错题本。比的是规范化以后的写法（空格、大小写、标点不算差别），显示的是原样的字。
+   只认两种「差一点」，免得把意思相反的答案也说成差一点（FIFO/LIFO、同步/异步、可再现/不可再现）：
+   ① 只差在结尾：少写或多写了一截（并发 → 并发性），不超过答案的 40%（至少容 2 个字）；开头差的（多个「不」）不算
+   ② 6 个字以上的长答案（多是代码）里有一两处不一样（编辑距离 ≤ 长度/4）——短答案差一个字往往就是另一个词，不提示 */
+const NEAR_EDIT_MIN = 6;
+// raw 里最短的开头一段，规范化以后正好等于 target；用来把规范化后算出的差别换回原样的字
+function rawRest(raw, target){
+  for(let k=0;k<=raw.length;k++) if(normalize(raw.slice(0,k))===target) return raw.slice(k).trim();
+  return "";
+}
+function editDistance(a, b){
+  let prev = Array.from({length:b.length+1}, (_,j)=>j);
+  for(let i=1;i<=a.length;i++){
+    const cur = [i];
+    for(let j=1;j<=b.length;j++) cur[j] = Math.min(prev[j]+1, cur[j-1]+1, prev[j-1] + (a[i-1]===b[j-1] ? 0 : 1));
+    prev = cur;
+  }
+  return prev[b.length];
+}
+function nearText(mine, acceptStr){
+  const rawMine = straighten(mine).trim(), u = normalize(rawMine);
+  if(!u) return null;
+  let best = null;
+  for(const opt of straighten(acceptStr).split("|")){
+    const rawOpt = opt.trim(), o = normalize(rawOpt);
+    if(!o || o===u) continue;
+    const room = Math.max(2, Math.ceil(o.length*0.4));
+    let text = "", d = Infinity;
+    if(o.startsWith(u) && o.length-u.length <= room){ d = o.length-u.length; text = `少了「${rawRest(rawOpt, u)}」`; }
+    else if(u.startsWith(o) && u.length-o.length <= room){ d = u.length-o.length; text = `多了「${rawRest(rawMine, o)}」`; }
+    else if(o.length >= NEAR_EDIT_MIN){
+      const e = editDistance(u, o);
+      if(e <= Math.floor(o.length/4)){ d = e; text = `有 ${e} 处不一样`; }
+    }
+    if(text && !/「」/.test(text) && (!best || d < best.d)) best = { text, d };
+  }
+  return best;
+}
+// 每个判错的空：跟哪一个答案比（按位置判的就是同一位置；能互换的就在还没被配上的答案里挑最接近的）
+function nearHints(q, userInputs, assignment){
+  const key = q.ans || [], used = new Set((assignment||[]).filter(a=>a!==-1));
+  return key.map((_,i)=>{
+    if(!assignment || assignment[i]!==-1) return null;
+    const group = q.unordered ? key.map((_,j)=>j) : ((q.anyOrder||[]).find(g=>g.includes(i)) || [i]);
+    let best = null;
+    group.filter(j=>!used.has(j)).forEach(j=>{
+      const h = nearText((userInputs||[])[i], key[j]);
+      if(h && (!best || h.d < best.d)) best = Object.assign(h, { target: j });
+    });
+    return best;
+  });
+}
+/* 逐空样式（2026-10-19 用户报「a / b / c」一段里分不清哪个是哪一空）：每空一行、带编号。
+   判过分的：对的空编号绿、错的红，错的下面写「你填：…」；背题/错题本只列答案。
    题库里用 | 列的其他写法只列跟第一种不止差空格的（Cal(Num1,Num2); 这种只是少个空格，列出来是噪音） */
-function ansListHtml(q, userInputs, assignment, allCorrect){
+function ansListHtml(q, userInputs, assignment, allCorrect, hints){
   const list = q.ans || [], many = list.length > 1, judged = !!userInputs;
   const squash = s=>String(s).replace(/\s+/g, "");
   return `<ol class="ans-list">` + list.map((a,i)=>{
@@ -406,27 +500,57 @@ function ansListHtml(q, userInputs, assignment, allCorrect){
     const extra = alts.slice(1).filter((x,j,arr)=>squash(x)!==squash(main) && arr.findIndex(y=>squash(y)===squash(x))===j);
     const ok = judged ? (assignment ? assignment[i]!==-1 : allCorrect) : true;
     const mine = judged ? String(userInputs[i]||"").trim() : "";
+    const h = hints && hints[i];
+    const near = h ? `<span class="ans-near">差一点：${h.text}${h.target!==i ? `（接近第 ${h.target+1} 空）` : ""}</span>` : "";
     return `<li class="ans-row ${ok?"ok":"bad"}">${many ? `<span class="ans-no">${i+1}</span>` : ""}<div class="ans-body">`
       + `<span class="ans-main">${esc(main)}</span>`
       + (extra.length ? `<span class="ans-alt">也可写成 ${extra.map(x=>`<span class="v">${esc(x)}</span>`).join("、")}</span>` : "")
-      + (ok ? "" : mine ? `<div class="ans-mine">你填：<s>${esc(mine)}</s></div>` : `<div class="ans-mine none">没填</div>`)
+      + (ok ? "" : mine ? `<div class="ans-mine">你填：<s>${esc(mine)}</s>${near}</div>` : `<div class="ans-mine none">没填</div>`)
       + `</div></li>`;
   }).join("") + `</ol>`;
 }
-// 提交后给题里每一空前面挂上编号，跟下面参考答案的编号对上（只有一空的题不挂）
-function numberBlanks(inputs, assignment, allCorrect){
-  if(inputs.length < 2) return;
+// 逐空样式下给题里每一空前面挂上编号，跟下面参考答案的编号对上；一行样式下摘掉。
+// 只有一空的题不挂；题干自己已经写了 (1)(2) 的（ordered）也不挂，免得两套编号
+function numberBlanks(q, on, assignment, allCorrect){
+  const inputs = blankInputs();
   inputs.forEach((inp,i)=>{
     const prev = inp.previousElementSibling;
     if(prev && prev.classList.contains("blank-no")) prev.remove();
+    if(!on || inputs.length < 2 || q.ordered) return;
     const ok = assignment ? assignment[i]!==-1 : allCorrect;
     inp.insertAdjacentHTML("beforebegin", `<span class="blank-no${ok?"":" bad"}" data-no="${i+1}" aria-hidden="true"></span>`);
   });
 }
+/* 填空题（非翻译题）的答案框。st = {userInputs, assignment, allCorrect}；不传＝背题，只看答案 */
+function renderBlankAnswer(q, st){
+  const box = $("answerBox"), judged = !!st, mode = ansMode(q), n = (q.ans||[]).length;
+  const allCorrect = judged ? st.allCorrect : true;
+  const hints = judged && !allCorrect ? nearHints(q, st.userInputs, st.assignment) : [];
+  const toggle = n > 1 ? `<button type="button" class="ans-toggle">${mode==="list" ? "收成一行 ▴" : "逐空对照 ▸"}</button>` : "";
+  box.className = "answer-box show " + (allCorrect ? "right" : "wrong") + (mode==="list" ? " as-list" : "");
+  const head = judged ? (allCorrect ? "✔ 回答正确" : "✘ 回答有误") : "";
+  if(mode==="list"){
+    const right = judged && st.assignment ? st.assignment.filter(x=>x!==-1).length : (allCorrect ? n : 0);
+    const score = judged && !allCorrect ? `<span class="ans-score">${n} 空对了 ${right} 空</span>` : "";
+    box.innerHTML = `<div class="ans-top">${head ? `<div class="ans-head">${head}${score}</div>` : `<div class="ans-head">参考答案${q.unordered ? "（不分先后）" : ""}</div>`}${toggle}</div>`
+      + (head ? `<div class="ans-cap">参考答案${q.unordered ? "（不分先后）" : ""}</div>` : "")
+      + ansListHtml(q, judged ? (st.userInputs||[]) : null, judged ? st.assignment : null, allCorrect, hints);
+  } else {
+    const near = hints.map((h,i)=>h ? `<div class="ans-near">差一点：你填的「${esc(String(st.userInputs[i]).trim())}」${h.text}</div>` : "").join("");
+    box.innerHTML = (head ? head + (allCorrect ? "！ " : "。 ") : "") + `参考答案：<span class="real correct-ans">${ansLineHtml(q)}</span>${toggle}${near}`;
+  }
+  numberBlanks(q, mode==="list", judged ? st.assignment : null, allCorrect);
+  const t = box.querySelector(".ans-toggle");
+  // 整个答案框重画后按钮是新的：用键盘点的，焦点要还给新按钮（不然掉到 body 上，再按回车就翻到下一题了）
+  if(t) t.onclick = ()=>{ const kb = document.activeElement===t; ansView[q.id] = mode==="list" ? "line" : "list"; renderBlankAnswer(q, st); const nt = kb && box.querySelector(".ans-toggle"); if(nt) nt.focus(); };
+}
 // 复习/错题列表里展示的题干：代码块一起带上；没有题干的（听力题）就把选项列出来
-function plainText(q){
-  let t = (q.text||"").replace(/\{\{\}\}/g,"____");
-  if(q.code) t += (t?"\n":"") + q.code.replace(/\{\{\}\}/g,"____");
+// numbered：逐空列答案时，空前面写上 ①②…，跟下面答案的编号对上（题干自己写了 (1)(2) 的不再加）
+function plainText(q, numbered){
+  let n = 0;
+  const blank = ()=>{ n++; return numbered && !q.ordered ? (n <= 20 ? String.fromCharCode(0x245F + n) : `(${n})`) + "____" : "____"; };
+  let t = (q.text||"").replace(/\{\{\}\}/g, blank);
+  if(q.code) t += (t?"\n":"") + q.code.replace(/\{\{\}\}/g, blank);
   if(!q.text && q.options) t = Object.keys(q.options).map(L=>`${L}. ${q.options[L]}`).join("\n");
   return t;
 }
@@ -625,6 +749,7 @@ function renderResumeCard(){
   card.hidden = false;
   $("resumeContinueBtn").onclick = ()=>{
     // 老版本存的是 startTime 而不是 elapsed：没法知道中间离开了多久，只好从 0 接着计
+    for(const k in ansView) delete ansView[k];
     session = { queue, idx: saved.idx, answers: saved.answers, drafts: (saved.drafts && typeof saved.drafts==="object") ? saved.drafts : {},
       elapsed: saved.elapsed||0, scopeLabel: saved.scopeLabel, historyDate: saved.historyDate||null, sid: newSid(), savedAt: Date.now() };
     activeSince = null;
@@ -653,6 +778,7 @@ async function startQuiz(questionPool, scopeLabel, confirmOverwrite){
   if(random){ shuffle(mcq); shuffle(blank); }
   const pool = mcq.concat(blank);
   activeSince = null;
+  for(const k in ansView) delete ansView[k];   // 「逐空对照」切换只记这一次练习
   session = { queue: pool, idx: 0, answers: new Array(pool.length).fill(null), drafts: {}, elapsed: 0, scopeLabel, sid: newSid(), savedAt: Date.now() };
   showScreen("quiz"); renderQuestion();
 }
@@ -816,7 +942,6 @@ function renderQuestion(){
         inp.classList.add(saved.assignment && saved.assignment[i]!==-1 ? "correct" : "wrong");
         inp.disabled = true;
       });
-      if(!q.vocab) numberBlanks(inputs, saved.assignment, saved.allCorrect);
       showAnswerBoxBlank(q, saved.allCorrect, saved.self, saved.userInputs, saved.assignment);
     } else {
       if(Array.isArray(draft)) inputs.forEach((inp,i)=>{ inp.value = draft[i] || ""; });
@@ -837,9 +962,8 @@ function renderQuestion(){
         });
       });
       if(showOnly){
-        box.className = "answer-box show right";
-        if(q.vocab) box.innerHTML = `参考译文：<span class="real">${esc(ansText(q))}</span>`;
-        else { numberBlanks(inputs, null, true); box.innerHTML = `<div class="ans-head">参考答案</div>` + ansListHtml(q); }
+        if(q.vocab){ box.className = "answer-box show right"; box.innerHTML = `参考译文：<span class="real">${esc(ansText(q))}</span>`; }
+        else renderBlankAnswer(q, null);
       }
       // 只在电脑上（有鼠标）自动聚焦第一空，方便直接打字。手机上不聚焦：点「下一题」时 iPhone 会把键盘直接弹出来，
       // 题还没看完就让人输入（2026-10-18 用户报）；想填的时候点一下横线就好
@@ -901,13 +1025,7 @@ function showAnswerBoxBlank(q, allCorrect, self, userInputs, assignment){
         + `<div class="trans-line"><b>参考译文：</b><span class="real">${markWords(ref.r, ref.d.keepB, "tw-miss")}</span></div>`
         + (mine.trim() ? `<div class="trans-legend"><mark class="tw-extra">红色</mark> 参考译文里没有的词　<mark class="tw-miss">黄底</mark> 你漏掉或写错的词（大小写、标点不算错）</div>` : "");
     }
-  } else {
-    const n = (q.ans||[]).length, inputs = userInputs || [];
-    const right = assignment ? assignment.filter(x=>x!==-1).length : (allCorrect ? n : 0);
-    const score = n > 1 && !allCorrect ? `<span class="ans-score">${n} 空对了 ${right} 空</span>` : "";
-    box.innerHTML = `<div class="ans-head">${allCorrect ? "✔ 回答正确" : "✘ 回答有误"}${score}</div>`
-      + `<div class="ans-cap">参考答案${q.unordered ? "（不分先后）" : ""}</div>` + ansListHtml(q, inputs, assignment, allCorrect);
-  }
+  } else renderBlankAnswer(q, { userInputs: userInputs || [], assignment, allCorrect });
 }
 function submitAnswer(){
   if(!session || session.answers[session.idx] || recite) return;   // 已经交过的题不能再交一次（防连点重复记错题）
@@ -925,7 +1043,6 @@ function submitAnswer(){
     inputs.forEach(inp=>{ inp.disabled = true; });
     const g = gradeQuestion(q, userInputs);
     inputs.forEach((inp,i)=>{ inp.classList.add(g.assignment[i]!==-1 ? "correct" : "wrong"); });
-    if(!q.vocab) numberBlanks(inputs, g.assignment, g.allCorrect);
     showAnswerBoxBlank(q, g.allCorrect, false, userInputs, g.assignment);
     record = { allCorrect: g.allCorrect, userInputs, assignment: g.assignment };
   }
@@ -1034,13 +1151,22 @@ function renderResultList(wantCorrect){
   const body = $("resultListBody");
   if(!items.length){ body.innerHTML = `<div class="empty">没有符合条件的题目</div>`; return; }
   body.innerHTML = items.map(({q,a})=>{
+    // 填空题跟答题页同一套规则（2026-10-19）：空在代码里或 5 空以上逐空列出（带你填的），其余一行、分号隔开
+    if(q.type!=="mcq" && !q.vocab && prefersList(q)){
+      const hints = a.allCorrect ? [] : nearHints(q, a.userInputs, a.assignment);
+      return `<div class="review-item">
+      <div class="qtext">${esc(plainText(q, true))}</div>
+      ${ansListHtml(q, a.userInputs||[], a.assignment, a.allCorrect, hints)}
+    </div>`;
+    }
     let yours;
-    if(q.type==="mcq") yours = a.selectedOpt ? `${a.selectedOpt}. ${q.options[a.selectedOpt]}` : "未作答";
-    else yours = (a.userInputs||[]).map(v=>v.trim() ? v : "（未填）").join("、");
+    if(q.type==="mcq") yours = esc(a.selectedOpt ? `${a.selectedOpt}. ${q.options[a.selectedOpt]}` : "未作答");
+    else yours = oneLineHtml((a.userInputs||[]).map(v=>v.trim() ? v : "（未填）"));
+    const near = q.type!=="mcq" && !q.vocab && !a.allCorrect ? nearHints(q, a.userInputs, a.assignment).map((h,i)=>h ? `<div class="ans-near">差一点：你填的「${esc(String(a.userInputs[i]).trim())}」${h.text}</div>` : "").join("") : "";
     return `<div class="review-item">
       <div class="qtext">${esc(plainText(q))}</div>
-      <div class="your-ans" style="color:${a.allCorrect?"var(--green)":"var(--red)"}">你的答案：${esc(yours)}</div>
-      <div class="correct-ans-line">${q.vocab?"参考译文":"正确答案"}：${esc(ansText(q, "、"))}</div>
+      <div class="your-ans" style="color:${a.allCorrect?"var(--green)":"var(--red)"}">你的答案：${yours}</div>
+      <div class="correct-ans-line">${q.vocab?"参考译文":"正确答案"}：${q.type==="mcq" || q.vocab ? esc(ansText(q)) : ansLineHtml(q)}</div>${near}
     </div>`;
   }).join("");
 }
@@ -1079,10 +1205,13 @@ function renderWrongbook(){
   items.sort((a,b)=>num(b.lastWrongAt)-num(a.lastWrongAt));
   list.innerHTML = items.map(it=>{
     const streak = num(it.correctStreak);
+    // 填空题跟答题页同一套规则：空在代码里或 5 空以上逐空列出，其余一行、分号隔开
+    const blank = it.type!=="mcq" && !it.vocab, asList = blank && prefersList(it);
+    const ans = asList ? ansListHtml(it) : `<div class="ans">${it.vocab?"参考译文":"答案"}：${blank ? ansLineHtml(it) : esc(ansText(it))}</div>`;
     return `<div class="wrong-item">
       <div class="top"><span>${esc(it.cat)}</span><span>错${num(it.wrongCount)||1}次 · ${it.lastWrongAt ? fmtDate(num(it.lastWrongAt)) : ""}</span></div>
-      <div class="qtext">${esc(plainText(it))}</div>
-      <div class="ans">${it.vocab?"参考译文":"答案"}：${esc(ansText(it))}</div>
+      <div class="qtext">${esc(plainText(it, asList))}</div>
+      ${ans}
       <div class="note">已连续答对 ${streak}/${MASTER_STREAK} 次${streak>0 ? `，再连续答对${MASTER_STREAK-streak}次将自动从错题本移除` : ""}<button class="wb-remove" data-id="${esc(it.id)}">移出错题本</button></div>
     </div>`;
   }).join("");
@@ -1468,7 +1597,7 @@ setupSwipeNav();
 window.__quiz = {
   get session(){ return session; }, set session(v){ session = v; },
   renderQuestion, finishQuiz, showScreen, openOverview, closeOverview, startQuiz, submitAnswer, pickOption,
-  isCorrect, gradeBlanksSet, gradeOrdered, gradeQuestion, normalize, fp, elapsedNow, refreshFromStorage,
+  isCorrect, gradeBlanksSet, gradeOrdered, gradeQuestion, normalize, fp, nearText, elapsedNow, refreshFromStorage,
   get wrongbook(){ return wrongbook; }, get history(){ return historyList; }, CFG
 };
 
