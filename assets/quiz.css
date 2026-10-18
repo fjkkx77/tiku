@@ -8,6 +8,9 @@
   --bg:#f3f4f6; --card:#ffffff; --text:#1f2937; --muted:#6b7280; --border:#e5e7eb;
 }
 *{box-sizing:border-box;}
+/* 去掉「双击放大」（2026-10-19 用户报：快速连点「下一题」整页被放大）：manipulation＝只留拖动和双指缩放。
+   浏览器按「手指下的元素 → 往上到第一个滚动容器」取交集，所以几个会滚的框也各写一次；双指缩放照常可用 */
+html,body,.q-text,.q-code,#screen-overview,.trans-area{touch-action:manipulation;}
 /* 自己写了 display 的元素，hidden 属性会被盖掉，这里兜底 */
 [hidden]{display:none !important;}
 body{margin:0;font-family:"Microsoft YaHei",Segoe UI,Arial,sans-serif;background:var(--bg);color:var(--text);}

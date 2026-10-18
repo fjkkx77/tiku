@@ -102,6 +102,9 @@ function serve() {
     await c.ev(`localStorage.setItem("webquiz_inprogress",JSON.stringify({ids:["q0"],fps:["x"],answers:[null],idx:0,elapsed:0,scopeLabel:"t"}))`);
     await c.goto(BASE + 'web-design/');
     ok(await c.ev('document.getElementById("resumeCard").hidden') === true, '续练进度对不上题库时作废');
+    // 2026-10-19 用户报快速连点「下一题」触发双击放大：整页和会滚的框都要是 manipulation（只留拖动 + 双指缩放）
+    r = await c.ev(`["html","body",".q-text",".q-code"].map(s=>getComputedStyle(document.querySelector(s)).touchAction)`);
+    ok(r.every(v => v === 'manipulation'), '整页去掉双击放大（双指缩放保留）', r);
     r = await c.ev(`(()=>{const Q=__quiz;Q.session={queue:[{id:"zz",type:"blank",cat:"x",text:"<b>x</b>{{}}<img src=x onerror=window.__pwn=1>",ans:["a"]}],idx:0,answers:[null],elapsed:0,scopeLabel:"t"};Q.showScreen("quiz");Q.renderQuestion();const t=document.getElementById("qText");return {tags:t.querySelectorAll("b,img").length,inputs:t.querySelectorAll(".blank-input").length};})()`);
     await sleep(100);
     ok(r.tags === 0 && r.inputs === 1 && !(await c.ev('!!window.__pwn')), '题干里的 < > 按文字显示', r);
