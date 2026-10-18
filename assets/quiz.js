@@ -731,6 +731,7 @@ function initBlank(el){
   });
   sync();
 }
+const AUTO_FOCUS = window.matchMedia ? matchMedia("(hover:hover) and (pointer:fine)") : { matches: true };
 // 程序聚焦（翻到下一题、回车跳下一空）：光标放在已填内容的末尾，不放开头；下一空在屏幕外/键盘后面时滚过去
 function focusBlank(el){
   el.focus();
@@ -822,8 +823,10 @@ function renderQuestion(){
         box.className = "answer-box show right";
         box.innerHTML = `${q.vocab?"参考译文":"参考答案"}：<span class="real">${esc(ansText(q))}</span>`;
       }
-      // 滑动翻页时卡片是藏着的，这时不聚焦（不然划到填空题会误弹键盘）；背题时也不抢焦点
-      else if(inputs[0] && document.querySelector("#screen-quiz .qcard").style.visibility !== "hidden") focusBlank(inputs[0]);
+      // 只在电脑上（有鼠标）自动聚焦第一空，方便直接打字。手机上不聚焦：点「下一题」时 iPhone 会把键盘直接弹出来，
+      // 题还没看完就让人输入（2026-10-18 用户报）；想填的时候点一下横线就好
+      // 滑动翻页时卡片是藏着的，这时也不聚焦；背题时也不抢焦点
+      else if(inputs[0] && AUTO_FOCUS.matches && document.querySelector("#screen-quiz .qcard").style.visibility !== "hidden") focusBlank(inputs[0]);
     }
   }
   document.querySelectorAll("#qText .reset-size-btn").forEach(b=>{ b.onclick = ()=>{ b.previousElementSibling.style.height = ""; }; });
@@ -1229,6 +1232,7 @@ function setupSwipeNav(){
   const app = document.querySelector(".app"); if(app) app.style.overflowX = "clip";
   let cardX = 0, liveAnim = null, pending = false;
   let tracking = false, locked = false, startX = 0, startY = 0, startT = 0;
+  let hsFrom = null;   // 这一下是从代码框这类横向滚动区域起手的：只归它滚，不翻页
   let baseX = 0, pos = 0, W = 1, lastX = 0, lastT = 0, vel = 0, guardUntil = 0;
   // 以后每加一个浮层，都要回来这里补一条（和下拉刷新的 blocked() 同理）
   function blocked(){
@@ -1239,6 +1243,14 @@ function setupSwipeNav(){
   }
   function canGo(d){ return d>0 ? session.idx < session.queue.length-1 : session.idx > 0; }
   // 手指下面有能横向滚、而且这个方向还没滚到头的区域（长代码行等）→ 让它自己滚
+  function inHScroller(target){
+    for(let n = target; n && n !== card; n = n.parentElement){
+      if(n.scrollWidth <= n.clientWidth+1) continue;
+      const ox = getComputedStyle(n).overflowX;
+      if(ox==="auto" || ox==="scroll") return true;
+    }
+    return false;
+  }
   function scrollerWants(target, d){
     for(let n = target; n && n !== card; n = n.parentElement){
       if(n.scrollWidth <= n.clientWidth+1) continue;
@@ -1356,7 +1368,7 @@ function setupSwipeNav(){
   document.addEventListener("input", e=>{ if(e.target === document.activeElement) editingField = e.target; }, true);
   document.addEventListener("focusout", e=>{ if(e.target === editingField) editingField = null; }, true);
   screen.addEventListener("touchstart", e=>{
-    tracking = false; locked = false;
+    tracking = false; locked = false; hsFrom = null;
     if(pending || blocked() || e.touches.length!==1) return;
     const t = e.touches[0];
     if(t.clientX < EDGE || t.clientX > document.documentElement.clientWidth-EDGE) return;
@@ -1365,6 +1377,9 @@ function setupSwipeNav(){
     // 「在编辑」要看是不是本人点进去的/打过字：用「下一题」翻过来时程序会自动聚焦第一个框，iPhone 上不弹键盘，那不算
     const field = e.target.closest(FIELD_SEL);
     if(field && field === editingField && field === document.activeElement && !field.disabled) return;
+    // 从能横着滚的区域（代码框）起手：这一下整个归它滚，滚到头也不翻页。以前滚到头再划就翻题，
+    // 看长代码时左右来回滑，误翻的频率非常高（2026-10-18 用户报）。想翻页从代码框外面划，或点按钮
+    if(inHScroller(e.target)){ hsFrom = e.target; startX = t.clientX; startY = t.clientY; return; }
     baseX = stopLive();                       // 动画半路被抓住：就地停住，从这儿接着拖
     pos = baseX;
     startX = lastX = t.clientX; startY = t.clientY;
@@ -1372,6 +1387,12 @@ function setupSwipeNav(){
     vel = 0; W = card.offsetWidth + GAP; tracking = true;
   }, {passive:true});
   screen.addEventListener("touchmove", e=>{
+    // 代码框已经滚到头、还往外划：拦下来。不拦的话浏览器会拿去当「返回上一页」（Chrome 实测整页退回去了）或带着整页晃
+    if(hsFrom){
+      const t = e.touches[0], mx = t.clientX-startX, my = t.clientY-startY;
+      if(e.cancelable && e.touches.length===1 && Math.abs(mx)>Math.abs(my) && !scrollerWants(hsFrom, mx<0 ? 1 : -1)) e.preventDefault();
+      return;
+    }
     if(!tracking) return;
     if(e.touches.length!==1){ tracking = false; locked = false; settleLive(liveX(), 0); return; }
     const t = e.touches[0], mx = t.clientX-startX, my = t.clientY-startY;

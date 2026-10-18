@@ -72,7 +72,7 @@ function serve() {
     r = await c.ev(`(async()=>{${start}Q.pickOption(Q.session.queue[0].correct);Q.showScreen("home");document.getElementById("startBtn").click();await new Promise(r=>setTimeout(r,50));const show=document.getElementById("confirmBackdrop").classList.contains("show");document.getElementById("confirmCancelBtn").click();await new Promise(r=>setTimeout(r,50));return {show,kept:JSON.parse(localStorage.getItem("webquiz_inprogress")).answers.filter(Boolean).length};})()`);
     ok(r.show && r.kept === 1, '有没做完的练习时开始新练习：先确认，取消则保留', r);
     await fresh('os/');
-    r = await c.ev(`(async()=>{${start}const inp=document.querySelector("#qText .blank-input");inp.value="x";inp.dispatchEvent(new KeyboardEvent("keydown",{key:"Enter",isComposing:true,bubbles:true}));return !!Q.session.answers[0]||document.activeElement!==inp;})()`);
+    r = await c.ev(`(async()=>{${start}const inp=document.querySelector("#qText .blank-input");inp.focus();inp.value="x";inp.dispatchEvent(new KeyboardEvent("keydown",{key:"Enter",isComposing:true,bubbles:true}));return !!Q.session.answers[0]||document.activeElement!==inp;})()`);
     ok(r === false, '中文输入法组字时按回车不提交', r);
     await fresh('english-translation/');
     /* 翻译题严格对照参考译文自动判（2026-10-14 用户要求，取代本人自评） */
@@ -345,6 +345,15 @@ function serve() {
           m = await t.ev('(()=>{const b=[...document.querySelectorAll("#qText .blank-input")];return {ed:b.map(x=>x.getAttribute("contenteditable")),cls:b.map(x=>x.className),ui:__quiz.session.answers[__quiz.session.idx].userInputs};})()');
           ok(m.ed.every(x => x === 'false') && m.cls[0].includes('wrong') && m.ui[0] === LONG && m.ui[1] === 'concurrency and resource sharing', `${W} 填空：提交后锁住、标对错、记下原文`, m);
         }
+        // 手机上点「下一题」不自动聚焦（2026-10-18 用户报：iPhone 键盘直接弹出来，题还没看完）
+        {
+          await t.goto(BASE + 'os/'); await t.ev('localStorage.clear()'); await t.goto(BASE + 'os/');
+          await t.ev('document.getElementById("startBtn").click()'); await sleep(150);
+          const nb = await t.ev('(()=>{const b=document.getElementById("nextBtn");b.scrollIntoView({block:"center"});const r=b.getBoundingClientRect();return [r.left+r.width/2,r.top+r.height/2];})()');
+          await T('touchStart', nb[0], nb[1]); await T('touchEnd'); await sleep(400);
+          const m = await t.ev('({idx:__quiz.session.idx,focus:document.activeElement&&document.activeElement.className,coarse:matchMedia("(pointer:coarse)").matches})');
+          ok(m.idx === 1 && !/blank-input/.test(m.focus || ''), `${W} 手机：点「下一题」不自动聚焦第一空（不弹键盘）`, m);
+        }
         // 横线空的几个边角（/code-review 2026-10-18）：多行文字进来收成一行；只剩空格也保持占位横线；横线上下都好点
         {
           await t.goto(BASE + 'os/'); await t.ev('localStorage.clear()'); await t.goto(BASE + 'os/');
@@ -361,6 +370,13 @@ function serve() {
           const tapH = i => t.ev(`(()=>{const el=document.querySelectorAll("#qText .blank-input")[${i}],r=el.getClientRects()[0],x=r.left+Math.min(r.width/2,20),cy=r.top+r.height/2;const on=y=>{const p=document.elementFromPoint(x,y);return !!p&&(p===el||el.contains(p));};let up=0,dn=0;while(up<40&&on(cy-up-1))up++;while(dn<40&&on(cy+dn+1))dn++;return up+dn;})()`);
           m = [await tapH(0), await tapH(2)];
           ok(m.every(h => h >= 26), `${W} 填空：横线可点高度（填了字的、空着的）`, m);
+          // 空着的横线跟旁边的字对齐、不把行撑高（2026-10-18：以前空盒子按里面那一行定基线，低 3~4px，iPhone 上光标还戳穿横线）
+          m = await t.ev(`(()=>{const t=document.getElementById("qText"),b=t.querySelectorAll(".blank-input");b[0].value="";b[1].value="";b[2].value="并发性";document.activeElement.blur();
+            const w=document.createTreeWalker(t,NodeFilter.SHOW_TEXT);let n,he=null;while((n=w.nextNode())){const i=n.data.indexOf("和");if(i>=0){const r=document.createRange();r.setStart(n,i);r.setEnd(n,i+1);he=r.getBoundingClientRect();}}
+            const pad=parseFloat(getComputedStyle(b[3]).paddingBottom),e=b[3].getBoundingClientRect(),f=b[2].getClientRects()[0];
+            const lh=parseFloat(getComputedStyle(t).lineHeight),lines=Math.round(t.getBoundingClientRect().height/lh);
+            return {emptyVsText:+(e.bottom-pad-he.bottom).toFixed(1),filledVsText:+(f.bottom-pad-he.bottom).toFixed(1),extra:+(t.getBoundingClientRect().height-lines*lh).toFixed(1),lh:getComputedStyle(b[3]).lineHeight};})()`);
+          ok(Math.abs(m.emptyVsText) <= 1 && Math.abs(m.extra) <= 2, `${W} 填空：空着的横线跟字对齐、不撑高行`, m);
         }
         // 代码题照 markdown 站：不折行、代码框里左右滑；在代码框里横划是滚代码，不翻页（2026-10-18 用户要求）
         {
@@ -384,6 +400,17 @@ function serve() {
           { const x0 = W * .7; await T('touchStart', x0, y); for (let k = 1; k <= 40; k++) { await T('touchMove', x0 - (k <= 4 ? k * 1.5 : 6 + (k - 4) * 5), y + 1); await sleep(16); } await T('touchEnd'); await sleep(600); }
           m = await t.ev('({sl:document.getElementById("qCode").scrollLeft,idx:__quiz.session.idx})');
           ok(m.sl > 0 && m.idx === idx, `${W} 代码题：手指慢慢拖也能滚代码框`, m);
+          // 代码框滚到头再划也不翻页（2026-10-18 用户报：看长代码时左右滑误翻题，频率非常高）；从代码框外面划照常翻
+          await t.ev('(()=>{const e=document.getElementById("qCode");e.scrollLeft=e.scrollWidth;})()'); await sleep(50);
+          await swipe(W * .7, y, W * .15, y + 3, 180);
+          const atEnd = await t.ev('__quiz.session.idx');
+          await t.ev('document.getElementById("qCode").scrollLeft=0'); await sleep(50);
+          await swipe(W * .25, y, W * .85, y + 3, 180);
+          const atStart = await t.ev('__quiz.session.idx');
+          const ty = await t.ev('(()=>{const e=document.querySelector(".qcard .q-tag");e.scrollIntoView({block:"center"});const r=e.getBoundingClientRect();return r.top+r.height/2;})()'); await sleep(100);
+          await swipe(W * .75, ty, W * .2, ty + 3, 180);
+          const outside = await t.ev('__quiz.session.idx');
+          ok(atEnd === idx && atStart === idx && outside === idx + 1, `${W} 代码题：代码框滚到右头/左头再划都不翻页，从代码框外面划照常翻`, { idx, atEnd, atStart, outside });
         }
         // 从输入框起手：框没在编辑就照常翻页；正在输入时不翻（2026-10-15 用户报：翻译框那一大块滑不动）
         {

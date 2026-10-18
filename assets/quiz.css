@@ -75,16 +75,21 @@ main{flex:1;padding:14px;}
 /* 填空的空＝一条横线（2026-10-18 用户看对比图选的 B，取代方框）：随字变长、到行尾折行；正在填的那一空线加深、垫一层浅蓝。
    字号 16px：小于 16px iPhone 一聚焦就整页放大。
    上下各留 --pad 的内边距是为了好点（只有字那么高的话手指很难点中）；横线和浅底用背景画，不随内边距跑开、贴着字 */
-span.blank-input{--pad:.3em;--ul:#9ca3af;--ulw:1.5px;--fill:transparent;
-  padding:var(--pad) .25em;margin:0 .1em;color:#1d4ed8;font-size:16px;font-weight:600;outline:none;
-  background:linear-gradient(var(--ul),var(--ul)) 0 calc(100% - var(--pad))/100% var(--ulw) no-repeat,
+span.blank-input{--pad:.3em;--gap:3px;--ul:#9ca3af;--ulw:1.5px;--fill:transparent;
+  padding:var(--pad) .25em;margin:0 .1em;color:#1d4ed8;font-size:16px;font-weight:600;outline:none;caret-color:var(--primary);
+  /* 横线在字下面空出 --gap：光标和字一样高，横线贴着字底的话光标会戳穿横线（2026-10-18 用户截图） */
+  background:linear-gradient(var(--ul),var(--ul)) 0 calc(100% - var(--pad) + var(--gap))/100% var(--ulw) no-repeat,
              linear-gradient(var(--fill),var(--fill)) 0 50%/100% calc(100% - 2*var(--pad)) no-repeat;
   overflow-wrap:anywhere;white-space:pre-wrap;cursor:text;-webkit-user-select:text;user-select:text;}
 /* 代码框里跟着代码走（不折行）：空自己是 pre-wrap 的话，填了字以后这一行剩下的代码会被挤到下一行。
    代码行距小，内边距也收小，不然有空的那几行会被撑高 */
-.q-code span.blank-input{white-space:inherit;--pad:.1em;}
-/* 空着（含只剩空格）：给一段固定长度的横线 */
-span.blank-input.is-empty{display:inline-block;min-width:4.5em;height:1.2em;box-sizing:content-box;vertical-align:calc(-.25em - var(--pad));}
+.q-code span.blank-input{white-space:inherit;--pad:.1em;--gap:1px;}
+/* 光标停在空的边上时用的是外面的光标颜色（WebKit 实测是黑的），整块题目区统一成蓝 */
+.q-text,.q-code{caret-color:var(--primary);}
+/* 空着（含只剩空格）：给一段固定长度的横线。
+   里面的行高要跟盒子一样高（1.2）：继承的 1.8 倍行高比盒子高，空着时光标比盒子长、从横线底下戳出去（iPhone 截图）；
+   overflow:hidden 让它的基线固定在盒子底边——不加的话可编辑的空盒子按里面那一行定基线，比旁边的字低 3~9px、还把行撑高（WebKit/Chrome 实测） */
+span.blank-input.is-empty{display:inline-block;min-width:4.5em;height:1.2em;line-height:1.2;overflow:hidden;box-sizing:content-box;vertical-align:calc(-.25em - var(--pad));}
 span.blank-input:focus{--ul:var(--primary);--ulw:2px;--fill:rgba(59,130,246,.08);}
 span.blank-input.correct{--ul:var(--green);color:var(--green);}
 span.blank-input.wrong{--ul:var(--red);color:var(--red);}

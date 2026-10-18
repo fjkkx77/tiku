@@ -384,6 +384,12 @@ async function runHome(BASE, ok) {
       await t.ev('window.scrollTo(0,document.documentElement.scrollHeight)'); await sleep(400);
       const m = await t.ev('(()=>{const b=document.getElementById("cbar"),r=b.getBoundingClientRect(),m=document.getElementById("topMoreBtn").getBoundingClientRect();return {on:b.classList.contains("on"),l:Math.round(r.left),w:Math.round(r.width),btnIn:m.left>=r.left&&m.right<=r.right};})()');
       ok(m.on && m.l === head[0] && m.w === head[1] && m.btnIn, `${W} 电脑：小栏跟横幅同宽、⋯ 在小栏里`, { m, head });
+      // 电脑上（有鼠标）点「下一题」照旧自动聚焦第一空，直接打字（手机上不聚焦，见 run.cjs）
+      await t.goto(BASE + 'os/'); await t.ev('localStorage.clear()'); await t.goto(BASE + 'os/');
+      await t.ev('document.getElementById("startBtn").click()'); await sleep(150);
+      await t.ev('document.getElementById("nextBtn").click()'); await sleep(200);
+      const f = await t.ev('({idx:__quiz.session.idx,focus:document.activeElement===document.querySelector("#qText .blank-input")})');
+      ok(f.idx === 1 && f.focus, `${W} 电脑：点「下一题」自动聚焦第一空`, f);
     } finally { t.close(); }
   }
 }
