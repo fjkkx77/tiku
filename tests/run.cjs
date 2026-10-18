@@ -370,6 +370,8 @@ function serve() {
     // 汇总首页改版（2026-10-16）：置顶、排序、分组、左滑、长按拖动、学习情况——自己开浏览器，含 320/390/430 三档真触摸
     await require('./home.cjs').runHome(BASE, ok);
     console.log('2b. 汇总首页检查完成');
+    await require('./sync.cjs').runSync(ok);   // 多设备同步：两台设备 + 真接口 + 假存储（2026-10-19）
+    console.log('2c. 多设备同步检查完成');
 
     /* ---------- 3. 手势 + 4. 版面 ---------- */
     c.close();

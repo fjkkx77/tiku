@@ -24,7 +24,8 @@ const crypto = require("crypto");
 const MAX_BODY_BYTES = 1536 * 1024;  /* 一份数据最大 1.5MB：最坏情况估出来约 460KB，留三倍余量 */
 const MAX_ITEMS = 12000;
 const TTL_SECONDS = 400 * 24 * 3600; /* 每次写入续期，长期不用才自动过期 */
-const ALLOWED_ORIGINS = ["https://fjkkx77.github.io"];   /* 同源（tk.wbztl.xyz 自己）不用列 */
+/* 同源（tk.wbztl.xyz 自己）不用列。SYNC_EXTRA_ORIGINS（逗号分隔）只给本地测试用：tests/sync.cjs 拿另一个端口当「GitHub Pages」 */
+const ALLOWED_ORIGINS = ["https://fjkkx77.github.io"].concat(String(process.env.SYNC_EXTRA_ORIGINS || "").split(",").filter(Boolean));
 
 function creds(){
   const url = process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL;
