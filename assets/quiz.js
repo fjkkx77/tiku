@@ -528,24 +528,46 @@ function renderBlankAnswer(q, st){
   const box = $("answerBox"), judged = !!st, mode = ansMode(q), n = (q.ans||[]).length;
   const allCorrect = judged ? st.allCorrect : true;
   const hints = judged && !allCorrect ? nearHints(q, st.userInputs, st.assignment) : [];
-  const toggle = n > 1 ? `<button type="button" class="ans-toggle">${mode==="list" ? "收成一行 ▴" : "逐空对照 ▸"}</button>` : "";
-  box.className = "answer-box show " + (allCorrect ? "right" : "wrong") + (mode==="list" ? " as-list" : "");
+  // 切换入口：右上角一个小图标（2026-10-19 用户定，取代「逐空对照 ▸ / 收成一行 ▴」文字），双击答案区是快捷方式
+  const toggle = n > 1 ? `<button type="button" class="ans-toggle" aria-label="${mode==="list" ? "收成一行" : "逐空对照"}" title="${mode==="list" ? "收成一行" : "逐空对照"}（双击答案区也可以）">`
+    + `<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 20V4M3 8l4-4 4 4M17 4v16M13 16l4 4 4-4"/></svg></button>` : "";
+  box.className = "answer-box show " + (allCorrect ? "right" : "wrong") + (mode==="list" ? " as-list" : "") + (toggle ? " has-toggle" : "");
   const head = judged ? (allCorrect ? "✔ 回答正确" : "✘ 回答有误") : "";
   if(mode==="list"){
     const right = judged && st.assignment ? st.assignment.filter(x=>x!==-1).length : (allCorrect ? n : 0);
     const score = judged && !allCorrect ? `<span class="ans-score">${n} 空对了 ${right} 空</span>` : "";
-    box.innerHTML = `<div class="ans-top">${head ? `<div class="ans-head">${head}${score}</div>` : `<div class="ans-head">参考答案${q.unordered ? "（不分先后）" : ""}</div>`}${toggle}</div>`
+    box.innerHTML = toggle + (head ? `<div class="ans-head">${head}${score}</div>` : `<div class="ans-head">参考答案${q.unordered ? "（不分先后）" : ""}</div>`)
       + (head ? `<div class="ans-cap">参考答案${q.unordered ? "（不分先后）" : ""}</div>` : "")
       + ansListHtml(q, judged ? (st.userInputs||[]) : null, judged ? st.assignment : null, allCorrect, hints);
   } else {
     const near = hints.map((h,i)=>h ? `<div class="ans-near">差一点：你填的「${esc(String(st.userInputs[i]).trim())}」${h.text}</div>` : "").join("");
-    box.innerHTML = (head ? head + (allCorrect ? "！ " : "。 ") : "") + `参考答案：<span class="real correct-ans">${ansLineHtml(q)}</span>${toggle}${near}`;
+    box.innerHTML = toggle + (head ? head + (allCorrect ? "！ " : "。 ") : "") + `参考答案：<span class="real correct-ans">${ansLineHtml(q)}</span>${near}`;
   }
   numberBlanks(q, mode==="list", judged ? st.assignment : null, allCorrect);
-  const t = box.querySelector(".ans-toggle");
   // 整个答案框重画后按钮是新的：用键盘点的，焦点要还给新按钮（不然掉到 body 上，再按回车就翻到下一题了）
-  if(t) t.onclick = ()=>{ const kb = document.activeElement===t; ansView[q.id] = mode==="list" ? "line" : "list"; renderBlankAnswer(q, st); const nt = kb && box.querySelector(".ans-toggle"); if(nt) nt.focus(); };
+  box._toggle = toggle ? ()=>{
+    const kb = document.activeElement===box.querySelector(".ans-toggle");
+    ansView[q.id] = mode==="list" ? "line" : "list"; renderBlankAnswer(q, st);
+    const nt = kb && box.querySelector(".ans-toggle"); if(nt) nt.focus();
+  } : null;
+  const t = box.querySelector(".ans-toggle");
+  if(t) t.onclick = box._toggle;
 }
+/* 双击答案区＝切换（2026-10-19 用户要的）。右上角图标是看得见的入口，双击只是快捷方式——
+   HIG「Gestures › Custom gestures」：自定义手势要能被发现，且不能是完成操作的唯一方式。
+   iPhone 上原生 dblclick 不可靠，这里自己按「两次点击相隔 ≤350ms、相距 ≤30px」判断；点在图标上的不算（图标自己会切） */
+(function(){
+  const box = $("answerBox");
+  let last = null;
+  box.addEventListener("click", e=>{
+    if(!box._toggle || e.target.closest(".ans-toggle")){ last = null; return; }
+    const p = { t: e.timeStamp, x: e.clientX, y: e.clientY };
+    if(last && p.t - last.t <= 350 && Math.hypot(p.x - last.x, p.y - last.y) <= 30){ last = null; box._toggle(); }
+    else last = p;
+  });
+  // 电脑上鼠标双击会顺带选中一个词：能切换时拦掉
+  box.addEventListener("mousedown", e=>{ if(box._toggle && e.detail > 1 && !e.target.closest(".ans-toggle")) e.preventDefault(); });
+})();
 // 复习/错题列表里展示的题干：代码块一起带上；没有题干的（听力题）就把选项列出来
 // numbered：逐空列答案时，空前面写上 ①②…，跟下面答案的编号对上（题干自己写了 (1)(2) 的不再加）
 function plainText(q, numbered){
@@ -914,7 +936,7 @@ function renderQuestion(){
   $("qTag").textContent = q.cat;
   $("prevBtn").disabled = session.idx===0;
   const textEl = $("qText"), codeEl = $("qCode"), body = $("qBody"), box = $("answerBox");
-  box.className = "answer-box"; box.innerHTML = "";
+  box.className = "answer-box"; box.innerHTML = ""; box._toggle = null;
   body.innerHTML = "";
   let n = 0;
   // 题干一律先转义再插空位：原题文字里的 <a>、<script> 不能被浏览器当成真标签解析

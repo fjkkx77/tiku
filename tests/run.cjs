@@ -136,7 +136,7 @@ function serve() {
       Q.session={queue:[q,QUESTIONS[1]],idx:0,answers:[null,null],drafts:{},elapsed:0,scopeLabel:"t"};Q.showScreen("quiz");Q.renderQuestion();
       const b=[...document.querySelectorAll("#qText .blank-input")];["并发","共享","",""].forEach((v,k)=>b[k].value=v);Q.submitAnswer();
       const box=document.getElementById("answerBox"),snap=()=>({one:box.querySelectorAll(".ans-one").length,sep:box.querySelectorAll(".ans-sep").length,rows:box.querySelectorAll(".ans-row").length,
-        nos:document.querySelectorAll("#qText .blank-no").length,tg:(box.querySelector(".ans-toggle")||{}).textContent,near:[...box.querySelectorAll(".ans-near")].map(e=>e.textContent)});
+        nos:document.querySelectorAll("#qText .blank-no").length,tg:(box.querySelector(".ans-toggle")||{getAttribute(){}}).getAttribute("aria-label"),near:[...box.querySelectorAll(".ans-near")].map(e=>e.textContent)});
       const line=snap();box.querySelector(".ans-toggle").click();const list=snap();box.querySelector(".ans-toggle").click();const back=snap();
       // 答案整块：每个答案（连同后面的分号）都只占一行
       const split=[...box.querySelectorAll(".ans-one")].filter(e=>e.getBoundingClientRect().height>parseFloat(getComputedStyle(box).lineHeight||"20")*1.5).length;
@@ -144,10 +144,24 @@ function serve() {
       const single={tg:!!box.querySelector(".ans-toggle"),near:(box.querySelector(".ans-near")||{}).textContent};
       return {strict,line,list,back,split,single};})()`);
     ok(r.strict.short === false && r.strict.full === true && r.strict.suffix === false, '判分严格：「并发」不算「并发性」，词尾多写「性」也不算', r.strict);
-    ok(r.line.one === 4 && r.line.sep === 3 && r.line.rows === 0 && r.line.nos === 0 && r.line.tg === '逐空对照 ▸' && r.split === 0, '1~4 空的题默认一行、分号隔开、题里不挂编号', r.line);
-    ok(r.list.rows === 4 && r.list.nos === 4 && r.list.tg === '收成一行 ▴' && r.back.rows === 0 && r.back.nos === 0 && r.back.one === 4, '「逐空对照」切过去有编号、再切回一行编号摘掉', { list: r.list, back: r.back });
+    ok(r.line.one === 4 && r.line.sep === 3 && r.line.rows === 0 && r.line.nos === 0 && r.line.tg === '逐空对照' && r.split === 0, '1~4 空的题默认一行、分号隔开、题里不挂编号', r.line);
+    ok(r.list.rows === 4 && r.list.nos === 4 && r.list.tg === '收成一行' && r.back.rows === 0 && r.back.nos === 0 && r.back.one === 4, '「逐空对照」切过去有编号、再切回一行编号摘掉', { list: r.list, back: r.back });
     ok(r.line.near.length === 2 && r.line.near.every(t => t.includes('少了「性」')) && r.list.near.length === 2, '差一点：「并发」提示少了「性」（一行和逐空两种样式都有）', r.line.near);
     ok(r.single.tg === false && /「系统」少了「软件」/.test(r.single.near || ''), '只有一空的题不给切换；差一点：系统 → 少了「软件」', r.single);
+    // 2026-10-19 用户定：切换入口改成右上角小图标 + 双击答案区。用真的触摸输入点（CDP），不在页面里伪造 click
+    await c.ev(`(()=>{const Q=__quiz;Q.session={queue:[QUESTIONS[0]],idx:0,answers:[null],drafts:{},elapsed:0,scopeLabel:"t"};Q.showScreen("quiz");Q.renderQuestion();Q.submitAnswer();document.getElementById("answerBox").scrollIntoView({block:"center"});})()`);
+    const at = async sel => c.ev(`(()=>{const r=document.querySelector(${JSON.stringify(sel)}).getBoundingClientRect();return {x:r.left+r.width/2,y:r.top+Math.min(r.height/2,14)};})()`);
+    const tap = async (pt, gap) => { await c.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: pt.x, y: pt.y }] }); await c.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] }); await sleep(gap); };
+    const modeNow = () => c.ev('document.getElementById("answerBox").classList.contains("as-list")');
+    const dt = {}; let pt = await at('#answerBox .real');
+    await tap(pt, 500); dt.single = await modeNow();
+    await tap(pt, 120); await tap(pt, 400); dt.dbl = await modeNow();
+    pt = await at('#answerBox .ans-list'); await tap(pt, 120); await tap(pt, 400); dt.dblBack = await modeNow();
+    pt = await at('#answerBox .real'); await tap(pt, 600); await tap(pt, 400); dt.slow = await modeNow();
+    pt = await at('#answerBox .ans-toggle'); await tap(pt, 120); dt.icon1 = await modeNow(); pt = await at('#answerBox .ans-toggle'); await tap(pt, 400); dt.icon2 = await modeNow();
+    dt.overlap = await c.ev(`(()=>{const b=document.getElementById("answerBox"),t=b.querySelector(".ans-toggle").getBoundingClientRect();return [...b.querySelectorAll(".ans-one")].some(e=>{const r=e.getBoundingClientRect();return r.right>t.left+1&&r.left<t.right&&r.bottom>t.top&&r.top<t.bottom;});})()`);
+    ok(dt.single === false && dt.dbl === true && dt.dblBack === false && dt.slow === false, '双击答案区切换、再双击切回；单击和慢点两下不切', dt);
+    ok(dt.icon1 === true && dt.icon2 === false && dt.overlap === false, '右上角图标点一下切一次（连点两下不会多切）、答案文字不压在图标底下', dt);
     // 差一点不能把意思不同的答案也说成「差一点」（/code-review 指出的）；提示里显示原样的字，不是规范化后的小写
     r = await c.ev(`(()=>{const n=(m,a)=>{const h=__quiz.nearText(m,a);return h?h.text:"";};return {no:[n("LIFO","FIFO"),n("线程","进程"),n("异步","同步"),n("3","2"),n("不可再现性","可再现性"),n("=","!=")],
       yes:[n("可再现性","可再现"),n("getElement","getElementById"),n("x; i < y; i++","x; i <= y; i++"),n("存与辅存的容量之","主存与辅存的容量之和")]};})()`);

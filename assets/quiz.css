@@ -123,11 +123,13 @@ span.blank-input[contenteditable="false"]{cursor:default;}
 .ans-one{display:inline-block;max-width:100%;overflow-wrap:anywhere;}
 /* 分隔的「；」用灰色常规字重：答案自己结尾带 ; 的代码（Random r = new Random();）不会跟分隔符混成一团 */
 .ans-sep{color:var(--muted);font-weight:normal;margin:0 .2em 0 .05em;}
-/* 两种样式之间切换：小号文字按钮，热区靠内边距撑到 32px 高 */
-.ans-toggle{-webkit-appearance:none;appearance:none;border:none;background:none;font:inherit;font-size:13px;font-weight:normal;color:var(--primary-dark);
-  padding:7px 6px;margin:-7px -6px -7px 4px;cursor:pointer;white-space:nowrap;touch-action:manipulation;vertical-align:baseline;}
-.ans-top{display:flex;align-items:baseline;justify-content:space-between;gap:8px;}
-.ans-top .ans-toggle{margin:-7px -6px -7px 0;flex:none;}
+/* 两种样式之间切换（2026-10-19 用户定）：答案框右上角一个灰色小图标，不占文字位置；双击答案区也能切。
+   图标 17px，按钮 36×36 好点。用右浮动：只有头一两行文字绕开它，下面的答案行照旧占满整宽
+   （以前试过整个答案框右边让出 40px，逐空的每一行都被压窄，空着一条白边） */
+.ans-toggle{float:right;width:36px;height:36px;margin:-8px -7px 0 6px;display:flex;align-items:center;justify-content:center;
+  -webkit-appearance:none;appearance:none;border:none;background:none;padding:0;border-radius:8px;color:var(--muted);cursor:pointer;touch-action:manipulation;}
+.ans-toggle:active{background:rgba(0,0,0,.06);}
+.ans-toggle:focus-visible{outline:2px solid var(--primary);outline-offset:-2px;}
 /* 「差一点」：只是提示，判错照旧 */
 .ans-near{font-size:12.5px;color:#92400e;}
 .ans-mine .ans-near{display:inline-block;margin-left:8px;}
