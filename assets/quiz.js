@@ -1305,6 +1305,31 @@ function setupPullToRefresh(){
   const MAX_PULL = 120;   // 再往下拉指示器也不动了
   const threshold = ()=>Math.min(100, Math.max(56, window.innerHeight * 0.1));
   let startX=0, startY=0, pulling=false, locked=false, distance=0, refreshing=false, tipTimer=null, unlockTimer=null;
+  let reloading = false;   // 真正发起了整页重新加载（refreshing 里先检查网络的那几秒不算）
+  // 先把这一页本身 + 本站的 css/js 都拿一遍，6 秒内全部完整拿到才整页重新加载；拿不到就不刷新（下拉刷新配方 v2.0）。
+  // 以前「预热最多等 2.5 秒、超时照样 reload」：网络一卡，iOS 发起重新加载后冻住旧页面，新页面又只下载到一半、
+  // 脚本跑不起来，箭头卡在半路、页面变空白（2026-10-19 日程卡片用户截图，本地拿「故意不回数据」的服务器复现过）。
+  // 有 Service Worker（../sw.js，先网络后缓存）：断网时这里拿到的是缓存那份，照样刷新、刷出来的也是缓存那份，跟原来一样；
+  // 网络卡住不回时 SW 也只能干等，所以这道检查照样要
+  function safeReload(go, fail){
+    if(typeof fetch !== "function" || typeof Promise !== "function"){ go(); return; }
+    const urls = [location.href.split("#")[0]];
+    document.querySelectorAll('link[rel="stylesheet"][href],script[src]').forEach(n=>{
+      try{ const u = new URL(n.getAttribute("href")||n.getAttribute("src"), location.href);
+        if(u.origin===location.origin && !urls.includes(u.href)) urls.push(u.href); }catch(e){}
+    });
+    const ac = typeof AbortController === "function" ? new AbortController() : null;
+    let settled = false;
+    const finish = good=>{ if(settled) return; settled = true; clearTimeout(timer); if(good) go(); else { if(ac) ac.abort(); fail(); } };
+    const timer = setTimeout(()=>finish(false), 6000);
+    // 一律 no-store（2026-10-20，只这个站这样）：经过 Service Worker 的请求，页面这边放弃了、SW 替它发的那个却不会跟着取消，
+    // 挂在那里锁住这个地址的缓存条目，之后同一地址要走缓存的请求（包括真正重新加载）全排在它后面——测试里网络好了再拉照样卡死。
+    // no-store 不碰缓存、不会被锁；css/js 地址都带 ?v= 版本号，发版地址就变，用不着靠这一步刷新缓存。代价：每次下拉多下 60～70KB（实测压缩后）
+    // 正文也要读完才算拿到；页面本身要回 2xx 才刷，css/js 只要服务器有回应就算网络通（某个文件本来就 404，刷新后也一样缺，不能因此永远说「网络不好」）
+    Promise.all(urls.map((u, i)=>fetch(u, {cache:"no-store", signal: ac ? ac.signal : undefined})
+      .then(r=>{ if(i===0 && !r.ok) throw new Error("HTTP "+r.status); return r.arrayBuffer(); })))
+      .then(()=>finish(true), ()=>finish(false));
+  }
   // 有浮层、或正在答题时都不接管手势（以后每加一个浮层，都要回来这里补一条）
   function blocked(){
     if(isActive("screen-quiz")) return true;         // 答题中：刷新会把人踢回首页，还没提交的输入会丢
@@ -1336,22 +1361,22 @@ function setupPullToRefresh(){
       showTip("当前没有网络，已重新载入本地数据"); reset(true); refreshing = false; return;
     }
     try{ sessionStorage.setItem("ptr-fired", String(Date.now())); }catch(err){}
-    // GitHub Pages 给 css/js 缓存 10 分钟，直接 reload 只会重新校验 HTML，拿到的还是旧样式/旧脚本。
-    // 先把同源的样式表和脚本强制校验一遍再刷新（下拉刷新配方 v1.7）
-    const urls = [...document.querySelectorAll('link[rel="stylesheet"][href],script[src]')]
-      .map(n=>n.href||n.src).filter(u=>{ try{ return new URL(u).origin===location.origin; }catch(e){ return false; } });
-    let gone = false; const go = ()=>{ if(!gone){ gone = true; location.reload(); } };
-    setTimeout(go, 2500);
-    Promise.all(urls.map(u=>fetch(u, {cache:"no-cache"}).catch(()=>{}))).then(go);
+    // GitHub Pages 给 css/js 缓存 10 分钟，直接 reload 只会重新校验 HTML，拿到的还是旧样式/旧脚本，
+    // 所以先把同源的样式表和脚本强制校验一遍（下拉刷新配方 v1.7）——现在由 safeReload 一起做，并且拿不到就不刷
+    safeReload(()=>{ reloading = true; location.reload(); }, ()=>{
+      try{ sessionStorage.removeItem("ptr-fired"); }catch(err){}
+      showTip("网络不好，这次没刷新。稍后再拉一次。");
+      reset(true); refreshing = false;
+    });
   }
   document.addEventListener("touchstart", e=>{
     if(refreshing || blocked() || e.touches.length!==1 || window.scrollY>0){ pulling = false; return; }
     startX = e.touches[0].clientX; startY = e.touches[0].clientY; pulling = true; locked = false;
   }, {passive:true});
   document.addEventListener("touchmove", e=>{
-    // 刷新中锁住滚动：iOS Safari 发起重新加载后、新页面画出来之前会冻结绘制，
-    // 这时还能滑，滑出来的区域是一片空白（下拉刷新配方 v1.8）
-    if(refreshing){ e.preventDefault(); return; }
+    // 整页重新加载中锁住滚动：iOS Safari 发起重新加载后、新页面画出来之前会冻结绘制，
+    // 这时还能滑，滑出来的区域是一片空白（下拉刷新配方 v1.8）。前面检查网络那几秒页面是活的，照常能滑（v2.0）
+    if(reloading){ e.preventDefault(); return; }
     if(!pulling) return;
     const dx = e.touches[0].clientX-startX, dy = e.touches[0].clientY-startY;
     if(!locked){
@@ -1374,7 +1399,7 @@ function setupPullToRefresh(){
     setTimeout(doRefresh, 260);   // 留一下 spinner 再动手，否则直接白屏像卡死
     // 兜底：重新加载被取消或一直卡着时，10 秒后解锁，别让页面永远滑不动
     clearTimeout(unlockTimer);
-    unlockTimer = setTimeout(()=>{ if(refreshing){ refreshing = false; reset(true); } }, 10000);
+    unlockTimer = setTimeout(()=>{ if(refreshing){ refreshing = false; reloading = false; reset(true); } }, 10000);
   }, {passive:true});
   // 触摸被系统打断（来电、系统手势）：收回指示器、不触发刷新（旧版没处理，指示器会停在半空）
   document.addEventListener("touchcancel", ()=>{ if(pulling && !refreshing){ pulling = false; locked = false; reset(true); } }, {passive:true});
