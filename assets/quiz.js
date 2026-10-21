@@ -1357,28 +1357,37 @@ function setupPullToRefresh(){
     tip.textContent = msg; tip.classList.add("show");
     clearTimeout(tipTimer); tipTimer = setTimeout(()=>tip.classList.remove("show"), 1800);
   }
-  function doRefresh(){
+  // 第几次下拉：兜底解锁 / 作罢之后，上一次还没回来的检查一律作废。不然锁屏回来时检查被重新计时、跟 10 秒兜底错开，
+  // 转圈先收了、过几秒页面又突然刷新或冒出「网络不好」，甚至作用到下一次下拉上（审查指出）。
+  // edited：检查那几秒里用户动过表单（真实的勾选 / 输入，比如分类、顺序、只练没做过的）——这些不存盘，整页重新加载会冲掉，就不刷了
+  let attempt = 0, edited = false;
+  const onEdit = e => { if(e.isTrusted && refreshing && !reloading) edited = true; };
+  document.addEventListener("input", onEdit, true);
+  document.addEventListener("change", onEdit, true);
+  function doRefresh(my){
+    if(my !== attempt) return;   // 这一次已经作废（兜底到点 / 又拉了一次）
     // 页面没有 Service Worker：断网时 location.reload() 会变成浏览器错误页，改成重读本地数据 + 重绘
     if(navigator.onLine === false){
       refreshFromStorage();
-      showTip("当前没有网络，已重新载入本地数据"); reset(true); refreshing = false; return;
+      showTip("当前没有网络，已重新载入本地数据"); attempt++; reset(true); refreshing = false; return;
     }
     try{ sessionStorage.setItem("ptr-fired", String(Date.now())); }catch(err){}
     // GitHub Pages 给 css/js 缓存 10 分钟，直接 reload 只会重新校验 HTML，拿到的还是旧样式/旧脚本，
     // 所以先把同源的样式表和脚本强制校验一遍（下拉刷新配方 v1.7）——现在由 safeReload 一起做，并且拿不到就不刷
-    const giveUp = ()=>{ try{ sessionStorage.removeItem("ptr-fired"); }catch(err){} clearTimeout(unlockTimer); reset(true); refreshing = false; reloading = false; };
-    safeReload(()=>{
-      // 检查网络那几秒页面是能用的：这期间要是进了答题、打开了总览 / 确认框（blocked），整页重新加载会把人踢回首页——作罢
-      if(blocked()){ giveUp(); return; }
+    const giveUp = ()=>{ attempt++; try{ sessionStorage.removeItem("ptr-fired"); }catch(err){} clearTimeout(unlockTimer); reset(true); refreshing = false; reloading = false; };
+    const live = fn => ()=>{ if(my === attempt) fn(); };   // 这一次作废了就什么都不做
+    safeReload(live(()=>{
+      // 检查网络那几秒页面是能用的：这期间要是进了答题、打开了总览 / 确认框（blocked）、动过表单，整页重新加载会把人踢回首页 / 冲掉刚选的——作罢
+      if(blocked() || edited){ giveUp(); return; }
       reloading = true;
       armUnlock();   // 兜底从真正开始重新加载算起：检查网络可能已经用掉 6 秒，不重算的话重新加载只剩 3~4 秒就被解锁，iOS 冻住的旧页面又能滑出空白
       location.reload();
-    }, ()=>{ showTip("网络不好，这次没刷新。稍后再拉一次。"); giveUp(); });
+    }), live(()=>{ showTip("网络不好，这次没刷新。稍后再拉一次。"); giveUp(); }));
   }
   // 兜底：重新加载被取消或一直卡着时，10 秒后解锁，别让页面永远滑不动
   function armUnlock(){
     clearTimeout(unlockTimer);
-    unlockTimer = setTimeout(()=>{ if(refreshing){ refreshing = false; reloading = false; reset(true); } }, 10000);
+    unlockTimer = setTimeout(()=>{ if(refreshing){ attempt++; refreshing = false; reloading = false; reset(true); } }, 10000);
   }
   document.addEventListener("touchstart", e=>{
     if(refreshing || blocked() || e.touches.length!==1 || window.scrollY>0){ pulling = false; return; }
@@ -1407,7 +1416,8 @@ function setupPullToRefresh(){
     refreshing = true;
     el.classList.add("ptr-animate","ptr-loading");
     el.style.transform = "translateY("+threshold()+"px)";
-    setTimeout(doRefresh, 260);   // 留一下 spinner 再动手，否则直接白屏像卡死
+    const my = ++attempt; edited = false;
+    setTimeout(()=>doRefresh(my), 260);   // 留一下 spinner 再动手，否则直接白屏像卡死
     armUnlock();
   }, {passive:true});
   // 触摸被系统打断（来电、系统手势）：收回指示器、不触发刷新（旧版没处理，指示器会停在半空）

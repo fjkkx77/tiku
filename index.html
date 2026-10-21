@@ -27,7 +27,7 @@
 })();
 </script>
 <title>刷题合集</title>
-<link rel="stylesheet" href="assets/sync-panel.css?v=c08aa72bae">
+<link rel="stylesheet" href="assets/sync-panel.css?v=3fbafb03d2">
 <style>
   /* 外观＝2026-10-15 之前的样子（2026-10-16 用户看过 iOS 风格改版后决定回到原来的界面风格，只保留新的逻辑和交互） */
   :root{ --primary:#3b82f6; --primary-dark:#2563eb; --bg:#f3f4f6; --text:#1f2937; --muted:#6b7280; --border:#e5e7eb; --danger:#dc2626; --press:#eef2f7; --ease:cubic-bezier(.2,.9,.3,1); }
@@ -322,10 +322,10 @@
   </div>
 </div>
 
-<script src="assets/sync-core.js?v=c08aa72bae"></script>
-<script src="assets/sync-client.js?v=c08aa72bae"></script>
-<script src="assets/sync-panel.js?v=c08aa72bae"></script>
-<script src="assets/tiku-sync.js?v=c08aa72bae"></script>
+<script src="assets/sync-core.js?v=3fbafb03d2"></script>
+<script src="assets/sync-client.js?v=3fbafb03d2"></script>
+<script src="assets/sync-panel.js?v=3fbafb03d2"></script>
+<script src="assets/tiku-sync.js?v=3fbafb03d2"></script>
 <script src="assets/drag.js?v=2.0.0"></script>
 <script>
 const SUBJECTS = [
@@ -1436,30 +1436,40 @@ function setupPullToRefresh(){
     clearTimeout(tipTimer);
     tipTimer = setTimeout(function(){ tip.classList.remove("show"); }, 1800);
   }
-  function doRefresh(){
+  // 第几次下拉：兜底解锁 / 作罢之后，上一次还没回来的检查一律作废。不然锁屏回来时检查被重新计时、跟 10 秒兜底错开，
+  // 转圈先收了、过几秒页面又突然刷新或冒出「网络不好」，甚至作用到下一次下拉上（审查指出）。
+  // edited：检查那几秒里用户动过表单（真实的勾选 / 输入，比如分类、顺序、只练没做过的）——这些不存盘，整页重新加载会冲掉，就不刷了
+  let attempt = 0, edited = false;
+  const onEdit = e => { if(e.isTrusted && refreshing && !reloading) edited = true; };
+  document.addEventListener("input", onEdit, true);
+  document.addEventListener("change", onEdit, true);
+  function doRefresh(my){
+    if(my !== attempt) return;   // 这一次已经作废（兜底到点 / 又拉了一次）
     // 断网时 location.reload() 会把整个应用变成浏览器错误页，
     // 所以离线时改成「重读本地数据 + 重绘」，视觉效果一样，也不会把人弄丢
     if(navigator.onLine === false){
       render();
       notify("当前没有网络，已重新载入本地数据");
+      attempt++;
       reset(true);
       refreshing = false;
       return;
     }
     try{ sessionStorage.setItem("ptr-fired", String(Date.now())); }catch(err){}
-    function giveUp(){ try{ sessionStorage.removeItem("ptr-fired"); }catch(err){} clearTimeout(unlockTimer); reset(true); refreshing = false; reloading = false; }
-    safeReload(function(){
-      // 检查网络那几秒页面是能用的：这期间要是打开了菜单 / 面板、进了批量整理、在拖动（blocked），整页重新加载会把它冲掉——作罢
-      if(blocked()){ giveUp(); return; }
+    function giveUp(){ attempt++; try{ sessionStorage.removeItem("ptr-fired"); }catch(err){} clearTimeout(unlockTimer); reset(true); refreshing = false; reloading = false; }
+    function live(fn){ return function(){ if(my === attempt) fn(); }; }   // 这一次作废了就什么都不做
+    safeReload(live(function(){
+      // 检查网络那几秒页面是能用的：这期间要是打开了菜单 / 面板、进了批量整理、在拖动（blocked）、动过表单，整页重新加载会把它冲掉——作罢
+      if(blocked() || edited){ giveUp(); return; }
       reloading = true;
       armUnlock();   // 兜底从真正开始重新加载算起：检查网络可能已经用掉 6 秒，不重算的话重新加载只剩 3~4 秒就被解锁，iOS 冻住的旧页面又能滑出空白
       location.reload();
-    }, function(){ showTip("网络不好，这次没刷新。稍后再拉一次。"); giveUp(); });
+    }), live(function(){ showTip("网络不好，这次没刷新。稍后再拉一次。"); giveUp(); }));
   }
   // 兜底：重新加载被取消或一直卡着时，10 秒后解锁，别让页面永远滑不动
   function armUnlock(){
     clearTimeout(unlockTimer);
-    unlockTimer = setTimeout(function(){ if(refreshing){ refreshing = false; reloading = false; reset(true); } }, 10000);
+    unlockTimer = setTimeout(function(){ if(refreshing){ attempt++; refreshing = false; reloading = false; reset(true); } }, 10000);
   }
 
   document.addEventListener("touchstart", function(e){
@@ -1499,7 +1509,8 @@ function setupPullToRefresh(){
     el.classList.add("ptr-animate","ptr-loading");
     el.style.transform = "translateY(" + threshold() + "px)";
     // 留一下 spinner 再动手，否则直接白屏像卡死
-    setTimeout(doRefresh, 260);
+    const my = ++attempt; edited = false;
+    setTimeout(function(){ doRefresh(my); }, 260);
     armUnlock();
   }, { passive:true });
   // 触摸被系统打断（来电、系统手势）：收回指示器、不触发刷新（不处理的话指示器会停在半空）
