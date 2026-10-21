@@ -344,6 +344,20 @@ function serve() {
       document.querySelector('nav button[data-screen=home]').click();await w(60);document.getElementById("confirmOkBtn").click();await w(100);
       q.homeShown=getComputedStyle(p).display!=="none";q.homeSub=[...document.querySelectorAll("header p")].filter(x=>getComputedStyle(x).display!=="none").length;return q;})()`);
     ok(r.lines === 1 && /^正在练习 · 全部/.test(r.scope) && r.shown && !r.homeShown && r.homeSub === 1, '答题页顶栏：标题一行、显示练习范围；回首页恢复原副标题', r);
+    // 2026-10-21 用户定：本次统计挪到顶栏「正在练习 · 范围」后面、题号放进度条左边。范围很长时只截范围，统计必须完整
+    await fresh('web-design/');
+    for (const W of [320, 375, 390, 430]) {
+      await c.send('Emulation.setDeviceMetricsOverride', { width: W, height: 844, deviceScaleFactor: 1, mobile: true, screenWidth: W, screenHeight: 844 });
+      r = await c.ev(`(async()=>{const w=ms=>new Promise(r=>setTimeout(r,ms));if(!__quiz.session||!document.body.classList.contains('quizzing')){document.getElementById("startBtn").click();await w(150);}
+        const Q=__quiz;Q.session.scopeLabel="HTML/CSS基础、C#基础、ASP.NET内置对象（没做过的）";Q.session.idx=37;Q.showScreen("quiz");Q.renderQuestion();await w(50);
+        const p=document.getElementById("quizScope").getBoundingClientRect(),a=document.getElementById("quizScopeText"),b=document.getElementById("quizScoreText").getBoundingClientRect();
+        const n=document.getElementById("quizProgressText").getBoundingClientRect(),bar=document.querySelector(".progress-bar").getBoundingClientRect();
+        return {txt:document.getElementById("quizScoreText").textContent,statIn:b.left>=p.left-1&&b.right<=p.right+1&&b.width>0,scopeCut:a.scrollWidth>a.clientWidth,
+          oneLine:Math.round(p.height)<=20,sameRow:Math.abs((n.top+n.bottom)/2-(bar.top+bar.bottom)/2)<4&&n.right<=bar.left,idx:document.getElementById("quizProgressText").textContent};})()`);
+      ok(/^ · 对\d+ 错\d+ · 已答\d+ 未答\d+$/.test(r.txt) && r.statIn && r.oneLine && (W > 430 || r.scopeCut), `${W} 顶栏：范围太长只截范围，对错统计完整显示`, r);
+      ok(r.sameRow && r.idx === '38/90', `${W} 题号在进度条左边同一行`, r);
+    }
+    await c.send('Emulation.setDeviceMetricsOverride', { width: 390, height: 844, deviceScaleFactor: 1, mobile: true, screenWidth: 390, screenHeight: 844 });
     /* ----- 汇总首页 ----- */
     await c.goto(BASE); await c.ev('localStorage.clear()'); await c.goto(BASE);
     r = await c.ev(`(async()=>{const out={};for(const s of SUBJECTS){const h=await (await fetch(s.href+"index.html")).text();const m=h.match(/prefix:\\s*"([^"]+)"/);out[s.key]=[s.prefix,m&&m[1]];}return out;})()`);

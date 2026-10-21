@@ -47,10 +47,12 @@ main{flex:1;padding:14px;}
 .toplinks{display:flex;justify-content:space-between;margin-bottom:8px;font-size:13px;}
 .toplinks span{color:var(--primary-dark);cursor:pointer;}
 .progress-wrap{margin-bottom:10px;font-size:13px;color:var(--muted);}
-.progress-bar{width:100%;height:7px;background:var(--border);border-radius:4px;overflow:hidden;margin-bottom:8px;}
+/* 题号放在进度条左边（2026-10-21 用户定）；等宽数字 + 最小宽度，题号变长时进度条起点不跟着挪 */
+.progress-row{display:flex;align-items:center;gap:8px;margin-bottom:8px;}
+#quizProgressText{flex-shrink:0;min-width:5ch;font-variant-numeric:tabular-nums;}
+.progress-bar{flex:1;height:7px;background:var(--border);border-radius:4px;overflow:hidden;}
 .progress-bar-fill{height:100%;background:var(--primary);transition:width .25s;}
 .progress-info{display:flex;align-items:center;flex-wrap:wrap;row-gap:6px;}
-.progress-left{display:flex;align-items:center;gap:10px;flex-wrap:wrap;row-gap:6px;}
 .progress-right{display:flex;align-items:center;gap:10px;margin-left:auto;flex-shrink:0;}
 .mode-toggle{display:inline-flex;align-items:center;gap:3px;font-size:12px;font-weight:bold;padding:3px 10px;border-radius:12px;cursor:pointer;white-space:nowrap;background:#eef2ff;color:var(--primary-dark);border:1px solid var(--primary);}
 .mode-toggle.manual{background:#f3f4f6;color:var(--muted);border-color:var(--border);}
@@ -308,5 +310,9 @@ body.reciting .answer-box .correct-ans{color:var(--primary-dark);}
 body.quizzing header{padding:14px 56px;}
 body.quizzing header p{display:none;}
 body.quizzing header h1{font-size:clamp(17px,5.4vw,21px);}
-body.quizzing header p.quiz-scope{display:block;margin-top:4px;font-size:12px;opacity:.9;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-body.quizzing header p.quiz-scope:empty{display:none;}
+/* 这一行是「正在练习 · 范围 · 对x 错x · 已答x 未答x」（2026-10-21 用户定把统计挪上来）。
+   放不下时只把范围截成「…」，统计永远完整：范围是开始时自己选的、心里有数，统计是做题中途要看的 */
+body.quizzing header p.quiz-scope{display:flex;justify-content:center;margin-top:4px;font-size:12px;opacity:.9;white-space:nowrap;}
+#quizScopeText{min-width:0;overflow:hidden;text-overflow:ellipsis;}
+#quizScoreText{flex-shrink:0;white-space:pre;}
+body.quizzing header p.quiz-scope:has(#quizScopeText:empty){display:none;}

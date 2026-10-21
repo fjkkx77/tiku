@@ -57,7 +57,7 @@ document.body.insertAdjacentHTML("afterbegin", `
     <a class="home-btn" href="../" title="返回主页" aria-label="返回主页">🏠</a>
     <h1>${esc(CFG.title)}</h1>
     ${CFG.subtitle ? `<p>${esc(CFG.subtitle)}</p>` : ""}
-    <p class="quiz-scope" id="quizScope"></p>
+    <p class="quiz-scope" id="quizScope"><span id="quizScopeText"></span><span id="quizScoreText"></span></p>
   </header>
   <nav>
     <button data-screen="home" class="active">开始练习</button>
@@ -105,12 +105,11 @@ document.body.insertAdjacentHTML("afterbegin", `
 
     <section class="screen" id="screen-quiz">
       <div class="progress-wrap">
-        <div class="progress-bar"><div class="progress-bar-fill" id="quizProgressFill"></div></div>
+        <div class="progress-row">
+          <span id="quizProgressText"></span>
+          <div class="progress-bar"><div class="progress-bar-fill" id="quizProgressFill"></div></div>
+        </div>
         <div class="progress-info">
-          <div class="progress-left">
-            <span id="quizProgressText"></span>
-            <span id="quizScoreText"></span>
-          </div>
           <div class="progress-right">
             <span class="mode-toggle" id="reciteBtn" role="button" tabindex="0"></span>
             ${HAS_MCQ ? `<span class="mode-toggle" id="modeToggleBtn" role="button" tabindex="0"></span>` : ""}
@@ -606,7 +605,8 @@ function showScreen(name){
   document.querySelectorAll("nav button").forEach(b=>b.classList.toggle("active", b.dataset.screen===name));
   document.body.classList.toggle("quizzing", name==="quiz");
   // 答题时标题下面写「正在练习 · 范围」，让人一眼知道在刷哪一科、哪部分（2026-10-15 用户嫌答题页顶栏太窄、看不出在刷什么）
-  $("quizScope").textContent = (name==="quiz" && session && session.scopeLabel) ? "正在练习 · " + session.scopeLabel : "";
+  // 2026-10-21 用户定：本次的对错统计也挪到这一行、接在范围后面（原来在进度条下面，和三个按钮挤成两行）
+  $("quizScopeText").textContent = (name==="quiz" && session && session.scopeLabel) ? "正在练习 · " + session.scopeLabel : "";
   if(name==="quiz") timerResume(); else timerPause();
   syncBackEntry(name);
   if(name==="wrongbook") renderWrongbook();
@@ -808,7 +808,7 @@ function renderStats(){
   const s = sessionStats();
   $("quizProgressText").textContent = `${session.idx+1}/${s.total}`;
   $("quizProgressFill").style.width = `${(session.idx+1)/s.total*100}%`;   // 旧版是 idx/total，到最后一题也到不了满格
-  $("quizScoreText").textContent = `对${s.correct} 错${s.wrong} · 已答${s.answered} 未答${s.total-s.answered}`;
+  $("quizScoreText").textContent = ` · 对${s.correct} 错${s.wrong} · 已答${s.answered} 未答${s.total-s.answered}`;
 }
 
 /* ===================== 快速模式（单选题选中即提交，选对自动跳题） ===================== */
