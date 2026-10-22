@@ -11,6 +11,10 @@ const ROWS = 'document.querySelectorAll("#list .item[data-key]")';
 const LAYOUT = `(()=>{const out=[],L=document.getElementById("list");const pin=[...L.querySelectorAll(":scope > .item.pinned")].map(r=>r.dataset.key);if(pin.length)out.push(["置顶",pin]);
   L.querySelectorAll(":scope > .folder-card").forEach(f=>out.push([f.querySelector(".folder-name").textContent,[...f.querySelectorAll(".item[data-key]")].map(r=>r.dataset.key)]));
   const loose=[...L.querySelectorAll(":scope > .item:not(.pinned)")].map(r=>r.dataset.key);if(loose.length)out.push(["未分组",loose]);return out;})()`;
+// 用户「第二学期」文件夹里那 8 科（REAL 照的是用户真实数据）；之后新加的科目不在文件夹里，应该出现在「未分组」。以后加科目往 NEW 里加
+const OLD8 = ["web-design","os","software-engineering","mobile-app","english-listening","english-reading","english-vocab","english-translation"];
+const NEW = ["cet4-vocab"];
+const TOTAL = OLD8.length + NEW.length;
 const REAL = `localStorage.setItem("tiku_folders",JSON.stringify([{id:"f1",name:"第二学期"}]));
   localStorage.setItem("tiku_subject_folder",JSON.stringify({"web-design":"f1",os:"f1","software-engineering":"f1","mobile-app":"f1","english-listening":"f1","english-reading":"f1","english-vocab":"f1","english-translation":"f1"}));
   localStorage.setItem("tiku_expanded_folders",'["f1"]');`;
@@ -40,7 +44,7 @@ async function runHome(BASE, ok) {
                           ['tiku_folders', '[{"id":"f1","name":"甲"},{"id":"f1","name":"甲2"}]'], ['webquiz_wrongbook', '[1,2]'], ['webquiz_done', '"x"']]) {
       await reset(`localStorage.setItem(${JSON.stringify(k)},${JSON.stringify(v)})`);
       const r = await c.ev(`({n:${ROWS}.length,keys:[...${ROWS}].map(r=>r.dataset.key)})`);
-      ok(r.n === 8 && new Set(r.keys).size === 8 && !c.errors.length, `首页：存储项 ${k}=${v} 坏了也照常显示 8 科、不重复`, r);
+      ok(r.n === TOTAL && new Set(r.keys).size === TOTAL && !c.errors.length, `首页：存储项 ${k}=${v} 坏了也照常显示全部 ${TOTAL} 科、不重复`, r);
     }
     // 学习情况：接在原来的「题型，N题」后面；超过题库的封顶；没练过写「还没练过」
     await reset(`localStorage.setItem("osquiz_wrongbook",JSON.stringify({a:{},b:{},c:{}}));localStorage.setItem("osquiz_done",JSON.stringify({x:1,y:1,z:1,u:1}));
@@ -60,7 +64,8 @@ async function runHome(BASE, ok) {
       const r = await c.ev(LAYOUT);
       const name = await c.ev(`document.querySelector('.item[data-key="os"] .name').textContent`);
       const btns = await c.ev(`document.querySelectorAll("#list .item button").length`);
-      ok(r.length === 1 && r[0][0] === '第二学期' && r[0][1].length === 8 && name === 'OS 期末' && btns === 0, '首页：旧数据（文件夹、改过的名字、展开状态）原样显示；科目卡片上不再有 ✏️ 📁 还原（左滑「更多」里有）', { r, name, btns });
+      ok(r.length === 2 && r[0][0] === '第二学期' && JSON.stringify(r[0][1]) === JSON.stringify(OLD8) && JSON.stringify(r[1]) === JSON.stringify(['未分组', NEW])
+        && name === 'OS 期末' && btns === 0, '首页：旧数据（文件夹、改过的名字、展开状态）原样显示；科目卡片上不再有 ✏️ 📁 还原（左滑「更多」里有）', { r, name, btns });
     }
     // 置顶：排到最上面、带 📌、离开原文件夹；取消后回到原文件夹原位置
     {
@@ -74,7 +79,7 @@ async function runHome(BASE, ok) {
       const d = await c.ev(LAYOUT);
       ok(a[0][0] === '置顶' && JSON.stringify(a[0][1]) === '["software-engineering"]' && tag && !a[1][1].includes('software-engineering') && a[1][1].length === 7
         && JSON.stringify(b[0][1]) === '["software-engineering","os"]'
-        && d.length === 1 && JSON.stringify(d[0][1]) === '["web-design","os","software-engineering","mobile-app","english-listening","english-reading","english-vocab","english-translation"]',
+        && d.length === 2 && JSON.stringify(d[0][1]) === JSON.stringify(OLD8) && JSON.stringify(d[1][1]) === JSON.stringify(NEW),
         '置顶：进「📌 置顶」分区（下面是「全部」）并离开原文件夹；按置顶先后排；取消后回到原文件夹原位置、分区标题消失', { a, b, d, tag, seq, after: await c.ev(SEQ + '.filter(x=>x[0]==="#")') });
       ok((await c.ev(SEQ + '.filter(x=>x[0]==="#")')).length === 0, '没有置顶时不显示分区小标题');
       ok(await c.ev('document.querySelector(".folder-card .folder-count").textContent') === '(8)', '置顶：文件夹标题的数量只数里面显示的');
@@ -85,7 +90,7 @@ async function runHome(BASE, ok) {
       const r = await c.ev(`(()=>{const rows=[...document.querySelectorAll("#list > .item:not(.pinned)")];const last=rows.pop();rows.unshift(last);
         reorderSubjects(rows.map(r=>r.dataset.key));render();   // 拖动松手走的就是这个函数
         return {lay:${LAYOUT},order:JSON.parse(localStorage.getItem("tiku_order"))};})()`);
-      ok(r.order.indexOf('os') === 1 && r.order.indexOf('mobile-app') === 3 && r.lay[1][1][0] === 'english-translation', '排序：换位只改这一组占着的位置（文件夹里的科目位置不动）', r);
+      ok(r.order.indexOf('os') === 1 && r.order.indexOf('mobile-app') === 3 && r.lay[1][1][0] === NEW[NEW.length - 1], '排序：换位只改这一组占着的位置（文件夹里的科目位置不动）', r);
     }
     // 文件夹展开/收起记住；空文件夹也能收起再展开（收起动画 0.32 秒）
     await reset(`localStorage.setItem("tiku_folders",JSON.stringify([{id:"f1",name:"甲"},{id:"f2",name:"乙"}]));localStorage.setItem("tiku_subject_folder",JSON.stringify({os:"f1"}))`);
@@ -168,7 +173,7 @@ async function runHome(BASE, ok) {
         const kept=document.querySelectorAll(".folder-card").length;
         deleteFolder(fid);await w(50);document.getElementById("confirmOkBtn").click();await w(50);
         return {noTrash,asked,msg,kept,left:document.querySelectorAll(".folder-card").length,lay:${LAYOUT},map:localStorage.getItem("tiku_subject_folder")};})()`);
-      ok(r.noTrash && r.asked && r.msg.includes('期末') && r.kept === 1 && r.left === 0 && r.lay.length === 1 && r.lay[0][1].length === 8 && r.map === '{}',
+      ok(r.noTrash && r.asked && r.msg.includes('期末') && r.kept === 1 && r.left === 0 && r.lay.length === 1 && r.lay[0][1].length === TOTAL && r.map === '{}',
         '删除文件夹：标题行没有 🗑️；先确认（文案带名字），取消不删；确定后科目全部回来', r);
     }
     // 选择多个（原来的批量整理）：点卡片是勾选不是跳转；移到新建的文件夹；完成后退出

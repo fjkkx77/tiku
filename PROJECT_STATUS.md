@@ -35,6 +35,11 @@ node tools/stamp.cjs
 
 `QUIZ` 可选项和题目格式见 `assets/quiz.js` 文件头注释。
 
+另外两处也要加：`assets/tiku-sync.js` 的 `PREFIXES`（改完跑 `node tools/stamp.cjs`），`tests/home.cjs` 的 `NEW`（用户真实数据里「第二学期」文件夹只装着原 8 科，新科目应出现在「未分组」）；判分快照给新科目手写几条填空用例（预期按规则写，别抄引擎结果）。
+
+**四级高频词汇（cet4-vocab，2026-10-22）**：1742 词 × 2 = 3484 题，比其余 8 科加起来还多。题库由 `C:\Users\Administrator\CodeProjects\cet4-vocab\build_quiz.py` 从同目录的 `四级高频词汇.tsv` 生成（**别手改科目页**，改词表后重新生成再 stamp）；单选的干扰项、选项顺序用固定种子，重新生成不变。
+加它时踩的：题面 `text` 会被转义，写 `<br>` 会原样显示；同步数据量最坏情况涨到约 1.6MB，`api/sync.js` 上限从 1.5MB 调到 3.5MB（不能超 Vercel 函数 4.5MB 硬限）。
+
 ### 填空题怎么判（2026-10-10 起，写题库时要知道）
 
 - **默认逐空按位置判**：答案填错位置就是错。以前默认不分顺序，`Response.Cookies` 和 `Request.Cookies` 填反也判全对。

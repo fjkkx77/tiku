@@ -195,14 +195,14 @@ async function runSync(ok) {
     ok(evil === '', '跨域：白名单以外的来源不放行', evil);
     gh.close();
 
-    /* ---------- 6. 数据量：8 科全部题都进错题本 + 全做过，照样传得上去 ---------- */
+    /* ---------- 6. 数据量：所有科目全部题都进错题本 + 全做过，照样传得上去（上限见 api/sync.js MAX_BODY_BYTES） ---------- */
     await go(A, '');
     const big = await A.ev(`(async()=>{for(const s of SUBJECTS){const r=await fetch('./'+s.key+'/index.html').then(r=>r.text());const m=r.match(/const QUESTIONS\\s*=\\s*(\\[[\\s\\S]*?\\]);\\s*\\n/);if(!m)continue;const Q=(new Function('return '+m[1]))();
       const wb={},done={};Q.forEach((q,i)=>{wb['q'+i]={cat:q.cat,type:q.type||'blank',text:q.text||'',code:q.code||'',options:q.options||null,correct:q.correct||null,ans:q.ans||null,wrongCount:2,correctStreak:0,lastWrongAt:Date.now()};done['f'+i]=1;});
       localStorage.setItem(s.prefix+'_wrongbook',JSON.stringify(wb));localStorage.setItem(s.prefix+'_done',JSON.stringify(done));}
       TikuSync.changed();await TikuSync.client.syncNow();return {state:TikuSync.client.status.state,err:TikuSync.client.status.error};})()`);
     const c2 = cloud(), bytes = c2 ? Buffer.byteLength(JSON.stringify(c2)) : 0;
-    ok(big.state === 'ok' && bytes < 1536 * 1024, '数据量：全部题进错题本 + 全做过，照样传得上去（' + Math.round(bytes / 1024) + 'KB，上限 1.5MB）', big);
+    ok(big.state === 'ok' && bytes < 3584 * 1024, '数据量：全部题进错题本 + 全做过，照样传得上去（' + Math.round(bytes / 1024) + 'KB，上限 3.5MB）', big);
 
     for (const d of devs) if (d.errors.length) ok(false, '同步：页面 JS 异常', d.errors);
   } finally {

@@ -4,7 +4,8 @@
  * 照日程卡片的 api/sync.js（存档 references/项目_日程卡片/api/sync.js，已对真实 Upstash 测过并发写入）改的，改了四处：
  *   1. 键前缀和盐换成刷题合集自己的（tiku: / tkv1|）——跟日程卡片共用一个 Upstash 库（用户 2026-10-19 定），
  *      换了前缀两边的数据就不可能串
- *   2. 数据字段叫 items；上限按刷题数据估的（最坏情况：8 科 581 题全进错题本 + 全做过 + 练习记录，约 460KB、2000 来条）
+ *   2. 数据字段叫 items；上限按刷题数据估的（最坏情况：全部科目全部题进错题本 + 全做过 + 练习记录。
+ *      8 科 581 题时约 460KB、2000 来条；2026-10-22 加了四级词汇 3484 题后约 1.6MB、9000 来条，上限跟着调，见下）
  *   3. 页面在 GitHub Pages（fjkkx77.github.io），接口在这里：跨域只放行这一个来源
  *   4. 不要 space 分区（刷题合集只有一份数据）
  *
@@ -21,8 +22,11 @@
 
 const crypto = require("crypto");
 
-const MAX_BODY_BYTES = 1536 * 1024;  /* 一份数据最大 1.5MB：最坏情况估出来约 460KB，留三倍余量 */
-const MAX_ITEMS = 12000;
+/* 一份数据最大 3.5MB。最坏情况约 1.6MB（tests/sync.cjs「数据量」那条实测），留两倍余量；
+   不能再往上：Vercel 函数的请求体和响应体都硬限 4.5MB（所有档位），GET 取回时整份数据也要从响应里出去。
+   Upstash 免费档单条命令 10MB，不是瓶颈。以前是 1.5MB（按 8 科最坏 460KB 留三倍），2026-10-22 加四级词汇后不够了 */
+const MAX_BODY_BYTES = 3584 * 1024;
+const MAX_ITEMS = 24000;
 const TTL_SECONDS = 400 * 24 * 3600; /* 每次写入续期，长期不用才自动过期 */
 /* 同源（tk.wbztl.xyz 自己）不用列。SYNC_EXTRA_ORIGINS（逗号分隔）只给本地测试用：tests/sync.cjs 拿另一个端口当「GitHub Pages」 */
 const ALLOWED_ORIGINS = ["https://fjkkx77.github.io"].concat(String(process.env.SYNC_EXTRA_ORIGINS || "").split(",").filter(Boolean));
