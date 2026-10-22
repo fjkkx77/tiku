@@ -37,7 +37,11 @@ node tools/stamp.cjs
 
 另外两处也要加：`assets/tiku-sync.js` 的 `PREFIXES`（改完跑 `node tools/stamp.cjs`），`tests/home.cjs` 的 `NEW`（用户真实数据里「第二学期」文件夹只装着原 8 科，新科目应出现在「未分组」）；判分快照给新科目手写几条填空用例（预期按规则写，别抄引擎结果）。
 
-**四级高频词汇（cet4-vocab，2026-10-22）**：1742 词 × 2 = 3484 题，比其余 8 科加起来还多。题库由 `C:\Users\Administrator\CodeProjects\cet4-vocab\build_quiz.py` 从同目录的 `四级高频词汇.tsv` 生成（**别手改科目页**，改词表后重新生成再 stamp）；单选的干扰项、选项顺序用固定种子，重新生成不变。
+**四级高频词汇（2026-10-22 当晚按用户要求拆成两科）**：`cet4-vocab`「选意思」（单选，单词带英式音标，前缀沿用 cet4vocabquiz）+ `cet4-spell`「写单词」（填空，新前缀 cet4spellquiz），各 1742 题。
+单选题面加音标改了指纹，`QUIZ.fpAlias` 里有 1742 条旧→新（实测：做过的题、错题本都接得上；拆分前开始、还混着填空题的那轮续练接不上，按设计作废）。
+题面防断行：单词里的 `/` `-` 后、音标的 `ˈ` `ˌ` 前垫了 U+2060，单词和音标之间放 U+200B——不然 320 宽时音标会被从中间劈开（Unicode 规则在 `/` 和全角空格前不给断点，整段没断点时 `overflow-wrap:anywhere` 会硬劈）。
+音标来源与核对见 `C:\Users\Administrator\CodeProjects\cet4-vocab\PROGRESS.md`。
+以下是拆分前的记录：1742 词 × 2 = 3484 题，比其余 8 科加起来还多。题库由 `C:\Users\Administrator\CodeProjects\cet4-vocab\build_quiz.py` 从同目录的 `四级高频词汇.tsv` 生成（**别手改科目页**，改词表后重新生成再 stamp）；单选的干扰项、选项顺序用固定种子，重新生成不变。
 加它时踩的：题面 `text` 会被转义，写 `<br>` 会原样显示；同步数据量最坏情况涨到约 1.6MB，`api/sync.js` 上限从 1.5MB 调到 3.5MB（不能超 Vercel 函数 4.5MB 硬限）。
 
 ### 填空题怎么判（2026-10-10 起，写题库时要知道）

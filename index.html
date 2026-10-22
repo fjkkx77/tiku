@@ -27,7 +27,7 @@
 })();
 </script>
 <title>刷题合集</title>
-<link rel="stylesheet" href="assets/sync-panel.css?v=403de0cb1a">
+<link rel="stylesheet" href="assets/sync-panel.css?v=22e47e77ea">
 <style>
   /* 外观＝2026-10-15 之前的样子（2026-10-16 用户看过 iOS 风格改版后决定回到原来的界面风格，只保留新的逻辑和交互） */
   :root{ --primary:#3b82f6; --primary-dark:#2563eb; --bg:#f3f4f6; --text:#1f2937; --muted:#6b7280; --border:#e5e7eb; --danger:#dc2626; --press:#eef2f7; --ease:cubic-bezier(.2,.9,.3,1); }
@@ -322,10 +322,10 @@
   </div>
 </div>
 
-<script src="assets/sync-core.js?v=403de0cb1a"></script>
-<script src="assets/sync-client.js?v=403de0cb1a"></script>
-<script src="assets/sync-panel.js?v=403de0cb1a"></script>
-<script src="assets/tiku-sync.js?v=403de0cb1a"></script>
+<script src="assets/sync-core.js?v=22e47e77ea"></script>
+<script src="assets/sync-client.js?v=22e47e77ea"></script>
+<script src="assets/sync-panel.js?v=22e47e77ea"></script>
+<script src="assets/tiku-sync.js?v=22e47e77ea"></script>
 <script src="assets/drag.js?v=2.0.0"></script>
 <script>
 const SUBJECTS = [
@@ -337,7 +337,8 @@ const SUBJECTS = [
   { key:'english-reading', prefix:'engreadingquiz',    href:'./english-reading/',     defaultName:'大学英语阅读与选词填空', total:66,  desc:'填空+单选混合，66题（六单元：选词填空6篇每篇10空＋阅读理解60题） · 错题本 / 练习记录 / 题目总览' },
   { key:'english-vocab', prefix:'engvocabquiz',      href:'./english-vocab/',       defaultName:'大学英语课后选词填空',   total:6,   desc:'填空题，6题共93空（六单元课后例句选词，含词表） · 错题本 / 练习记录 / 题目总览' },
   { key:'english-translation', prefix:'engtranslation',href:'./english-translation/', defaultName:'大学英语汉译英翻译练习', total:48,  desc:'翻译题，48题（六单元各8句，汉译英，对照完整参考译文自动判分） · 错题本 / 练习记录 / 题目总览' },
-  { key:'cet4-vocab', prefix:'cet4vocabquiz',        href:'./cet4-vocab/',          defaultName:'四级高频词汇',           total:3484, desc:'单选+填空，1742词×2＝3484题（DAY 1–15；看英文选中文 / 看中文写单词） · 错题本 / 练习记录 / 题目总览' },
+  { key:'cet4-vocab', prefix:'cet4vocabquiz',        href:'./cet4-vocab/',          defaultName:'四级高频词汇 · 选意思',  total:1742, desc:'单选题，1742题（DAY 1–15，看英文选中文，带英式音标） · 错题本 / 练习记录 / 题目总览' },
+  { key:'cet4-spell', prefix:'cet4spellquiz',        href:'./cet4-spell/',          defaultName:'四级高频词汇 · 写单词',  total:1742, desc:'填空题，1742题（DAY 1–15，看中文写英文，给首字母） · 错题本 / 练习记录 / 题目总览' },
 ];
 // total＝科目页题库的题数（tests 会核对，加题后要跟着改）；desc 现在只当鼠标悬停提示用
 

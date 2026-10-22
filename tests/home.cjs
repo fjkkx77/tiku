@@ -13,7 +13,7 @@ const LAYOUT = `(()=>{const out=[],L=document.getElementById("list");const pin=[
   const loose=[...L.querySelectorAll(":scope > .item:not(.pinned)")].map(r=>r.dataset.key);if(loose.length)out.push(["未分组",loose]);return out;})()`;
 // 用户「第二学期」文件夹里那 8 科（REAL 照的是用户真实数据）；之后新加的科目不在文件夹里，应该出现在「未分组」。以后加科目往 NEW 里加
 const OLD8 = ["web-design","os","software-engineering","mobile-app","english-listening","english-reading","english-vocab","english-translation"];
-const NEW = ["cet4-vocab"];
+const NEW = ["cet4-vocab", "cet4-spell"];
 const TOTAL = OLD8.length + NEW.length;
 const REAL = `localStorage.setItem("tiku_folders",JSON.stringify([{id:"f1",name:"第二学期"}]));
   localStorage.setItem("tiku_subject_folder",JSON.stringify({"web-design":"f1",os:"f1","software-engineering":"f1","mobile-app":"f1","english-listening":"f1","english-reading":"f1","english-vocab":"f1","english-translation":"f1"}));
