@@ -131,6 +131,16 @@ async function runSync(ok) {
     await go(Bd, 'os/'); await sync(Bd);
     m = await Bd.ev(`({wb:Object.keys(JSON.parse(localStorage.getItem('osquiz_wrongbook')||'{}')).length,rm:Object.keys(JSON.parse(localStorage.getItem('osquiz_wbremoved')||'{}')).length})`);
     ok(m.wb === 0 && m.rm >= 1, 'A 清空错题本 → B 也清空，并记下移出时间', m);
+    // 「会 / 不会」标记（2026-10-23）：A 标的 B 收到；A 取消 → B 也取消
+    await go(A, 'cet4-vocab/');
+    await A.ev(`(async()=>{document.getElementById("startBtn").click();await new Promise(r=>setTimeout(r,60));__quiz.setMark("dunno");__quiz.session.idx=1;__quiz.renderQuestion();__quiz.setMark("know");return 1;})()`); await sync(A);
+    await go(Bd, 'cet4-vocab/'); await sync(Bd);
+    m = await Bd.ev(`Object.values(JSON.parse(localStorage.getItem('cet4vocabquiz_marks')||'{}')).map(x=>x.s).sort().join(',')`);
+    ok(m === 'dunno,know', '标记：A 标的「会」「不会」，B 同步后都有', m);
+    await A.ev(`(()=>{__quiz.setMark("know");return 1;})()`); await sync(A); await sync(Bd);
+    m = await Bd.ev(`Object.values(JSON.parse(localStorage.getItem('cet4vocabquiz_marks')||'{}')).map(x=>x.s).join(',')`);
+    ok(m === 'dunno', '标记：A 取消一个 → B 那边也没了', m);
+    await go(A, ''); await go(Bd, '');
     // 开关
     await go(A, 'web-design/'); await A.ev(`document.getElementById('modeToggleBtn').click()`); await sync(A);
     await go(Bd, 'web-design/'); await sync(Bd);

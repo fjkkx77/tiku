@@ -19,7 +19,9 @@ process.on('exit', killAll);
 process.on('SIGINT', () => { killAll(); process.exit(1); });
 process.on('SIGTERM', () => { killAll(); process.exit(1); });   // 被外部结束（超时、工具取消）时也要收尾
 process.on('uncaughtException', e => { console.error('FAIL', e && e.message); killAll(); process.exit(1); });
-async function open(w, h, scale) {
+// opts.autoPlace：首页「带 folder 的科目第一次出现就自动放进文件夹」（2026-10-23）。默认关掉——
+// 其余用例写的都是「干净首页 / 用户真实数据」该长什么样，被自动建的文件夹搅进去就全乱了；专测它的用例传 {autoPlace:true}
+async function open(w, h, scale, opts) {
   const port = 20000 + Math.floor(Math.random() * 20000);
   // 目录名带上本 node 进程号：多个会话同时跑脚手架时，残留要能分清是谁的。
   // 2026-09-13 踩过：名字全是 cdp-xxxx，凭"启动时间对得上"认领残留，误杀了另一个会话正在跑的测试浏览器
@@ -62,7 +64,7 @@ async function open(w, h, scale) {
     if (r.exceptionDetails) throw new Error('EVAL ' + JSON.stringify(r.exceptionDetails.exception && r.exceptionDetails.exception.description));
     return r.result.value; };
   await send('Runtime.enable'); await send('Page.enable');
-  await send('Page.addScriptToEvaluateOnNewDocument', { source: 'window.__alerts=[];window.alert=function(m){window.__alerts.push(String(m))};window.confirm=function(){return true};' });
+  await send('Page.addScriptToEvaluateOnNewDocument', { source: 'window.__alerts=[];window.alert=function(m){window.__alerts.push(String(m))};window.confirm=function(){return true};' + (opts && opts.autoPlace ? '' : 'window.__noAutoPlace=true;') });
   await send('Emulation.setDeviceMetricsOverride', { width: w, height: h, deviceScaleFactor: scale || 2, mobile: (w < 900), screenWidth: w, screenHeight: h });
   await send('Emulation.setTouchEmulationEnabled', { enabled: true, maxTouchPoints: 5 });
   const goto = async url => { await send('Page.navigate', { url });

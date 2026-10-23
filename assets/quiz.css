@@ -316,3 +316,24 @@ body.quizzing header p.quiz-scope{display:flex;justify-content:center;margin-top
 #quizScopeText{min-width:0;overflow:hidden;text-overflow:ellipsis;}
 #quizScoreText{flex-shrink:0;white-space:pre;}
 body.quizzing header p.quiz-scope:has(#quizScopeText:empty){display:none;}
+
+/* ===== 「会 / 不会」标记（QUIZ.marks 的科目才有，2026-10-23） ===== */
+.q-head{display:flex;align-items:flex-start;justify-content:space-between;gap:8px;}
+.q-head .q-tag{min-width:0;}
+.mark-bar{display:flex;gap:6px;flex-shrink:0;margin-top:-4px;}
+/* 看着是小胶囊，可点范围用透明的上下内边距撑到 44px（HIG 最小点按区域） */
+.mark-btn{position:relative;font-size:13px;font-weight:600;line-height:1;padding:7px 11px;border-radius:15px;border:1px solid var(--border);background:#fff;color:var(--muted);cursor:pointer;-webkit-tap-highlight-color:transparent;transition:background .15s,color .15s,border-color .15s;}
+.mark-btn::after{content:"";position:absolute;left:-3px;right:-3px;top:-8px;bottom:-8px;}
+.mark-btn.know.on{background:#e8f7ee;border-color:var(--green);color:var(--green);}
+.mark-btn.dunno.on{background:#fdecec;border-color:var(--red);color:var(--red);}
+.mark-card .mark-title{font-size:14px;font-weight:bold;margin-bottom:10px;}
+.mark-card .mark-sub{font-weight:normal;color:var(--muted);font-size:12px;margin-left:8px;}
+.mark-entries{display:flex;gap:10px;}
+.mark-entry{flex:1;min-width:0;display:flex;flex-direction:column;align-items:flex-start;gap:3px;padding:12px 14px;border-radius:10px;border:1px solid var(--border);background:#fff;cursor:pointer;font-size:14px;color:var(--text);text-align:left;font-family:inherit;-webkit-tap-highlight-color:transparent;}
+.mark-entry b{font-size:26px;line-height:1.1;}
+.mark-entry.dunno b{color:var(--red);}
+.mark-entry.know b{color:var(--green);}
+.mark-entry small{font-size:12px;color:var(--muted);}
+.mark-entry:disabled{opacity:.55;cursor:default;}
+.mark-entry:not(:disabled):active{background:#f3f4f6;}
+.mark-empty{font-size:12px;color:var(--muted);margin-top:10px;line-height:1.6;}

@@ -3,8 +3,10 @@
    以前每个站是一份完整拷贝，改着改着各自走样（同一个 bug 有的站修了有的没修），2026-10 合并成这一份。
 
    科目页只需要在引用本文件之前声明两样东西：
-     const QUIZ = { title, subtitle, prefix, intro, catWord?, font?, wordlist?, normalize?, fpAlias? }
+     const QUIZ = { title, subtitle, prefix, intro, catWord?, font?, wordlist?, normalize?, fpAlias?, marks? }
      （fpAlias：改了某道题的答案后填「旧指纹 → 新指纹」，见 migrateFp）
+     （marks: true：题目卡片右上角出「会 / 不会」标记，开始练习页出「不会的 / 会的」入口；2026-10-23 四级两科先开）
+   网址带 ?cat=分类名（如 ?cat=DAY%203）：打开时开始练习页只勾这一个分类（首页的 DAY 快捷入口用它）
      const QUESTIONS = [ ...题库... ]
    题目对象：
      单选 {type:"mcq", cat, text, options:{A,B,C,D}, correct}
@@ -76,6 +78,7 @@ document.body.insertAdjacentHTML("afterbegin", `
           <button class="btn" id="resumeContinueBtn">继续练习</button>
         </div>
       </div>
+      ${CFG.marks ? `<div class="card mark-card" id="markCard"></div>` : ""}
       <div class="card">
         <div class="toplinks">
           <span id="selAll" role="button" tabindex="0">全选</span>
@@ -118,7 +121,11 @@ document.body.insertAdjacentHTML("afterbegin", `
         </div>
       </div>
       <div class="card qcard">
-        <div class="q-tag" id="qTag"></div>
+        ${CFG.marks ? `<div class="q-head"><div class="q-tag" id="qTag"></div>
+          <div class="mark-bar" role="group" aria-label="标记这道题">
+            <button type="button" class="mark-btn know" id="markKnow" aria-pressed="false">✓ 会</button>
+            <button type="button" class="mark-btn dunno" id="markDunno" aria-pressed="false">✗ 不会</button>
+          </div></div>` : `<div class="q-tag" id="qTag"></div>`}
         <div class="q-text" id="qText"></div>
         <div id="qCode" class="q-code" hidden></div>
         <div id="qBody"></div>
@@ -265,7 +272,27 @@ const FP = new Map(Q.map(q=>[q.id, fp(q)]));
 // 从错题本移出过的题记个时间（连对 3 次、手动移出、清空）：导入一份更早的备份时，比这个时间旧的错题不再放回来
 const LS_REMOVED = CFG.prefix+"_wbremoved";
 function markRemoved(ids){ const m = loadJSON(LS_REMOVED, {}); const out = (m && typeof m === "object" && !Array.isArray(m)) ? m : {}; const now = Date.now(); ids.forEach(id=>{ out[id] = now; }); saveJSON(LS_REMOVED, out); }
-function markDone(q){ doneSet = loadJSON(LS_DONE, {}) || {}; if(typeof doneSet !== "object" || Array.isArray(doneSet)) doneSet = {}; doneSet[fp(q)] = 1; saveJSON(LS_DONE, doneSet); }
+function markDone(q){ doneSet = loadJSON(LS_DONE, {}) || {}; if(typeof doneSet !== "object" || Array.isArray(doneSet)) doneSet = {}; doneSet[fp(q)] = 1; saveJSON(LS_DONE, doneSet); saveCatDone(); }
+
+/* 「会 / 不会」标记（CFG.marks 才有）：按指纹记，{指纹: {s:"know"|"dunno", t:标记时间, c:分类}}。
+   c 存下来是给首页 DAY 快捷入口数「这一天不会几个」用的（首页不加载题库） */
+const LS_MARKS = CFG.prefix+"_marks", LS_CATDONE = CFG.prefix+"_catdone";
+function cleanMarks(m){
+  const out = {};
+  if(m && typeof m === "object" && !Array.isArray(m)) Object.keys(m).forEach(k=>{
+    const e = m[k]; if(e && typeof e === "object" && (e.s==="know" || e.s==="dunno")) out[k] = { s: e.s, t: num(e.t), c: String(e.c==null ? "" : e.c) };
+  });
+  return out;
+}
+let marks = cleanMarks(loadJSON(LS_MARKS, {}));
+function updateMarks(fn){ marks = cleanMarks(loadJSON(LS_MARKS, {})); fn(marks); return saveJSON(LS_MARKS, marks); }
+function markOf(q){ return marks[FP.get(q.id)] || null; }
+/* 各分类做过几题：首页 DAY 快捷入口显示「已做 x/116」用。只是从「做过的题」推出来的本机缓存，不同步、不进备份 */
+function saveCatDone(){
+  if(!CFG.marks) return;
+  const o = {}; Q.forEach(q=>{ if(doneSet[FP.get(q.id)]) o[q.cat] = (o[q.cat]||0) + 1; });
+  try{ localStorage.setItem(LS_CATDONE, JSON.stringify(o)); }catch(e){}
+}
 
 /* 题目指纹：题号是按题库里的位置编的（q0、q1…），以后在题库中间插题/删题，
    老的错题记录和续练进度就会对到别的题上，而且没有任何提示。
@@ -302,6 +329,12 @@ function migrateFp(){
   if(d && typeof d === "object" && !Array.isArray(d) && Object.keys(d).some(k=>to(k)!==k)){
     Object.keys(d).forEach(k=>{ const n = to(k); if(n!==k){ d[n] = d[k]; delete d[k]; } });
     if(saveJSON(LS_DONE, d)) doneSet = d;
+  }
+  // 「会 / 不会」标记也按指纹记：题面改了照样接上
+  const mk = loadJSON(LS_MARKS, null);
+  if(mk && typeof mk === "object" && !Array.isArray(mk) && Object.keys(mk).some(k=>to(k)!==k)){
+    Object.keys(mk).forEach(k=>{ const n = to(k); if(n!==k){ mk[n] = mk[k]; delete mk[k]; } });
+    if(saveJSON(LS_MARKS, mk)) marks = cleanMarks(mk);
   }
   const p = loadJSON(LS_INPROGRESS, null);
   if(p && typeof p === "object" && Array.isArray(p.fps) && p.fps.some(f=>to(f)!==f)){ p.fps = p.fps.map(to); saveJSON(LS_INPROGRESS, p); }
@@ -668,15 +701,53 @@ function renderCatList(){
     </label>`;
   }).join("");
   renderResumeCard();
+  renderMarkCard();
+}
+/* 开始练习页的「不会的 / 会的」入口：只数上面勾着的分类 */
+function renderMarkCard(){
+  const card = $("markCard"); if(!card) return;
+  const cats = new Set(checkedCats()), pool = Q.filter(q=>cats.has(q.cat));
+  const dunno = pool.filter(q=>(markOf(q)||{}).s==="dunno");
+  const know = pool.filter(q=>(markOf(q)||{}).s==="know").sort((a,b)=>markOf(a).t - markOf(b).t);   // 最早标「会」的排前面：隔得最久，最该回头看看
+  const ago = t=>{ const d = Math.floor((Date.now() - t) / 86400000); return d<=0 ? "今天" : d + " 天前"; };
+  const all = Object.keys(marks).length;
+  card.innerHTML = `<div class="mark-title">我的标记<span class="mark-sub">${cats.size===CATS.length ? `全部${esc(CFG.catWord)}` : `只数下面勾选的${esc(CFG.catWord)}（${cats.size===1 ? esc([...cats][0]) : cats.size + " 个"}）`}</span></div>
+    <div class="mark-entries">
+      <button type="button" class="mark-entry dunno" id="markGoDunno"${dunno.length ? "" : " disabled"}><span>✗ 不会的</span><b>${dunno.length}</b><small>${dunno.length ? "点这里专门刷" : "还没有"}</small></button>
+      <button type="button" class="mark-entry know" id="markGoKnow"${know.length ? "" : " disabled"}><span>✓ 会的</span><b>${know.length}</b><small>${know.length ? "最早一个是" + ago(markOf(know[0]).t) + "标的" : "还没有"}</small></button>
+    </div>
+    ${all ? "" : `<div class="mark-empty">做题时点题目右上角的「✓ 会」「✗ 不会」做标记，标过的会出现在这里。</div>`}`;
+  const scope = ()=> cats.size===CATS.length ? `全部${CFG.catWord}` : [...cats].join("、");
+  $("markGoDunno").onclick = ()=>startQuiz(dunno, scope() + "（不会的）", true);
+  $("markGoKnow").onclick = ()=>startQuiz(know, scope() + "（会的，先标的在前）", true);
+}
+function renderMarkBar(){
+  if(!CFG.marks || !session) return;
+  const m = markOf(currentQ());
+  [["markKnow","know"],["markDunno","dunno"]].forEach(([id, s])=>{ const on = !!m && m.s===s; $(id).classList.toggle("on", on); $(id).setAttribute("aria-pressed", on ? "true" : "false"); });
+}
+function setMark(s){
+  if(!session) return;
+  const q = currentQ(), f = FP.get(q.id);
+  let now = null;
+  updateMarks(m=>{ if(m[f] && m[f].s===s){ delete m[f]; } else { m[f] = { s, t: Date.now(), c: q.cat }; now = s; } });
+  renderMarkBar();
+  toast(now==="know" ? "已标记：会" : now==="dunno" ? "已标记：不会" : "已取消标记", 1200);
+}
+if(CFG.marks){
+  $("markKnow").addEventListener("click", ()=>setMark("know"));
+  $("markDunno").addEventListener("click", ()=>setMark("dunno"));
+  $("catList").addEventListener("change", renderMarkCard);
 }
 function isDone(q){ return !!doneSet[FP.get(q.id)]; }
 function checkedCats(){ return [...document.querySelectorAll(".catChk:checked")].map(c=>c.value); }
-$("selAll").onclick = ()=>document.querySelectorAll(".catChk").forEach(c=>c.checked=true);
-$("selNone").onclick = ()=>document.querySelectorAll(".catChk").forEach(c=>c.checked=false);
+$("selAll").onclick = ()=>{ document.querySelectorAll(".catChk").forEach(c=>c.checked=true); renderMarkCard(); };
+$("selNone").onclick = ()=>{ document.querySelectorAll(".catChk").forEach(c=>c.checked=false); renderMarkCard(); };
 $("selWrongOnly").onclick = ()=>{
   const wrongCats = new Set(Object.values(wrongbook).map(w=>w.cat));
   if(!wrongCats.size){ showAlert("错题本里还没有错题，没有可选的" + CFG.catWord + "。"); return; }   // 旧版会悄悄把所有勾都清掉
   document.querySelectorAll(".catChk").forEach(c=>c.checked = wrongCats.has(c.value));
+  renderMarkCard();
 };
 $("startBtn").onclick = ()=>{
   const cats = checkedCats();
@@ -708,13 +779,16 @@ window.addEventListener("pageshow", e=>{ if(e.persisted) refreshFromStorage(); }
 window.addEventListener("storage", e=>{
   if(!e.key) return refreshFromStorage();                    // 整个存储被清空
   if(e.key === LS_INPROGRESS) return checkStale();           // 别的页面在答题（每打几个字就会存一次草稿）：只看要不要让位，不重画
-  if([LS_WRONGBOOK, LS_HISTORY, LS_DONE].includes(e.key)) refreshFromStorage();
+  if([LS_WRONGBOOK, LS_HISTORY, LS_DONE, LS_MARKS].includes(e.key)) refreshFromStorage();
 });
 function refreshFromStorage(){
   wrongbook = cleanWrongbook(loadJSON(LS_WRONGBOOK, {}));
   historyList = cleanHistory(loadJSON(LS_HISTORY, []));
   doneSet = loadJSON(LS_DONE, {}) || {};
+  marks = cleanMarks(loadJSON(LS_MARKS, {}));
+  saveCatDone();
   if(checkStale()) return;
+  if(isActive("screen-quiz")) renderMarkBar();
   if(isActive("screen-home")) renderCatList();
   if(isActive("screen-wrongbook")) renderWrongbook();
   if(isActive("screen-history")) renderHistory();
@@ -1001,6 +1075,7 @@ function renderQuestion(){
   $("checkBtn").hidden = !!saved || showOnly;
   updateNextBtn();
   renderStats();
+  renderMarkBar();
   saveProgress();
 }
 function markOptions(q, picked){
@@ -1090,6 +1165,12 @@ function recordAnswer(q, record){
         ordered:!!q.ordered, vocab:q.vocab||null, wrongCount:num((wb[q.id]||{}).wrongCount)+1, correctStreak:0, lastWrongAt:Date.now() };
     }
   });
+  // 标了「会」的题答错了：说明还没真会，自动改回「不会」（2026-10-23 用户定）
+  if(CFG.marks && !record.allCorrect && (markOf(q)||{}).s==="know"){
+    updateMarks(m=>{ m[FP.get(q.id)] = { s: "dunno", t: Date.now(), c: q.cat }; });
+    renderMarkBar();
+    toast("这题标的是「会」，但答错了，已改回「不会」", 2600);
+  }
   markDone(q);
   $("checkBtn").hidden = true;
   updateNextBtn();
@@ -1295,6 +1376,12 @@ document.addEventListener("keydown", e=>{
 
 /* ===================== 初始化 ===================== */
 renderCatList();
+saveCatDone();
+// 网址带 ?cat=分类名（首页 DAY 快捷入口）：只勾这一个分类，其余照常可以再改
+(function(){
+  let c = null; try{ c = new URLSearchParams(location.search).get("cat"); }catch(e){}
+  if(c && CATS.includes(c)){ document.querySelectorAll(".catChk").forEach(x=>{ x.checked = x.value===c; }); renderMarkCard(); }
+})();
 
 /* ===================== 下拉刷新 ===================== */
 /* 配方：起手死区防误触 → 出死区后方向一锤定音 → 阈值按屏高推导（小屏上手指行程占比才不会偏重） */
@@ -1668,7 +1755,8 @@ window.__quiz = {
   get session(){ return session; }, set session(v){ session = v; },
   renderQuestion, finishQuiz, showScreen, openOverview, closeOverview, startQuiz, submitAnswer, pickOption,
   isCorrect, gradeBlanksSet, gradeOrdered, gradeQuestion, normalize, fp, nearText, elapsedNow, refreshFromStorage,
-  get wrongbook(){ return wrongbook; }, get history(){ return historyList; }, CFG
+  get wrongbook(){ return wrongbook; }, get history(){ return historyList; }, CFG,
+  get marks(){ return marks; }, setMark, renderMarkCard
 };
 
 /* 离线也能刷：注册一个只做"断网时用上次存下来的页面"的缓存（见仓库根目录 sw.js） */

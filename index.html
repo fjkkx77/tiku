@@ -27,7 +27,7 @@
 })();
 </script>
 <title>刷题合集</title>
-<link rel="stylesheet" href="assets/sync-panel.css?v=22e47e77ea">
+<link rel="stylesheet" href="assets/sync-panel.css?v=41b88c4a91">
 <style>
   /* 外观＝2026-10-15 之前的样子（2026-10-16 用户看过 iOS 风格改版后决定回到原来的界面风格，只保留新的逻辑和交互） */
   :root{ --primary:#3b82f6; --primary-dark:#2563eb; --bg:#f3f4f6; --text:#1f2937; --muted:#6b7280; --border:#e5e7eb; --danger:#dc2626; --press:#eef2f7; --ease:cubic-bezier(.2,.9,.3,1); }
@@ -322,10 +322,10 @@
   </div>
 </div>
 
-<script src="assets/sync-core.js?v=22e47e77ea"></script>
-<script src="assets/sync-client.js?v=22e47e77ea"></script>
-<script src="assets/sync-panel.js?v=22e47e77ea"></script>
-<script src="assets/tiku-sync.js?v=22e47e77ea"></script>
+<script src="assets/sync-core.js?v=41b88c4a91"></script>
+<script src="assets/sync-client.js?v=41b88c4a91"></script>
+<script src="assets/sync-panel.js?v=41b88c4a91"></script>
+<script src="assets/tiku-sync.js?v=41b88c4a91"></script>
 <script src="assets/drag.js?v=2.0.0"></script>
 <script>
 const SUBJECTS = [
@@ -337,9 +337,20 @@ const SUBJECTS = [
   { key:'english-reading', prefix:'engreadingquiz',    href:'./english-reading/',     defaultName:'大学英语阅读与选词填空', total:66,  desc:'填空+单选混合，66题（六单元：选词填空6篇每篇10空＋阅读理解60题） · 错题本 / 练习记录 / 题目总览' },
   { key:'english-vocab', prefix:'engvocabquiz',      href:'./english-vocab/',       defaultName:'大学英语课后选词填空',   total:6,   desc:'填空题，6题共93空（六单元课后例句选词，含词表） · 错题本 / 练习记录 / 题目总览' },
   { key:'english-translation', prefix:'engtranslation',href:'./english-translation/', defaultName:'大学英语汉译英翻译练习', total:48,  desc:'翻译题，48题（六单元各8句，汉译英，对照完整参考译文自动判分） · 错题本 / 练习记录 / 题目总览' },
-  { key:'cet4-vocab', prefix:'cet4vocabquiz',        href:'./cet4-vocab/',          defaultName:'四级高频词汇 · 选意思',  total:1742, desc:'单选题，1742题（DAY 1–15，看英文选中文，带英式音标） · 错题本 / 练习记录 / 题目总览' },
-  { key:'cet4-spell', prefix:'cet4spellquiz',        href:'./cet4-spell/',          defaultName:'四级高频词汇 · 写单词',  total:1742, desc:'填空题，1742题（DAY 1–15，看中文写英文，给首字母） · 错题本 / 练习记录 / 题目总览' },
+  { key:'cet4-vocab', prefix:'cet4vocabquiz',        href:'./cet4-vocab/',          defaultName:'四级高频词汇 · 选意思',  total:1742, desc:'单选题，1742题（DAY 1–15，看英文选中文，带英式音标） · 错题本 / 练习记录 / 题目总览', folder:'cet4', marks:true },
+  { key:'cet4-spell', prefix:'cet4spellquiz',        href:'./cet4-spell/',          defaultName:'四级高频词汇 · 写单词',  total:1742, desc:'填空题，1742题（DAY 1–15，看中文写英文，给首字母） · 错题本 / 练习记录 / 题目总览', folder:'cet4', marks:true },
 ];
+/* 快捷入口（2026-10-23）：不是独立科目，点进去就是父科目、开始练习页只勾这一个分类（科目页认 ?cat=）。
+   错题本、练习记录、「会 / 不会」标记都跟父科目共用一份——从哪个入口刷都算数。
+   不放进 SUBJECTS：SUBJECTS 的 prefix 必须一一对应（同步、导出备份、tests 都靠它），快捷入口和父科目是同一个前缀。
+   total＝这个分类的题数（tests 会对着科目页题库核对） */
+const SHORTCUTS = [116, 116, 118, 118, 118, 110, 122, 113, 121, 119, 111, 112, 115, 116, 117].map(function(n, i){
+  const cat = 'DAY ' + (i + 1);
+  return { key:'cet4-vocab-day' + (i + 1), parent:'cet4-vocab', cat:cat, prefix:'cet4vocabquiz', href:'./cet4-vocab/?cat=' + encodeURIComponent(cat),
+           defaultName:'选意思 · ' + cat, total:n, desc:'单选题，' + n + '题（' + cat + '，带英式音标）', folder:'cet4', marks:true };
+});
+// 带 folder 的科目 / 快捷入口第一次出现在这台设备上时，自动放进这个文件夹（id 固定：两台设备各自建，同步后还是同一个）
+const AUTO_FOLDERS = { cet4: '四级词汇' };
 // total＝科目页题库的题数（tests 会核对，加题后要跟着改）；desc 现在只当鼠标悬停提示用
 
 const STORAGE_KEY = 'tiku_custom_names';
@@ -361,7 +372,10 @@ function setExpanded(id, on) {
 
 const $ = function(id){ return document.getElementById(id); };
 const SUBJ_BY_KEY = {};
-SUBJECTS.forEach(function(s){ SUBJ_BY_KEY[s.key] = s; });
+SUBJECTS.concat(SHORTCUTS).forEach(function(s){ SUBJ_BY_KEY[s.key] = s; });
+// 默认先后：科目照 SUBJECTS 的顺序，它的快捷入口紧跟在它后面
+const DEFAULT_ORDER = [];
+SUBJECTS.forEach(function(s){ DEFAULT_ORDER.push(s.key); SHORTCUTS.forEach(function(x){ if (x.parent === s.key) DEFAULT_ORDER.push(x.key); }); });
 const ICON = {
   more:'<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg>',
   chev:'<svg width="9" height="15" viewBox="0 0 9 15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1.5 1.5l6 6-6 6"/></svg>',
@@ -433,8 +447,36 @@ function loadPinned() { return readKeys(PINNED_KEY); }
 function savePinned(keys) { return safeSet(PINNED_KEY, keys); }
 function loadOrder() {
   const keys = readKeys(ORDER_KEY);
-  SUBJECTS.forEach(function(s){ if (keys.indexOf(s.key) < 0) keys.push(s.key); });
+  // 存过的顺序里没有的（新加的科目、快捷入口）：插在默认顺序里它前一个的后面，找不到就排最后
+  DEFAULT_ORDER.forEach(function(k, i){
+    if (keys.indexOf(k) >= 0) return;
+    let at = -1;
+    for (let j = i - 1; j >= 0 && at < 0; j--) at = keys.indexOf(DEFAULT_ORDER[j]);
+    if (at >= 0) keys.splice(at + 1, 0, k); else keys.push(k);
+  });
   return keys;
+}
+/* 自动放文件夹：带 folder 的科目第一次出现时放进去。放过的记在本机（不同步、不进备份），之后挪出来就不再放回去 */
+const AUTO_PLACED_KEY = 'tiku_auto_placed';
+function autoPlace() {
+  if (window.__noAutoPlace) return;   // 只给自动化测试用（tests/cdp.cjs 默认设上，见那边注释）
+  let placed = []; try { placed = JSON.parse(localStorage.getItem(AUTO_PLACED_KEY) || '[]'); } catch(e) {}
+  if (!Array.isArray(placed)) placed = [];
+  const todo = DEFAULT_ORDER.map(function(k){ return SUBJ_BY_KEY[k]; }).filter(function(s){ return s.folder && AUTO_FOLDERS[s.folder] && placed.indexOf(s.key) < 0; });
+  if (!todo.length) return;
+  const map = loadSubjectFolderMap(), folders = loadFolders(), pinned = loadPinned();
+  let fch = false, mch = false;
+  todo.forEach(function(s){
+    const fid = 'auto-' + s.folder;
+    if (!map[s.key] && pinned.indexOf(s.key) < 0) {
+      if (!folders.some(function(f){ return f.id === fid; })) { folders.push({ id: fid, name: AUTO_FOLDERS[s.folder] }); fch = true; }
+      map[s.key] = fid; mch = true;
+    }
+    placed.push(s.key);
+  });
+  if (fch) saveFolders(folders);
+  if (mch) saveSubjectFolderMap(map);
+  try { localStorage.setItem(AUTO_PLACED_KEY, JSON.stringify(placed)); } catch(e) {}
 }
 // 同一层的几科换了先后：它们原来在总顺序里占着哪些位置，就按新顺序填回这些位置；别的科目不动
 function reorderSubjects(keys) {
@@ -457,10 +499,16 @@ function newFolderId() { return 'f_' + Date.now() + Math.random().toString(36).s
 function readJSON(key, def) { try { const v = JSON.parse(localStorage.getItem(key)); return v == null ? def : v; } catch(e) { return def; } }
 function subjectStats(s) {
   const wb = readJSON(s.prefix + '_wrongbook', {}), done = readJSON(s.prefix + '_done', {});
-  const wrong = (wb && typeof wb === 'object' && !Array.isArray(wb)) ? Object.keys(wb).length : 0;
-  let d = (done && typeof done === 'object' && !Array.isArray(done)) ? Object.keys(done).length : 0;
+  const isO = function(v){ return v && typeof v === 'object' && !Array.isArray(v); };
+  const inCat = function(c){ return !s.parent || c === s.cat; };   // 快捷入口只数自己这个分类
+  const wrong = isO(wb) ? Object.keys(wb).filter(function(k){ return isO(wb[k]) && inCat(wb[k].cat); }).length : 0;
+  let d;
+  if (s.parent) { const cd = readJSON(s.prefix + '_catdone', {}); d = isO(cd) ? Number(cd[s.cat]) || 0 : 0; }   // 科目页打开时算好存在本机的
+  else d = isO(done) ? Object.keys(done).length : 0;
   if (d > s.total) d = s.total;   // 题库删过题时旧记录会多出来
-  return { wrong: wrong, done: d, total: s.total };
+  let dunno = 0;
+  if (s.marks) { const mk = readJSON(s.prefix + '_marks', {}); if (isO(mk)) Object.keys(mk).forEach(function(k){ if (isO(mk[k]) && mk[k].s === 'dunno' && inCat(mk[k].c)) dunno++; }); }
+  return { wrong: wrong, done: d, total: s.total, dunno: dunno };
 }
 function statsText(st) {
   if (!st.done && !st.wrong) return '还没练过 · 共 ' + st.total + ' 题';
@@ -474,7 +522,7 @@ function esc(s) { return String(s).replace(/[&<>"']/g, function(c){ return { '&'
 function descHtml(s, st) {
   const base = s.desc.replace(/\s*·\s*错题本 \/ 练习记录 \/ 题目总览\s*$/, '');
   const tail = (!st.done && !st.wrong) ? '还没练过' : (st.wrong ? '错题 <b>' + st.wrong + '</b>' : '没有错题') + ' · 已做 ' + st.done;
-  return esc(base) + ' · ' + tail;
+  return esc(base) + ' · ' + tail + (st.dunno ? ' · 不会 <b>' + st.dunno + '</b>' : '');
 }
 
 function render() {
@@ -1258,7 +1306,7 @@ document.addEventListener('keydown', function(e){
 /* ===================== 备份：导出 / 导入 ===================== */
 /* 错题本、练习记录只存在这个浏览器里。导出 = 把 8 科的数据装进一个文件；导入 = 合并回来（不覆盖已有的）。
    只认下面这张清单里的存储项，文件里别的东西一律不写。 */
-const PER_SUBJECT = ['_wrongbook', '_wbremoved', '_history', '_done', '_inprogress', '_exammode', '_recite'];
+const PER_SUBJECT = ['_wrongbook', '_wbremoved', '_history', '_done', '_inprogress', '_exammode', '_recite', '_marks'];
 function backupKeys() {
   const keys = [STORAGE_KEY, FOLDERS_KEY, SUBJECT_FOLDER_KEY, PINNED_KEY, ORDER_KEY];
   SUBJECTS.forEach(function(s){ PER_SUBJECT.forEach(function(suf){ keys.push(s.prefix + suf); }); });
@@ -1328,6 +1376,14 @@ function mergeItem(key, incoming) {
     if (!isObj(b)) return 0;
     const out = isObj(a) ? a : {};
     Object.keys(b).forEach(function(k){ out[k] = 1; });
+    safeSet(key, out); return 0;
+  }
+  // 「会 / 不会」标记：同一道题留后标的那个（取消标记不会被备份里的旧标记放回来——取消就是删掉，这里没法知道，按「本机没有就补上」处理）
+  if (/_marks$/.test(key)) {
+    const a = parseJSON(cur, {}), b = parseJSON(incoming, null);
+    if (!isObj(b)) return 0;
+    const out = isObj(a) ? a : {};
+    Object.keys(b).forEach(function(k){ const x = b[k]; if (!isObj(x) || (x.s !== 'know' && x.s !== 'dunno')) return; if (!isObj(out[k]) || (Number(x.t) || 0) > (Number(out[k].t) || 0)) out[k] = x; });
     safeSet(key, out); return 0;
   }
   if (cur == null) {
@@ -1522,6 +1578,7 @@ function setupPullToRefresh(){
 }
 setupPullToRefresh();
 renderToolbar();
+autoPlace();
 render();
 </script>
 </body>
