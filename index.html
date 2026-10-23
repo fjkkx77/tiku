@@ -337,21 +337,29 @@ const SUBJECTS = [
   { key:'english-reading', prefix:'engreadingquiz',    href:'./english-reading/',     defaultName:'大学英语阅读与选词填空', total:66,  desc:'填空+单选混合，66题（六单元：选词填空6篇每篇10空＋阅读理解60题） · 错题本 / 练习记录 / 题目总览' },
   { key:'english-vocab', prefix:'engvocabquiz',      href:'./english-vocab/',       defaultName:'大学英语课后选词填空',   total:6,   desc:'填空题，6题共93空（六单元课后例句选词，含词表） · 错题本 / 练习记录 / 题目总览' },
   { key:'english-translation', prefix:'engtranslation',href:'./english-translation/', defaultName:'大学英语汉译英翻译练习', total:48,  desc:'翻译题，48题（六单元各8句，汉译英，对照完整参考译文自动判分） · 错题本 / 练习记录 / 题目总览' },
-  { key:'cet4-vocab', prefix:'cet4vocabquiz',        href:'./cet4-vocab/',          defaultName:'四级高频词汇 · 选意思',  total:1742, desc:'单选题，1742题（DAY 1–15，看英文选中文，带英式音标） · 错题本 / 练习记录 / 题目总览', folder:'cet4', marks:true },
-  { key:'cet4-choose', prefix:'cet4choosequiz',      href:'./cet4-choose/',         defaultName:'四级高频词汇 · 选单词',  total:1742, desc:'单选题，1742题（DAY 1–15，看中文选英文，形近词干扰） · 错题本 / 练习记录 / 题目总览', folder:'cet4', marks:true },
-  { key:'cet4-spell', prefix:'cet4spellquiz',        href:'./cet4-spell/',          defaultName:'四级高频词汇 · 写单词',  total:1742, desc:'填空题，1742题（DAY 1–15，看中文写英文，给首字母） · 错题本 / 练习记录 / 题目总览', folder:'cet4', marks:true },
+  { key:'cet4-vocab', prefix:'cet4vocabquiz',        href:'./cet4-vocab/',          defaultName:'四级高频词汇 · 选意思',  total:1742, desc:'单选题，1742题（DAY 1–15，看英文选中文，带英式音标） · 错题本 / 练习记录 / 题目总览', folder:'cet4v', marks:true },
+  { key:'cet4-choose', prefix:'cet4choosequiz',      href:'./cet4-choose/',         defaultName:'四级高频词汇 · 选单词',  total:1742, desc:'单选题，1742题（DAY 1–15，看中文选英文，形近词干扰） · 错题本 / 练习记录 / 题目总览', folder:'cet4c', marks:true },
+  { key:'cet4-spell', prefix:'cet4spellquiz',        href:'./cet4-spell/',          defaultName:'四级高频词汇 · 写单词',  total:1742, desc:'填空题，1742题（DAY 1–15，看中文写英文，给首字母） · 错题本 / 练习记录 / 题目总览', folder:'cet4s', marks:true },
 ];
 /* 快捷入口（2026-10-23）：不是独立科目，点进去就是父科目、开始练习页只勾这一个分类（科目页认 ?cat=）。
    错题本、练习记录、「会 / 不会」标记都跟父科目共用一份——从哪个入口刷都算数。
    不放进 SUBJECTS：SUBJECTS 的 prefix 必须一一对应（同步、导出备份、tests 都靠它），快捷入口和父科目是同一个前缀。
    total＝这个分类的题数（tests 会对着科目页题库核对） */
-const SHORTCUTS = [116, 116, 118, 118, 118, 110, 122, 113, 121, 119, 111, 112, 115, 116, 117].map(function(n, i){
-  const cat = 'DAY ' + (i + 1);
-  return { key:'cet4-vocab-day' + (i + 1), parent:'cet4-vocab', cat:cat, prefix:'cet4vocabquiz', href:'./cet4-vocab/?cat=' + encodeURIComponent(cat),
-           defaultName:'选意思 · ' + cat, total:n, desc:'单选题，' + n + '题（' + cat + '，带英式音标）', folder:'cet4', marks:true };
-});
-// 带 folder 的科目 / 快捷入口第一次出现在这台设备上时，自动放进这个文件夹（id 固定：两台设备各自建，同步后还是同一个）
-const AUTO_FOLDERS = { cet4: '四级词汇' };
+// 选意思（10-23）、选单词（10-24 用户要的）各 15 个；写单词不做（用户定）。两科每天的题数一样（同一份词表）
+const CET4_DAY_TOTALS = [116, 116, 118, 118, 118, 110, 122, 113, 121, 119, 111, 112, 115, 116, 117];
+const SHORTCUTS = [
+  { parent:'cet4-vocab', prefix:'cet4vocabquiz', name:'选意思', desc:'带英式音标', folder:'cet4v' },
+  { parent:'cet4-choose', prefix:'cet4choosequiz', name:'选单词', desc:'看中文选英文', folder:'cet4c' }
+].reduce(function(all, p){
+  return all.concat(CET4_DAY_TOTALS.map(function(n, i){
+    const cat = 'DAY ' + (i + 1);
+    return { key:p.parent + '-day' + (i + 1), parent:p.parent, cat:cat, prefix:p.prefix, href:'./' + p.parent + '/?cat=' + encodeURIComponent(cat),
+             defaultName:p.name + ' · ' + cat, total:n, desc:'单选题，' + n + '题（' + cat + '，' + p.desc + '）', folder:p.folder, marks:true };
+  }));
+}, []);
+// 带 folder 的科目 / 快捷入口第一次出现在这台设备上时，自动放进这个文件夹（id 固定：两台设备各自建，同步后还是同一个）。
+// 10-24 用户要求拆成三个（原来一个「四级词汇」auto-cet4），老设备上的由 splitCet4 搬过去
+const AUTO_FOLDERS = { cet4v: '四级 · 选意思', cet4c: '四级 · 选单词', cet4s: '四级 · 写单词' };
 // total＝科目页题库的题数（tests 会核对，加题后要跟着改）；desc 现在只当鼠标悬停提示用
 
 const STORAGE_KEY = 'tiku_custom_names';
@@ -465,9 +473,30 @@ function autoPlace() {
   if (!Array.isArray(placed)) placed = [];
   const todo = DEFAULT_ORDER.map(function(k){ return SUBJ_BY_KEY[k]; }).filter(function(s){ return s.folder && AUTO_FOLDERS[s.folder] && placed.indexOf(s.key) < 0; });
   const before = placed.slice();   // 这次之前就记下的（判断「以前建过文件夹没有」只看它，别把这次刚记的算进去）
-  if (!todo.length) return;
   const map = loadSubjectFolderMap(), folders = loadFolders(), pinned = loadPinned();
   let fch = false, mch = false;
+  /* 10-24 拆文件夹：老设备上「四级词汇」(auto-cet4) 里自动放进去的那些，按各自的 folder 搬到三个新文件夹，
+     新文件夹插在老的那个位置上（置顶状态跟着走）；老的空了就删掉（用户自己往里放了别的科目就留着）。
+     用户删过老文件夹的：什么都不搬，后面「建过没有」的判断会让新的也不建 */
+  if (placed.indexOf('split:cet4') < 0) {
+    const at = folders.findIndex(function(f){ return f.id === 'auto-cet4'; });
+    if (at >= 0) {
+      const old = folders[at], made = [];
+      Object.keys(map).forEach(function(k){
+        const sf = SUBJ_BY_KEY[k] && SUBJ_BY_KEY[k].folder;
+        if (map[k] !== 'auto-cet4' || !AUTO_FOLDERS[sf]) return;
+        map[k] = 'auto-' + sf; mch = true;
+        if (made.indexOf(sf) < 0) made.push(sf);
+      });
+      const fresh = Object.keys(AUTO_FOLDERS).filter(function(f){ return made.indexOf(f) >= 0 && !folders.some(function(x){ return x.id === 'auto-' + f; }); })
+        .map(function(f){ const nf = { id: 'auto-' + f, name: AUTO_FOLDERS[f] }; if (old.pinned) nf.pinned = true; return nf; });
+      const keepOld = Object.keys(map).some(function(k){ return map[k] === 'auto-cet4'; });
+      folders.splice.apply(folders, [at, keepOld ? 0 : 1].concat(fresh));
+      made.forEach(function(f){ if (placed.indexOf('folder:' + f) < 0) placed.push('folder:' + f); });
+      fch = true;
+    }
+    placed.push('split:cet4');
+  }
   todo.forEach(function(s){
     // 建过没有：有记号，或者以前（这次之前）自动放过同一个文件夹的科目（10-23 那版还没写记号）
     const fid = 'auto-' + s.folder, made = placed.indexOf('folder:' + s.folder) >= 0

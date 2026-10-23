@@ -7,16 +7,19 @@ async function runMarks(BASE, ok) {
   const c = await open(390, 844, 1, { autoPlace: true });
   try {
     await c.goto(BASE); await c.ev('localStorage.clear();sessionStorage.clear()'); await c.goto(BASE);
+    const IN = fid => `[...document.querySelectorAll('.folder-card[data-fid="${fid}"] .item[data-key]')].map(x=>x.dataset.key)`;
     let r = await c.ev(`({
       folders: JSON.parse(localStorage.tiku_folders||"[]"),
-      inF: [...document.querySelectorAll('.folder-card[data-fid="auto-cet4"] .item[data-key]')].map(x=>x.dataset.key),
+      v: ${IN('auto-cet4v')}, ch: ${IN('auto-cet4c')}, sp: ${IN('auto-cet4s')},
       loose: [...document.querySelectorAll('#list > .item[data-key]')].map(x=>x.dataset.key),
-      open: document.querySelector('.folder-card[data-fid="auto-cet4"]').classList.contains('open'),
-      d3: document.querySelector('[data-key="cet4-vocab-day3"]').getAttribute('href') })`);
-    const want = ['cet4-vocab'].concat(Array.from({ length: 15 }, (_, i) => 'cet4-vocab-day' + (i + 1)), ['cet4-choose', 'cet4-spell']);
-    ok(JSON.stringify(r.folders) === '[{"id":"auto-cet4","name":"四级词汇"}]' && JSON.stringify(r.inF) === JSON.stringify(want) && !r.loose.some(k => /^cet4/.test(k)) && !r.open,
-      '首页：四级的两科 + 15 个 DAY 入口自动进「四级词汇」文件夹，默认收着', r);
-    ok(r.d3 === './cet4-vocab/?cat=DAY%203', 'DAY 3 入口指向选意思科目、带 ?cat=DAY 3', r.d3);
+      open: [...document.querySelectorAll('.folder-card[data-fid^="auto-cet4"]')].some(f=>f.classList.contains('open')),
+      d3: document.querySelector('[data-key="cet4-vocab-day3"]').getAttribute('href'), c3: document.querySelector('[data-key="cet4-choose-day3"]').getAttribute('href') })`);
+    const days = p => Array.from({ length: 15 }, (_, i) => p + '-day' + (i + 1));
+    ok(JSON.stringify(r.folders) === '[{"id":"auto-cet4v","name":"四级 · 选意思"},{"id":"auto-cet4c","name":"四级 · 选单词"},{"id":"auto-cet4s","name":"四级 · 写单词"}]'
+      && JSON.stringify(r.v) === JSON.stringify(['cet4-vocab'].concat(days('cet4-vocab'))) && JSON.stringify(r.ch) === JSON.stringify(['cet4-choose'].concat(days('cet4-choose')))
+      && JSON.stringify(r.sp) === '["cet4-spell"]' && !r.loose.some(k => /^cet4/.test(k)) && !r.open,
+      '首页：四级拆成三个文件夹（选意思 / 选单词各带 15 个 DAY 入口，写单词只有总入口），默认收着', r);
+    ok(r.d3 === './cet4-vocab/?cat=DAY%203' && r.c3 === './cet4-choose/?cat=DAY%203', 'DAY 3 入口各自指向自己的科目、带 ?cat=DAY 3', r);
     // 挪出来以后，刷新不会被放回去；删了文件夹也不会重建
     r = await c.ev(`(async()=>{const m=JSON.parse(localStorage.tiku_subject_folder);delete m["cet4-spell"];localStorage.tiku_subject_folder=JSON.stringify(m);location.reload();})()`).catch(() => null);
     await sleep(600);
@@ -26,19 +29,32 @@ async function runMarks(BASE, ok) {
     r = await c.ev(`localStorage.tiku_folders`);
     ok(r === '[]', '首页：删掉自动建的文件夹后不会再自动建回来', r);
     // 删了文件夹之后又来了新科目（比如 10-24 加的选单词）：也不能把文件夹建回来
-    await c.ev(`(()=>{const p=JSON.parse(localStorage.tiku_auto_placed);localStorage.tiku_auto_placed=JSON.stringify(p.filter(k=>k!=="cet4-choose"&&k!=="folder:cet4"));location.reload();})()`).catch(() => null); await sleep(600);
+    await c.ev(`(()=>{const p=JSON.parse(localStorage.tiku_auto_placed);localStorage.tiku_auto_placed=JSON.stringify(p.filter(k=>k!=="cet4-choose"&&!/^folder:/.test(k)));location.reload();})()`).catch(() => null); await sleep(600);
     r = await c.ev(`({f:localStorage.tiku_folders,loose:[...document.querySelectorAll('#list > .item[data-key]')].map(x=>x.dataset.key).includes('cet4-choose')})`);
     ok(r.f === '[]' && r.loose, '首页：文件夹被删过，新加的四级科目放在外面，不重建文件夹（连 10-23 那版没写记号的旧数据也算）', r);
     // 用户已经自己把四级放进别的文件夹：不动
     await c.ev(`localStorage.clear();localStorage.tiku_folders=JSON.stringify([{id:"mine",name:"英语"}]);localStorage.tiku_subject_folder=JSON.stringify({"cet4-vocab":"mine"});location.reload()`).catch(() => null); await sleep(600);
     r = await c.ev(`JSON.parse(localStorage.tiku_subject_folder)`);
-    ok(r['cet4-vocab'] === 'mine' && r['cet4-spell'] === 'auto-cet4', '首页：用户已经放好的科目不挪，没放过的才自动放', r);
+    ok(r['cet4-vocab'] === 'mine' && r['cet4-spell'] === 'auto-cet4s' && r['cet4-vocab-day1'] === 'auto-cet4v', '首页：用户已经放好的科目不挪，没放过的才自动放', r);
+    // 老设备（10-23/24 那版）：一个「四级词汇」文件夹装着选意思 + 15 天 + 选单词 + 写单词，置顶、排在第二 → 拆成三个，插在原位置、置顶跟着走
+    const OLDKEYS = ['cet4-vocab'].concat(Array.from({ length: 15 }, (_, i) => 'cet4-vocab-day' + (i + 1)), ['cet4-choose', 'cet4-spell']);
+    await c.ev(`(()=>{localStorage.clear();const m={};${JSON.stringify(OLDKEYS)}.forEach(k=>m[k]="auto-cet4");m.os="a";
+      localStorage.tiku_folders=JSON.stringify([{id:"a",name:"甲"},{id:"auto-cet4",name:"四级词汇",pinned:true},{id:"b",name:"乙"}]);
+      localStorage.tiku_subject_folder=JSON.stringify(m);localStorage.tiku_auto_placed=JSON.stringify(${JSON.stringify(OLDKEYS)}.concat(["folder:cet4"]));location.reload();})()`).catch(() => null); await sleep(700);
+    r = await c.ev(`({f:JSON.parse(localStorage.tiku_folders),m:JSON.parse(localStorage.tiku_subject_folder)})`);
+    ok(JSON.stringify(r.f.map(x => x.id + (x.pinned ? '*' : ''))) === '["a","auto-cet4v*","auto-cet4c*","auto-cet4s*","b"]'
+      && r.m['cet4-vocab-day7'] === 'auto-cet4v' && r.m['cet4-choose'] === 'auto-cet4c' && r.m['cet4-choose-day7'] === 'auto-cet4c' && r.m['cet4-spell'] === 'auto-cet4s' && r.m.os === 'a',
+      '老设备的「四级词汇」文件夹：拆成三个、插在原位置、置顶跟着走，新的 15 个选单词入口也进去', r);
+    // 老设备删过「四级词汇」：拆的时候什么都不建，新加的选单词 DAY 入口放外面
+    await c.ev(`(()=>{localStorage.clear();localStorage.tiku_folders="[]";localStorage.tiku_subject_folder="{}";localStorage.tiku_auto_placed=JSON.stringify(${JSON.stringify(OLDKEYS)}.concat(["folder:cet4"]));location.reload();})()`).catch(() => null); await sleep(700);
+    r = await c.ev(`({f:localStorage.tiku_folders,loose:[...document.querySelectorAll('#list > .item[data-key]')].map(x=>x.dataset.key).filter(k=>/cet4-choose-day/.test(k)).length})`);
+    ok(r.f === '[]' && r.loose === 15, '老设备删过「四级词汇」：不建新文件夹，新加的 15 个选单词入口放外面', r);
     // DAY 入口的总题数和题库里这个 DAY 的题数一致
-    await c.goto(BASE + 'cet4-vocab/');
-    const perCat = await c.ev(`(()=>{const o={};QUESTIONS.forEach(q=>o[q.cat]=(o[q.cat]||0)+1);return o;})()`);
+    const perCat = {};
+    for (const s of ['cet4-vocab', 'cet4-choose']) { await c.goto(BASE + s + '/'); perCat[s] = await c.ev(`(()=>{const o={};QUESTIONS.forEach(q=>o[q.cat]=(o[q.cat]||0)+1);return o;})()`); }
     await c.goto(BASE);
-    const sc = await c.ev(`SHORTCUTS.map(s=>[s.cat,s.total])`);
-    ok(sc.length === 15 && sc.every(([k, n]) => perCat[k] === n), '首页：每个 DAY 入口写的题数和题库一致', { sc, perCat });
+    const sc = await c.ev(`SHORTCUTS.map(s=>[s.parent,s.cat,s.total])`);
+    ok(sc.length === 30 && sc.every(([p, k, n]) => perCat[p][k] === n), '首页：每个 DAY 入口写的题数和题库一致（选意思、选单词各 15 个）', { sc, perCat });
   } finally { c.close(); }
 
   /* ---------- 科目页：?cat=、标记、自动改回、首页统计、备份 ---------- */

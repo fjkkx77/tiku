@@ -373,7 +373,7 @@ function serve() {
     ok(Object.values(r).every(([a, b]) => a && a === b), '首页科目清单里的存储前缀和各科目页一致（导出备份靠它）', r);
     for (const [k, v] of [['tiku_folders', 'null'], ['tiku_folders', '{}'], ['tiku_folders', '[null]'], ['tiku_subject_folder', 'null'], ['tiku_custom_names', 'null']]) {
       await c.ev(`localStorage.clear();localStorage.setItem(${JSON.stringify(k)},${JSON.stringify(v)})`); await c.goto(BASE);
-      ok(await c.ev('document.querySelectorAll("#list .item[data-key]").length') === SITES.length + 15, `首页：存储项 ${k}=${v} 坏了也照常显示科目`);
+      ok(await c.ev('document.querySelectorAll("#list .item[data-key]").length') === SITES.length + 30, `首页：存储项 ${k}=${v} 坏了也照常显示科目`);
     }
     // 展开状态存坏了也照常显示分组（新建分组、展开收起记忆等 2026-10-16 改版后的用例在 tests/home.cjs）
     await c.ev(`localStorage.clear();localStorage.setItem("tiku_folders",JSON.stringify([{id:"f1",name:"甲"},{id:"f2",name:"乙"}]));localStorage.setItem("tiku_expanded_folders","{坏")`); await c.goto(BASE);
@@ -394,7 +394,7 @@ function serve() {
       return {allowed,ids:Object.keys(wb).sort(),q1:wb.q1.wrongCount,h:h.map(x=>x.date),evil:localStorage.getItem("evil_key"),other:localStorage.getItem("other_project_secret"),cards:document.querySelectorAll("#list .item[data-key]").length};})()`);
     ok(!r.allowed.includes('other_project_secret') && r.allowed.includes('osquiz_wrongbook'), '导出备份：只装刷题站自己的数据，不带同域名下别的项目的', r.allowed);
     ok(JSON.stringify(r.ids) === '["q1","q2","q7"]' && r.q1 === 9 && JSON.stringify(r.h) === '[5,3]', '导入备份：是合并（本机较新的留着、缺的补上），导入两次也不翻倍', r);
-    ok(r.evil === null && r.other === '别动我' && r.cards === SITES.length + 15, '导入备份：清单以外的存储项一律不写，坏内容不会把首页弄坏', r);
+    ok(r.evil === null && r.other === '别动我' && r.cards === SITES.length + 30, '导入备份：清单以外的存储项一律不写，坏内容不会把首页弄坏', r);
     // 本机已移出错题本的题，导入更早的备份后不复活；之后又答错（更新的）的照样能导进来
     r = await c.ev(`(async()=>{const w=ms=>new Promise(r=>setTimeout(r,ms));localStorage.clear();
       localStorage.setItem("osquiz_wbremoved",JSON.stringify({q1:500}));
