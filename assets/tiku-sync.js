@@ -14,6 +14,7 @@
      sf|<科目>      科目放在哪个文件夹    pin           置顶科目的先后            ord  全部科目的先后
      <前缀>|wb|<题号>  一道错题     <前缀>|h|<时间>  一条练习记录     <前缀>|d|<指纹>  做过的一道题
      <前缀>|mk|<指纹>  一个「会 / 不会」标记（2026-10-23；按标记时间算谁新）
+     <前缀>|pg|<范围>  一份进行中的练习（2026-10-24 起每个范围一份；旧的单份 |prog 照旧认，给还没刷新的旧页面用）
      <前缀>|prog       继续上次练习  <前缀>|em / |rc  快速模式 / 背题 开关
    不同步：首页哪些文件夹展开着、上次导出时间（只跟这台设备有关）、错题移出记号（本机推出来的） */
 (function(){
@@ -74,6 +75,8 @@
       const mk = readJSON(P + '_marks');
       if (isObj(mk)) Object.keys(mk).forEach(f => { if (isObj(mk[f])) m.set(P + '|mk|' + f, mk[f]); });
       const prog = readJSON(P + '_inprogress'); if (isObj(prog)) m.set(P + '|prog', prog);
+      const pgs = readJSON(P + '_progs');
+      if (isObj(pgs)) Object.keys(pgs).forEach(k => { if (isObj(pgs[k])) m.set(P + '|pg|' + k, pgs[k]); });
       const em = rawGet(P + '_exammode'); if (em === 'true' || em === 'false') m.set(P + '|em', em);
       const rc = rawGet(P + '_recite'); if (rc === 'true' || rc === 'false') m.set(P + '|rc', rc);
     });
@@ -88,7 +91,7 @@
     let t = 0;
     if (id.indexOf('|wb|') > 0) t = Number(v.lastWrongAt);
     else if (id.indexOf('|h|') > 0) t = Number(v.date);
-    else if (/\|prog$/.test(id)) t = Number(v.savedAt);
+    else if (/\|prog$/.test(id) || id.indexOf('|pg|') > 0) t = Number(v.savedAt);
     else if (id.indexOf('|mk|') > 0) t = Number(v.t);
     else if (id.indexOf('|d|') > 0) return 1;
     return isFinite(t) && t > 0 ? t : null;
@@ -168,6 +171,7 @@
       const mk = pick(P + '|mk|'); put(P + '_marks', mk, !Object.keys(mk).length);
       if (isObj(live.get(P + '|prog'))) put(P + '_inprogress', live.get(P + '|prog'));
       else if (dead.has(P + '|prog') && rawDel(P + '_inprogress')) changed = true;
+      const pgs = pick(P + '|pg|'); put(P + '_progs', pgs, !Object.keys(pgs).length);
       [['em', '_exammode'], ['rc', '_recite']].forEach(([s, suf]) => {
         const v = live.get(P + '|' + s);
         if (v === 'true' || v === 'false') { if (rawSet(P + suf, v)) changed = true; }
@@ -233,7 +237,7 @@
       if (key && /_wbremoved$/.test(key)) return;      // 移出记号不同步（本机推出来的）
       clearTimeout(stampTimer); stampTimer = setTimeout(stampNow, 300);
       if (!client.active()) return;
-      if (key && /_inprogress$/.test(key)) { clearTimeout(progTimer); progTimer = setTimeout(progNow, 4000); return; }
+      if (key && /_inprogress$|_progs$/.test(key)) { clearTimeout(progTimer); progTimer = setTimeout(progNow, 4000); return; }
       client.schedule();
     },
     _getLocal: getLocal, _setLocal: setLocal   // 给测试用

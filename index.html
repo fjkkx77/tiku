@@ -27,7 +27,7 @@
 })();
 </script>
 <title>刷题合集</title>
-<link rel="stylesheet" href="assets/sync-panel.css?v=41b88c4a91">
+<link rel="stylesheet" href="assets/sync-panel.css?v=ce164dcd92">
 <style>
   /* 外观＝2026-10-15 之前的样子（2026-10-16 用户看过 iOS 风格改版后决定回到原来的界面风格，只保留新的逻辑和交互） */
   :root{ --primary:#3b82f6; --primary-dark:#2563eb; --bg:#f3f4f6; --text:#1f2937; --muted:#6b7280; --border:#e5e7eb; --danger:#dc2626; --press:#eef2f7; --ease:cubic-bezier(.2,.9,.3,1); }
@@ -322,10 +322,10 @@
   </div>
 </div>
 
-<script src="assets/sync-core.js?v=41b88c4a91"></script>
-<script src="assets/sync-client.js?v=41b88c4a91"></script>
-<script src="assets/sync-panel.js?v=41b88c4a91"></script>
-<script src="assets/tiku-sync.js?v=41b88c4a91"></script>
+<script src="assets/sync-core.js?v=ce164dcd92"></script>
+<script src="assets/sync-client.js?v=ce164dcd92"></script>
+<script src="assets/sync-panel.js?v=ce164dcd92"></script>
+<script src="assets/tiku-sync.js?v=ce164dcd92"></script>
 <script src="assets/drag.js?v=2.0.0"></script>
 <script>
 const SUBJECTS = [
@@ -1306,7 +1306,7 @@ document.addEventListener('keydown', function(e){
 /* ===================== 备份：导出 / 导入 ===================== */
 /* 错题本、练习记录只存在这个浏览器里。导出 = 把 8 科的数据装进一个文件；导入 = 合并回来（不覆盖已有的）。
    只认下面这张清单里的存储项，文件里别的东西一律不写。 */
-const PER_SUBJECT = ['_wrongbook', '_wbremoved', '_history', '_done', '_inprogress', '_exammode', '_recite', '_marks'];
+const PER_SUBJECT = ['_wrongbook', '_wbremoved', '_history', '_done', '_inprogress', '_progs', '_exammode', '_recite', '_marks'];
 function backupKeys() {
   const keys = [STORAGE_KEY, FOLDERS_KEY, SUBJECT_FOLDER_KEY, PINNED_KEY, ORDER_KEY];
   SUBJECTS.forEach(function(s){ PER_SUBJECT.forEach(function(suf){ keys.push(s.prefix + suf); }); });
@@ -1376,6 +1376,14 @@ function mergeItem(key, incoming) {
     if (!isObj(b)) return 0;
     const out = isObj(a) ? a : {};
     Object.keys(b).forEach(function(k){ out[k] = 1; });
+    safeSet(key, out); return 0;
+  }
+  // 进行中的练习（2026-10-24 起每个范围一份）：同一个范围留后存的那份，本机没有的范围补上
+  if (/_progs$/.test(key)) {
+    const a = parseJSON(cur, {}), b = parseJSON(incoming, null);
+    if (!isObj(b)) return 0;
+    const out = isObj(a) ? a : {};
+    Object.keys(b).forEach(function(k){ const x = b[k]; if (!isObj(x)) return; if (!isObj(out[k]) || (Number(x.savedAt) || 0) > (Number(out[k].savedAt) || 0)) out[k] = x; });
     safeSet(key, out); return 0;
   }
   // 「会 / 不会」标记：同一道题留后标的那个（取消标记不会被备份里的旧标记放回来——取消就是删掉，这里没法知道，按「本机没有就补上」处理）

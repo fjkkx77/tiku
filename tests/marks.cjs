@@ -109,6 +109,40 @@ async function runMarks(BASE, ok) {
       const m=JSON.parse(localStorage.cet4vocabquiz_marks);
       return {has,n:Object.keys(m).length,k:m[k].s};})()`);
     ok(r.has && r.n === 3 && r.k === 'dunno', '导出备份带上标记；导入合并时同一题留后标的那个', r);
+
+    /* ---------- 进行中的练习：每个范围各一份（2026-10-24 用户报的场景） ---------- */
+    await p.goto(BASE + 'cet4-vocab/'); await p.ev('localStorage.clear()');
+    // 旧版留下的单份存档：打开时并进列表，不丢
+    await p.ev(`(()=>{const ids=QUESTIONS.slice(0,5).map((q,i)=>"q"+i);localStorage.setItem("cet4vocabquiz_inprogress",JSON.stringify({ids,fps:QUESTIONS.slice(0,5).map(q=>__quiz.fp(q)),answers:[{allCorrect:true,selectedOpt:"A"},{allCorrect:true,selectedOpt:"A"},null,null,null],idx:2,elapsed:0,scopeLabel:"全部DAY",savedAt:1}));})()`);
+    await p.goto(BASE + 'cet4-vocab/');
+    r = await p.ev(`({old:localStorage.getItem("cet4vocabquiz_inprogress"),slots:Object.keys(JSON.parse(localStorage.getItem("cet4vocabquiz_progs")||"{}")),rows:[...document.querySelectorAll("#resumeList .resume-row")].map(x=>x.innerText.replace(/\\s+/g," "))})`);
+    ok(r.old === null && JSON.stringify(r.slots) === '["全部DAY"]' && /全部DAY/.test(r.rows[0]) && /2\/5/.test(r.rows[0]), '旧版的单份进度：打开时并进「进行中的练习」，不丢', r);
+    // 主线做了 3 题 → 标一个「不会」→ 去刷「不会的」→ 再去错题本练 → 回来主线进度原样
+    r = await p.ev(`(async()=>{const w=ms=>new Promise(r=>setTimeout(r,ms));const Q=__quiz,yes=()=>{if(document.getElementById("confirmBackdrop").classList.contains("show"))document.getElementById("confirmOkBtn").click();};
+      document.getElementById("resumeList").querySelector(".resume-del").click();await w(40);yes();await w(40);
+      document.getElementById("startBtn").click();await w(60);
+      for(let i=0;i<3;i++){Q.session.idx=i;Q.renderQuestion();Q.pickOption("ABCD".replace(Q.session.queue[i].correct,"")[0]);await w(10);}
+      Q.session.idx=3;Q.renderQuestion();Q.setMark("dunno");
+      document.querySelector('nav button[data-screen="home"]').click();await w(40);yes();await w(40);
+      document.getElementById("markGoDunno").click();await w(60);const dunnoAsked=document.getElementById("confirmBackdrop").classList.contains("show");
+      Q.pickOption(Q.session.queue[0].correct);const dunnoScope=Q.session.scopeLabel;
+      document.querySelector('nav button[data-screen="wrongbook"]').click();await w(40);yes();await w(60);
+      [...document.querySelectorAll("button")].find(b=>/练习全部错题/.test(b.textContent)).click();await w(60);const wbAsked=document.getElementById("confirmBackdrop").classList.contains("show");
+      Q.pickOption(Q.session.queue[0].correct);const wbScope=Q.session.scopeLabel;
+      document.querySelector('nav button[data-screen="home"]').click();await w(40);yes();await w(40);
+      const ps=JSON.parse(localStorage.getItem("cet4vocabquiz_progs"));
+      document.getElementById("startBtn").click();await w(60);
+      return {dunnoAsked,wbAsked,dunnoScope,wbScope,slots:Object.keys(ps).sort(),main:ps["全部DAY"]&&ps["全部DAY"].answers.filter(Boolean).length,
+        back:{scope:Q.session.scopeLabel,idx:Q.session.idx,n:Q.session.answers.filter(Boolean).length},rows:document.querySelectorAll("#resumeList .resume-row").length};})()`);
+    ok(!r.dunnoAsked && !r.wbAsked, '开「不会的」、错题本练习：不再弹「会覆盖上次练习」', r);
+    ok(r.slots.length === 3 && r.main === 3 && r.back.scope === '全部DAY' && r.back.n === 3 && r.back.idx === 3,
+      '主线做到第 4 题 → 刷不会的 → 刷错题本 → 回来点开始练习：主线 3 题的进度原样接上', r);
+    // 最多 10 份：第 11 份进来时删最久没碰的那份并提示
+    r = await p.ev(`(async()=>{const w=ms=>new Promise(r=>setTimeout(r,ms));const Q=__quiz;
+      for(let d=1;d<=10;d++){Q.showScreen("home");await w(60);document.querySelectorAll(".catChk").forEach(c=>c.checked=c.value==="DAY "+d);document.getElementById("startBtn").click();await w(30);Q.pickOption(Q.session.queue[0].correct);await w(5);}
+      const ps=JSON.parse(localStorage.getItem("cet4vocabquiz_progs"));
+      return {n:Object.keys(ps).length,gone:!("全部DAY（不会的）" in ps),tip:document.getElementById("ptrTip").textContent};})()`);
+    ok(r.n === 10 && /最多留 10 份/.test(r.tip), '进行中的练习最多 10 份：多出来的删最久没碰的那份，并提示', r);
   } finally { p.close(); }
 }
 module.exports = { runMarks };

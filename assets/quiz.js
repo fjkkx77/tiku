@@ -71,12 +71,8 @@ document.body.insertAdjacentHTML("afterbegin", `
 
     <section class="screen active" id="screen-home">
       <div class="card resume-card" id="resumeCard" hidden>
-        <div class="resume-title">📖 继续上次练习</div>
-        <div class="resume-sub" id="resumeSub"></div>
-        <div class="btn-row">
-          <button class="btn secondary" id="resumeRestartBtn">重新练习</button>
-          <button class="btn" id="resumeContinueBtn">继续练习</button>
-        </div>
+        <div class="resume-title">📖 进行中的练习</div>
+        <div id="resumeList"></div>
       </div>
       ${CFG.marks ? `<div class="card mark-card" id="markCard"></div>` : ""}
       <div class="card">
@@ -338,6 +334,12 @@ function migrateFp(){
   }
   const p = loadJSON(LS_INPROGRESS, null);
   if(p && typeof p === "object" && Array.isArray(p.fps) && p.fps.some(f=>to(f)!==f)){ p.fps = p.fps.map(to); saveJSON(LS_INPROGRESS, p); }
+  const ps = loadJSON(CFG.prefix+"_progs", null);   // 进行中的练习（每个范围一份）
+  if(ps && typeof ps === "object" && !Array.isArray(ps)){
+    let ch = false;
+    Object.keys(ps).forEach(k=>{ const x = ps[k]; if(x && Array.isArray(x.fps) && x.fps.some(f=>to(f)!==f)){ x.fps = x.fps.map(to); ch = true; } });
+    if(ch) saveJSON(CFG.prefix+"_progs", ps);
+  }
   // 错题本条目里存着当时的题目和答案：答案换成现在的，指纹才对得上。
   // 按新指纹找题（同一位置的优先），题同时挪了位置也能接上——接上以后由下面的 relocateWrongbook 搬到新位置
   const byFp = new Map(); Q.forEach(q=>{ const f = FP.get(q.id); if(!byFp.has(f)) byFp.set(f, q); });
@@ -640,10 +642,12 @@ function showScreen(name){
   // 答题时标题下面写「正在练习 · 范围」，让人一眼知道在刷哪一科、哪部分（2026-10-15 用户嫌答题页顶栏太窄、看不出在刷什么）
   // 2026-10-21 用户定：本次的对错统计也挪到这一行、接在范围后面（原来在进度条下面，和三个按钮挤成两行）
   $("quizScopeText").textContent = (name==="quiz" && session && session.scopeLabel) ? "正在练习 · " + session.scopeLabel : "";
-  if(name==="quiz") timerResume(); else timerPause();
+  // 离开答题页：停表并把已用时间存进进度（不存的话从「进行中的练习」继续时，用时从上次存档那刻算起，中间这段丢了）
+  if(name==="quiz") timerResume(); else { const was = !!activeSince; timerPause(); if(was) saveProgress(); }
   syncBackEntry(name);
   if(name==="wrongbook") renderWrongbook();
   if(name==="history") renderHistory();
+  if(name==="home"){ renderResumeCard(); renderMarkCard(); }   // 进行中的练习、标记可能刚变了：回到首页一律重画
 }
 document.querySelectorAll("nav button").forEach(b=>b.addEventListener("click", async ()=>{
   if(isActive("screen-quiz")){
@@ -778,7 +782,7 @@ document.addEventListener("visibilitychange", ()=>{
 window.addEventListener("pageshow", e=>{ if(e.persisted) refreshFromStorage(); });
 window.addEventListener("storage", e=>{
   if(!e.key) return refreshFromStorage();                    // 整个存储被清空
-  if(e.key === LS_INPROGRESS) return checkStale();           // 别的页面在答题（每打几个字就会存一次草稿）：只看要不要让位，不重画
+  if(e.key === LS_PROGS) return checkStale();                // 别的页面在答题（每打几个字就会存一次草稿）：只看要不要让位，不重画
   if([LS_WRONGBOOK, LS_HISTORY, LS_DONE, LS_MARKS].includes(e.key)) refreshFromStorage();
 });
 function refreshFromStorage(){
@@ -798,68 +802,127 @@ function checkStale(){
     // 这场练习在别的页面里已经往后做了（或者已经开了新的）：这一页是旧的，再答下去只会把新进度盖掉
     session = null; activeSince = null; clearAutoAdvance();
     renderCatList(); showScreen("home");
-    showAlert("这场练习在另一个页面（或另一台设备）上有更新的进度，这一页是旧的。\n已回到首页，点「继续上次练习」接着做。");
+    showAlert("这场练习在另一个页面（或另一台设备）上有更新的进度，这一页是旧的。\n已回到首页，在「进行中的练习」里点「继续」接着做。");
     return true;
   }
   return false;
 }
 
-/* ===================== 继续上次练习（进行中的进度实时存 localStorage） ===================== */
+/* ===================== 进行中的练习（进度实时存 localStorage） =====================
+   2026-10-24 起每个「范围」各存一份（用户报：点「不会的」/ 错题本开一轮，就把主线 278/1742 的进度盖掉了）。
+   范围＝开始时的 scopeLabel（「全部DAY」「DAY 3」「全部DAY（不会的）」「错题本练习」…）：同一个入口同一个范围再进来就接着做，
+   不同的互不影响。存在 <前缀>_progs = {范围: 进度}；最多 PROG_MAX 份，超了删最久没碰的那份（会提示）。
+   「不会的」「错题本」这类名单会变的：一轮开始时的那批题冻结，中途新标的下一轮「重新开始」才算进来（用户定）。
+   旧版的单份存档 <前缀>_inprogress 打开时并进来（不丢那份进度）。 */
+const LS_PROGS = CFG.prefix+"_progs", PROG_MAX = 10;
 // 存档上带「是哪个页面存的（sid）」和「什么时候存的」：别的页面存过更新的，就轮不到这一页去覆盖
 const PAGE_ID = Math.random().toString(36).slice(2) + Date.now().toString(36);
+function loadProgs(){
+  const m = loadJSON(LS_PROGS, {}), out = {};
+  if(m && typeof m === "object" && !Array.isArray(m)) Object.keys(m).forEach(k=>{ if(m[k] && typeof m[k] === "object") out[k] = m[k]; });
+  return out;
+}
+(function migrateSingle(){
+  const old = loadJSON(LS_INPROGRESS, null);
+  if(!old || typeof old !== "object") return;
+  const label = typeof old.scopeLabel === "string" && old.scopeLabel ? old.scopeLabel : "上次的练习";
+  const all = loadProgs();
+  if(!all[label] || num(all[label].savedAt) < num(old.savedAt)) all[label] = old;
+  if(saveJSON(LS_PROGS, all)){ try{ localStorage.removeItem(LS_INPROGRESS); }catch(e){} syncChanged(LS_INPROGRESS); }
+})();
 function someoneElseIsNewer(){
-  const s = loadJSON(LS_INPROGRESS, null);
-  return !!(s && s.sid && session && s.sid !== session.sid && num(s.savedAt) > num(session.savedAt));
+  if(!session || !session.slot) return false;
+  const s = loadProgs()[session.slot];
+  return !!(s && s.sid && s.sid !== session.sid && num(s.savedAt) > num(session.savedAt));
 }
 function saveProgress(){
   if(!session || session.finished) return;
   if(someoneElseIsNewer()) return;
   session.savedAt = Date.now();
-  saveJSON(LS_INPROGRESS, {
+  const all = loadProgs();
+  all[session.slot] = {
     ids: session.queue.map(q=>q.id), fps: session.queue.map(fp),
     answers: session.answers, drafts: session.drafts || {}, idx: session.idx, elapsed: elapsedNow(),
     scopeLabel: session.scopeLabel, historyDate: session.historyDate || null,
     sid: session.sid, savedAt: session.savedAt
-  });
+  };
+  const keys = Object.keys(all);
+  if(keys.length > PROG_MAX){
+    const drop = keys.filter(k=>k!==session.slot).sort((a,b)=>num(all[a].savedAt)-num(all[b].savedAt))[0];
+    delete all[drop];
+    toast(`进行中的练习最多留 ${PROG_MAX} 份，最久没碰的「${drop}」已删掉`, 3600);
+  }
+  saveJSON(LS_PROGS, all);
 }
-function clearProgress(){ try{ localStorage.removeItem(LS_INPROGRESS); }catch(e){} syncChanged(LS_INPROGRESS); }
-function loadSaved(){
-  const s = loadJSON(LS_INPROGRESS, null);
+function clearProgress(slot){
+  const all = loadProgs();
+  if(!(slot in all)) return;
+  delete all[slot]; saveJSON(LS_PROGS, all);
+}
+function loadSaved(slot){
+  const s = loadProgs()[slot];
   if(!s || !Array.isArray(s.ids) || !Array.isArray(s.answers)) return null;
   const queue = s.ids.map(id=>QBYID[id]);
   const bad = queue.some(q=>!q) || (Array.isArray(s.fps) && queue.some((q,i)=>fp(q)!==s.fps[i]));
-  if(bad || typeof s.idx!=="number" || s.idx<0 || s.idx>=queue.length){ clearProgress(); return null; }   // 题库改过、对不上：作废，不硬凑
+  if(bad || typeof s.idx!=="number" || s.idx<0 || s.idx>=queue.length){ clearProgress(slot); return null; }   // 题库改过、对不上：作废，不硬凑
   return { queue, saved: s };
 }
-function renderResumeCard(){
-  const r = loadSaved(), card = $("resumeCard");
-  if(!r){ card.hidden = true; return; }
+function resumeSlot(slot){
+  const r = loadSaved(slot); if(!r) return false;
   const { queue, saved } = r;
-  $("resumeSub").textContent = `已完成 ${saved.answers.filter(Boolean).length}/${queue.length} 题 · 范围：${saved.scopeLabel}`;
+  // 老版本存的是 startTime 而不是 elapsed：没法知道中间离开了多久，只好从 0 接着计
+  for(const k in ansView) delete ansView[k];
+  session = { queue, idx: saved.idx, answers: saved.answers, drafts: (saved.drafts && typeof saved.drafts==="object") ? saved.drafts : {},
+    elapsed: saved.elapsed||0, scopeLabel: saved.scopeLabel || slot, slot, historyDate: saved.historyDate||null, sid: newSid(), savedAt: Date.now() };
+  activeSince = null;
+  showScreen("quiz"); renderQuestion();
+  return true;
+}
+function renderResumeCard(){
+  const card = $("resumeCard"), all = loadProgs();
+  const rows = Object.keys(all).map(slot=>({ slot, r: loadSaved(slot) })).filter(x=>x.r)
+    .sort((a,b)=>num(b.r.saved.savedAt)-num(a.r.saved.savedAt));
+  if(!rows.length){ card.hidden = true; $("resumeList").innerHTML = ""; return; }
   card.hidden = false;
-  $("resumeContinueBtn").onclick = ()=>{
-    // 老版本存的是 startTime 而不是 elapsed：没法知道中间离开了多久，只好从 0 接着计
-    for(const k in ansView) delete ansView[k];
-    session = { queue, idx: saved.idx, answers: saved.answers, drafts: (saved.drafts && typeof saved.drafts==="object") ? saved.drafts : {},
-      elapsed: saved.elapsed||0, scopeLabel: saved.scopeLabel, historyDate: saved.historyDate||null, sid: newSid(), savedAt: Date.now() };
-    activeSince = null;
-    showScreen("quiz"); renderQuestion();
-  };
-  // 「重新练习」会丢掉已经答过的进度，和「继续练习」又紧挨着：答过题就先问一句（「开始练习」那边本来就会问）
-  $("resumeRestartBtn").onclick = async ()=>{
-    const n = saved.answers.filter(Boolean).length;
-    if(n && !await showConfirm(`这场练习已经答了 ${n}/${queue.length} 题。\n重新练习会从第 1 题开始，已答的进度会清掉，确定吗？\n（错题本里的记录不受影响）`)) return;
-    startQuiz(queue, saved.scopeLabel, false);
-  };
+  // 第一行（最近碰过的）的按钮沿用旧 id，旧的测试照样能用
+  $("resumeList").innerHTML = rows.map(({slot, r}, i)=>{
+    const n = r.saved.answers.filter(Boolean).length;
+    return `<div class="resume-row" data-slot="${esc(slot)}">
+      <div class="resume-info"><div class="resume-scope">${esc(r.saved.scopeLabel || slot)}</div>
+        <div class="resume-sub">已完成 ${n}/${r.queue.length} 题</div></div>
+      <div class="resume-btns">
+        <button class="btn secondary resume-restart"${i ? "" : ` id="resumeRestartBtn"`}>重新开始</button>
+        <button class="btn resume-continue"${i ? "" : ` id="resumeContinueBtn"`}>继续</button>
+        <button class="resume-del" aria-label="删除这份进度" title="删除这份进度">✕</button>
+      </div></div>`;
+  }).join("");
+  $("resumeList").querySelectorAll(".resume-row").forEach(row=>{
+    const slot = row.dataset.slot, r = loadSaved(slot); if(!r) return;
+    const n = r.saved.answers.filter(Boolean).length, name = r.saved.scopeLabel || slot;
+    row.querySelector(".resume-continue").onclick = ()=>resumeSlot(slot);
+    // 「重新开始」「删除」会丢掉已经答过的进度：答过题就先问一句
+    row.querySelector(".resume-restart").onclick = async ()=>{
+      if(n && !await showConfirm(`「${name}」已经答了 ${n}/${r.queue.length} 题。\n重新开始会从第 1 题开始，这份进度会清掉，确定吗？\n（错题本、做过的题、标记都不受影响）`)) return;
+      startQuiz(r.queue, name, false);
+    };
+    row.querySelector(".resume-del").onclick = async ()=>{
+      if(n && !await showConfirm(`删除「${name}」这份进度（已答 ${n}/${r.queue.length} 题）？\n错题本、做过的题、标记都不受影响。`)) return;
+      clearProgress(slot); renderResumeCard();
+    };
+  });
 }
 let sidCounter = 0;
 function newSid(){ return PAGE_ID + "-" + (++sidCounter); }
 
-async function startQuiz(questionPool, scopeLabel, confirmOverwrite){
-  if(confirmOverwrite){
-    const r = loadSaved();
+/* fromEntry＝从入口（开始练习 / 不会的 / 错题本…）进来：这个范围有没做完的进度就接着做，不覆盖。
+   false＝明确要从头来（重新开始、结果页的重练）：覆盖这个范围的那一份 */
+async function startQuiz(questionPool, scopeLabel, fromEntry){
+  if(fromEntry){
+    const r = loadSaved(scopeLabel);
     if(r && r.saved.answers.some(Boolean)){
-      if(!await showConfirm(`上次的练习还没做完（已答 ${r.saved.answers.filter(Boolean).length}/${r.queue.length} 题）。\n开始新的练习会覆盖它，确定吗？`)) return;
+      resumeSlot(scopeLabel);
+      toast(`「${scopeLabel}」上次做到第 ${r.saved.idx+1} 题，接着做。想从头来：在「进行中的练习」里点「重新开始」`, 3600);
+      return;
     }
   }
   const random = (document.querySelector('input[name="order"]:checked')||{}).value === "random";
@@ -869,7 +932,7 @@ async function startQuiz(questionPool, scopeLabel, confirmOverwrite){
   const pool = mcq.concat(blank);
   activeSince = null;
   for(const k in ansView) delete ansView[k];   // 「逐空对照」切换只记这一次练习
-  session = { queue: pool, idx: 0, answers: new Array(pool.length).fill(null), drafts: {}, elapsed: 0, scopeLabel, sid: newSid(), savedAt: Date.now() };
+  session = { queue: pool, idx: 0, answers: new Array(pool.length).fill(null), drafts: {}, elapsed: 0, scopeLabel, slot: scopeLabel, sid: newSid(), savedAt: Date.now() };
   showScreen("quiz"); renderQuestion();
 }
 function currentQ(){ return session.queue[session.idx]; }
@@ -1232,7 +1295,7 @@ function finishQuiz(){
     session.historyDate = entry.date;
   }
   session.finished = true;
-  if(!someoneElseIsNewer()) clearProgress();
+  if(!someoneElseIsNewer()) clearProgress(session.slot);
   $("resTotal").textContent = s.total;
   $("resAnswered").textContent = s.answered;
   $("resUnanswered").textContent = s.total - s.answered;

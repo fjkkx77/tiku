@@ -43,7 +43,16 @@ main{flex:1;padding:14px;}
 .mode-row input{margin-right:4px;}
 .resume-card{background:#eef2ff;border:1.5px solid var(--primary);}
 .resume-title{font-size:15px;font-weight:bold;color:var(--primary-dark);margin-bottom:4px;}
-.resume-sub{font-size:13px;color:var(--muted);margin-bottom:10px;}
+.resume-sub{font-size:13px;color:var(--muted);}
+/* 进行中的练习（2026-10-24 起每个范围一份）：一行一份，范围名在左、按钮在右；窄屏放不下按钮就换到下一行 */
+.resume-row{display:flex;flex-wrap:wrap;align-items:center;gap:8px 10px;padding:10px 0;border-top:1px solid #d6dffb;}
+.resume-row:first-child{border-top:none;padding-top:6px;}
+.resume-info{flex:1 1 140px;min-width:0;}
+.resume-scope{font-size:14px;font-weight:600;color:var(--text);overflow-wrap:anywhere;}
+.resume-btns{display:flex;align-items:center;gap:8px;margin-left:auto;}
+.resume-btns .btn{padding:8px 14px;font-size:14px;min-height:36px;}
+.resume-del{width:36px;height:36px;border:none;background:none;color:var(--muted);font-size:16px;cursor:pointer;border-radius:8px;-webkit-tap-highlight-color:transparent;}
+.resume-del:active{background:#dfe6fb;}
 .toplinks{display:flex;justify-content:space-between;margin-bottom:8px;font-size:13px;}
 .toplinks span{color:var(--primary-dark);cursor:pointer;}
 .progress-wrap{margin-bottom:10px;font-size:13px;color:var(--muted);}

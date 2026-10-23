@@ -69,8 +69,17 @@ function serve() {
     r = await c.ev(`(async()=>{document.getElementById("selNone").click();document.getElementById("startBtn").click();await new Promise(r=>setTimeout(r,50));return {native:window.__alerts.length,show:document.getElementById("confirmBackdrop").classList.contains("show"),cancelHidden:document.getElementById("confirmCancelBtn").hidden};})()`);
     ok(r.native === 0 && r.show && r.cancelHidden, '没选章节：用自己的弹窗，不用原生 alert', r);
     await c.ev('document.getElementById("confirmOkBtn").click();document.getElementById("selAll").click()');
-    r = await c.ev(`(async()=>{${start}Q.pickOption(Q.session.queue[0].correct);Q.showScreen("home");document.getElementById("startBtn").click();await new Promise(r=>setTimeout(r,50));const show=document.getElementById("confirmBackdrop").classList.contains("show");document.getElementById("confirmCancelBtn").click();await new Promise(r=>setTimeout(r,50));return {show,kept:JSON.parse(localStorage.getItem("webquiz_inprogress")).answers.filter(Boolean).length};})()`);
-    ok(r.show && r.kept === 1, '有没做完的练习时开始新练习：先确认，取消则保留', r);
+    // 进行中的练习每个范围一份（2026-10-24 用户报：开「不会的」/ 错题本把主线进度盖掉了）
+    r = await c.ev(`(async()=>{const w=ms=>new Promise(r=>setTimeout(r,ms));${start}Q.pickOption(Q.session.queue[0].correct);Q.session.idx=1;Q.renderQuestion();Q.pickOption(Q.session.queue[1].correct);
+      Q.showScreen("home");await w(60);document.getElementById("startBtn").click();await w(50);
+      const asked=document.getElementById("confirmBackdrop").classList.contains("show"), same={idx:Q.session.idx,n:Q.session.answers.filter(Boolean).length};
+      Q.showScreen("home");await w(60);const cats=[...document.querySelectorAll(".catChk")];cats.forEach((c,i)=>c.checked=i===0);document.getElementById("startBtn").click();await w(50);
+      Q.pickOption(Q.session.queue[0].correct);const other=Q.session.scopeLabel;
+      Q.showScreen("home");await w(60);document.querySelector('nav button[data-screen="home"]').click();await w(30);if(document.getElementById("confirmBackdrop").classList.contains("show")){document.getElementById("confirmOkBtn").click();await w(30);}
+      const ps=JSON.parse(localStorage.getItem("webquiz_progs")),rows=[...document.querySelectorAll("#resumeList .resume-row")].map(x=>x.dataset.slot);
+      return {asked,same,other,slots:Object.keys(ps).sort(),main:ps["全部章节"].answers.filter(Boolean).length,rows};})()`);
+    ok(!r.asked && r.same.idx === 1 && r.same.n === 2, '同一个范围再点「开始练习」：接着上次做，不问、不覆盖', r);
+    ok(r.slots.length === 2 && r.main === 2 && r.rows.length === 2 && r.rows[0] === r.other, '换个范围开一轮：另存一份，原来那份进度还在；列表里最近的在上面', r);
     await fresh('os/');
     r = await c.ev(`(async()=>{${start}const inp=document.querySelector("#qText .blank-input");inp.focus();inp.value="x";inp.dispatchEvent(new KeyboardEvent("keydown",{key:"Enter",isComposing:true,bubbles:true}));return !!Q.session.answers[0]||document.activeElement!==inp;})()`);
     ok(r === false, '中文输入法组字时按回车不提交', r);
@@ -174,7 +183,7 @@ function serve() {
       localStorage.setItem("osquiz_wrongbook",JSON.stringify({q0:{cat:QUESTIONS[0].cat,type:"blank",text:QUESTIONS[0].text,code:"",ans:["并发性|并发","共享性|共享","异步性|异步","虚拟性|虚拟"],wrongCount:1,correctStreak:0,lastWrongAt:1}}));
       return {old:!!old,now};})()`);
     await c.goto(BASE + 'os/');
-    const mig = await c.ev(`(()=>{const d=JSON.parse(localStorage.getItem("osquiz_done")),p=JSON.parse(localStorage.getItem("osquiz_inprogress"));
+    const mig = await c.ev(`(()=>{const d=JSON.parse(localStorage.getItem("osquiz_done")),p=JSON.parse(localStorage.getItem("osquiz_progs")||"{}").t;
       return {card:!document.getElementById("resumeCard").hidden,done:Object.keys(d),fps0:p&&p.fps[0],wbAns:__quiz.wrongbook.q0&&__quiz.wrongbook.q0.ans.join()};})()`);
     ok(r.old && mig.card && mig.fps0 === r.now && mig.done.length === 1 && mig.done[0] === r.now && mig.wbAns === '并发性,共享性,异步性,虚拟性',
       '改过答案的题：续练进度、做过的题、错题本都接上新指纹', mig);
@@ -226,7 +235,7 @@ function serve() {
     r = await c.ev(`(async()=>{${W8}${start}const q0=Q.session.queue[0];Q.pickOption(q0.correct);await w(450);const auto=Q.session.idx;
       const q1=Q.session.queue[1];Q.pickOption(Object.keys(q1.options).find(L=>L!==q1.correct));await w(450);const stay=Q.session.idx;
       Q.openOverview();document.querySelector('.ov-item[data-idx="6"]').click();const jump=Q.session.idx;
-      Q.finishQuiz();const cleared=localStorage.getItem("mobileappquiz_inprogress")===null;
+      const slot=Q.session.slot;Q.finishQuiz();const cleared=!(slot in JSON.parse(localStorage.getItem("mobileappquiz_progs")||"{}"));
       document.getElementById("retryWrongBtn").click();await w(60);return {auto,stay,jump,cleared,retry:Q.session.queue.map(x=>x.id),want:[q1.id]};})()`);
     ok(r.auto === 1 && r.stay === 1, '快速模式：选对自动跳下一题，选错停在本题', r);
     ok(r.jump === 6, '题目总览点第 7 题就到第 7 题', r);
@@ -254,9 +263,9 @@ function serve() {
     ok(JSON.stringify(r.wb) === '["q0","q9"]' && r.h === 2, '写错题本和记录之前先重读存储：别处刚记的不会被这一页的旧数据冲掉', r);
     // 旧页面不覆盖更新的进度：别的页面把这场练习接着做了，这一页回到前台就让位
     await fresh('mobile-app/');
-    r = await c.ev(`(async()=>{${W8}${start}Q.pickOption(Q.session.queue[0].correct);await w(20);const s=JSON.parse(localStorage.getItem("mobileappquiz_inprogress"));
-      s.sid="other-page";s.savedAt=Date.now()+5000;s.idx=7;localStorage.setItem("mobileappquiz_inprogress",JSON.stringify(s));
-      Q.session.idx=3;Q.renderQuestion();const kept=JSON.parse(localStorage.getItem("mobileappquiz_inprogress")).idx;Q.refreshFromStorage();await w(50);
+    r = await c.ev(`(async()=>{${W8}${start}Q.pickOption(Q.session.queue[0].correct);await w(20);const all=JSON.parse(localStorage.getItem("mobileappquiz_progs")),s=all[Q.session.slot];
+      s.sid="other-page";s.savedAt=Date.now()+5000;s.idx=7;localStorage.setItem("mobileappquiz_progs",JSON.stringify(all));
+      Q.session.idx=3;Q.renderQuestion();const kept=JSON.parse(localStorage.getItem("mobileappquiz_progs"))[Q.session.slot].idx;Q.refreshFromStorage();await w(50);
       return {kept,home:document.getElementById("screen-home").classList.contains("active"),told:document.getElementById("confirmBackdrop").classList.contains("show"),gone:Q.session===null};})()`);
     ok(r.kept === 7 && r.home && r.told && r.gone, '别的页面有更新的进度时：旧页面不覆盖它，并回到首页说明', r);
     await c.ev('document.getElementById("confirmOkBtn").click()');
@@ -264,7 +273,7 @@ function serve() {
     await fresh('english-vocab/');
     r = await c.ev(`(async()=>{${W8}${start}${goto}ins().slice(0,10).forEach((x,k)=>{x.value="word"+k;x.dispatchEvent(new Event("input",{bubbles:true}));});
       document.getElementById("nextBtn").click();await w(30);document.getElementById("prevBtn").click();await w(30);const back=ins().filter(x=>x.value).length;
-      const ls=localStorage.getItem("engvocabquiz_inprogress").includes("word3");
+      const ls=localStorage.getItem("engvocabquiz_progs").includes("word3");
       document.querySelector('nav button[data-screen="home"]').click();await w(30);document.getElementById("confirmOkBtn").click();await w(30);document.getElementById("resumeContinueBtn").click();await w(30);
       return {back,ls,resume:ins().filter(x=>x.value).length,unanswered:!Q.session.answers[0]};})()`);
     ok(r.back === 10 && r.ls && r.resume === 10 && r.unanswered, '填了一半没提交：换题、切走再续练回来都还在（且不算已作答）', r);
@@ -273,8 +282,8 @@ function serve() {
     r = await c.ev(`(async()=>{${W8}${start}for(let i=0;i<3;i++){Q.session.idx=i;Q.renderQuestion();Q.pickOption(Q.session.queue[i].correct);}
       Q.showScreen("home");document.querySelector('nav button[data-screen="home"]').click();await w(30);document.getElementById("resumeRestartBtn").click();await w(60);
       const asked=document.getElementById("confirmBackdrop").classList.contains("show");document.getElementById("confirmCancelBtn").click();await w(30);
-      return {asked,kept:JSON.parse(localStorage.getItem("mobileappquiz_inprogress")).answers.filter(Boolean).length};})()`);
-    ok(r.asked && r.kept === 3, '续练卡片「重新练习」：已答过题先确认，取消则进度还在', r);
+      return {asked,kept:Object.values(JSON.parse(localStorage.getItem("mobileappquiz_progs")))[0].answers.filter(Boolean).length};})()`);
+    ok(r.asked && r.kept === 3, '进行中的练习「重新开始」：已答过题先确认，取消则进度还在', r);
     // 存储写满：要告诉人（用填空题：先打几个字，存草稿时才会真的多占空间、写失败）
     await fresh('os/');
     // 先进答题页，再把空间占满，然后点底部标签：存草稿失败的提示不能顶掉「确定要切换吗」这个问题（两者以前共用一个弹窗）

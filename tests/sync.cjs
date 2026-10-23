@@ -90,7 +90,7 @@ async function runSync(ok) {
     m = cloud();
     ok(!!m && [...R.store.keys()].every(k => /^tiku:[0-9a-f]{40}$/.test(k)) && !JSON.stringify([...R.store.keys()]).includes(CODE), '同步：云端键是 tiku: + 哈希，不含同步码本身', [...R.store.keys()]);
     const ids = (m ? m.items : []).filter(e => !e.deletedAt).map(e => e.id);
-    ok(['f|fA', 'n|os', 'sf|web-design', 'pin', 'osquiz|prog', 'webquiz|em'].every(x => ids.includes(x)) && ids.some(x => /^osquiz\|wb\|/.test(x)) && ids.some(x => /^osquiz\|d\|/.test(x)),
+    ok(['f|fA', 'n|os', 'sf|web-design', 'pin', 'webquiz|em'].every(x => ids.includes(x)) && ids.some(x => /^osquiz\|wb\|/.test(x)) && ids.some(x => /^osquiz\|d\|/.test(x)) && ids.some(x => /^osquiz\|pg\|/.test(x)),
       '同步：文件夹、改名、放哪个文件夹、置顶、错题、做过的题、进度、开关都传上去了', ids.slice(0, 20));
     ok(!ids.some(x => /expanded|last_export|wbremoved/.test(x)), '同步：展开状态、上次导出时间、移出记号不上传', ids.filter(x => /expanded|export|removed/.test(x)));
 
@@ -105,7 +105,7 @@ async function runSync(ok) {
     await Bd.ev(`TikuSync.client.enable(${JSON.stringify(CODE)})`); await sleep(200); await sync(Bd);
     m = await Bd.ev(`({os:loadNames().os,folders:loadFolders().map(f=>f.id).sort(),pin:loadPinned(),sf:loadSubjectFolderMap()['web-design'],
       osWb:Object.keys(JSON.parse(localStorage.getItem('osquiz_wrongbook')||'{}')).length,seWb:Object.keys(JSON.parse(localStorage.getItem('rjgcquiz_wrongbook')||'{}')).length,
-      prog:!!localStorage.getItem('osquiz_inprogress'),em:localStorage.getItem('webquiz_exammode'),exp:localStorage.getItem('tiku_expanded_folders')})`);
+      prog:Object.keys(JSON.parse(localStorage.getItem('osquiz_progs')||'{}')).length>0,em:localStorage.getItem('webquiz_exammode'),exp:localStorage.getItem('tiku_expanded_folders')})`);
     ok(m.os === '操作系统A' && JSON.stringify(m.pin) === '["english-listening"]', 'B 接上同步码：没动过的设置以云端为准（改名、置顶顺序用 A 的）', m);
     ok(JSON.stringify(m.folders) === '["fA","fB"]' && m.sf === 'fA', 'B 接上：两边的文件夹都在，科目放在 A 定的文件夹里', m);
     ok(m.osWb >= 1 && m.seWb >= 1 && m.prog && m.em === 'false', 'B 接上：A 的错题/进度/开关下来了，B 自己的错题也还在', m);
