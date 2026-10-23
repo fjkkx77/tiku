@@ -27,7 +27,7 @@
 })();
 </script>
 <title>刷题合集</title>
-<link rel="stylesheet" href="assets/sync-panel.css?v=ce164dcd92">
+<link rel="stylesheet" href="assets/sync-panel.css?v=7a888ca384">
 <style>
   /* 外观＝2026-10-15 之前的样子（2026-10-16 用户看过 iOS 风格改版后决定回到原来的界面风格，只保留新的逻辑和交互） */
   :root{ --primary:#3b82f6; --primary-dark:#2563eb; --bg:#f3f4f6; --text:#1f2937; --muted:#6b7280; --border:#e5e7eb; --danger:#dc2626; --press:#eef2f7; --ease:cubic-bezier(.2,.9,.3,1); }
@@ -322,10 +322,10 @@
   </div>
 </div>
 
-<script src="assets/sync-core.js?v=ce164dcd92"></script>
-<script src="assets/sync-client.js?v=ce164dcd92"></script>
-<script src="assets/sync-panel.js?v=ce164dcd92"></script>
-<script src="assets/tiku-sync.js?v=ce164dcd92"></script>
+<script src="assets/sync-core.js?v=7a888ca384"></script>
+<script src="assets/sync-client.js?v=7a888ca384"></script>
+<script src="assets/sync-panel.js?v=7a888ca384"></script>
+<script src="assets/tiku-sync.js?v=7a888ca384"></script>
 <script src="assets/drag.js?v=2.0.0"></script>
 <script>
 const SUBJECTS = [
@@ -338,6 +338,7 @@ const SUBJECTS = [
   { key:'english-vocab', prefix:'engvocabquiz',      href:'./english-vocab/',       defaultName:'大学英语课后选词填空',   total:6,   desc:'填空题，6题共93空（六单元课后例句选词，含词表） · 错题本 / 练习记录 / 题目总览' },
   { key:'english-translation', prefix:'engtranslation',href:'./english-translation/', defaultName:'大学英语汉译英翻译练习', total:48,  desc:'翻译题，48题（六单元各8句，汉译英，对照完整参考译文自动判分） · 错题本 / 练习记录 / 题目总览' },
   { key:'cet4-vocab', prefix:'cet4vocabquiz',        href:'./cet4-vocab/',          defaultName:'四级高频词汇 · 选意思',  total:1742, desc:'单选题，1742题（DAY 1–15，看英文选中文，带英式音标） · 错题本 / 练习记录 / 题目总览', folder:'cet4', marks:true },
+  { key:'cet4-choose', prefix:'cet4choosequiz',      href:'./cet4-choose/',         defaultName:'四级高频词汇 · 选单词',  total:1742, desc:'单选题，1742题（DAY 1–15，看中文选英文，形近词干扰） · 错题本 / 练习记录 / 题目总览', folder:'cet4', marks:true },
   { key:'cet4-spell', prefix:'cet4spellquiz',        href:'./cet4-spell/',          defaultName:'四级高频词汇 · 写单词',  total:1742, desc:'填空题，1742题（DAY 1–15，看中文写英文，给首字母） · 错题本 / 练习记录 / 题目总览', folder:'cet4', marks:true },
 ];
 /* 快捷入口（2026-10-23）：不是独立科目，点进去就是父科目、开始练习页只勾这一个分类（科目页认 ?cat=）。
@@ -463,14 +464,20 @@ function autoPlace() {
   let placed = []; try { placed = JSON.parse(localStorage.getItem(AUTO_PLACED_KEY) || '[]'); } catch(e) {}
   if (!Array.isArray(placed)) placed = [];
   const todo = DEFAULT_ORDER.map(function(k){ return SUBJ_BY_KEY[k]; }).filter(function(s){ return s.folder && AUTO_FOLDERS[s.folder] && placed.indexOf(s.key) < 0; });
+  const before = placed.slice();   // 这次之前就记下的（判断「以前建过文件夹没有」只看它，别把这次刚记的算进去）
   if (!todo.length) return;
   const map = loadSubjectFolderMap(), folders = loadFolders(), pinned = loadPinned();
   let fch = false, mch = false;
   todo.forEach(function(s){
-    const fid = 'auto-' + s.folder;
-    if (!map[s.key] && pinned.indexOf(s.key) < 0) {
-      if (!folders.some(function(f){ return f.id === fid; })) { folders.push({ id: fid, name: AUTO_FOLDERS[s.folder] }); fch = true; }
+    // 建过没有：有记号，或者以前（这次之前）自动放过同一个文件夹的科目（10-23 那版还没写记号）
+    const fid = 'auto-' + s.folder, made = placed.indexOf('folder:' + s.folder) >= 0
+      || before.some(function(k){ return SUBJ_BY_KEY[k] && SUBJ_BY_KEY[k].folder === s.folder; });
+    const exists = folders.some(function(f){ return f.id === fid; });
+    if (!map[s.key] && pinned.indexOf(s.key) < 0 && (exists || !made)) {
+      if (!exists) { folders.push({ id: fid, name: AUTO_FOLDERS[s.folder] }); fch = true; }
       map[s.key] = fid; mch = true;
+      // 真用上了这个文件夹才记「建过」：之后用户删了它就不再重建（2026-10-24 加第三科时补的）
+      if (placed.indexOf('folder:' + s.folder) < 0) placed.push('folder:' + s.folder);
     }
     placed.push(s.key);
   });

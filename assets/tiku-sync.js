@@ -21,7 +21,7 @@
   'use strict';
 
   /* 要和首页 index.html 里 SUBJECTS 的 prefix 一一对应（tests/sync.cjs 会核对） */
-  const PREFIXES = ['webquiz', 'osquiz', 'rjgcquiz', 'mobileappquiz', 'listeningquiz', 'engreadingquiz', 'engvocabquiz', 'engtranslation', 'cet4vocabquiz', 'cet4spellquiz'];
+  const PREFIXES = ['webquiz', 'osquiz', 'rjgcquiz', 'mobileappquiz', 'listeningquiz', 'engreadingquiz', 'engvocabquiz', 'engtranslation', 'cet4vocabquiz', 'cet4choosequiz', 'cet4spellquiz'];
   const K = { names: 'tiku_custom_names', folders: 'tiku_folders', sf: 'tiku_subject_folder', pin: 'tiku_pinned', ord: 'tiku_order' };
   const META_KEY = 'tiku_sync_meta';
   const TOMB_MS = 120 * 24 * 3600 * 1000;   // 墓碑留 120 天（配方 §2.1）

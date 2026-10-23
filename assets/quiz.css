@@ -346,3 +346,5 @@ body.quizzing header p.quiz-scope:has(#quizScopeText:empty){display:none;}
 .mark-entry:disabled{opacity:.55;cursor:default;}
 .mark-entry:not(:disabled):active{background:#f3f4f6;}
 .mark-empty{font-size:12px;color:var(--muted);margin-top:10px;line-height:1.6;}
+/* 单选的答后说明（q.note，如音标）：跟在正确选项 / 正确答案后面，细一号、灰色，不抢选项本身 */
+.opt-note{font-weight:400;color:var(--muted);font-size:.92em;white-space:nowrap;}

@@ -9,7 +9,8 @@
    网址带 ?cat=分类名（如 ?cat=DAY%203）：打开时开始练习页只勾这一个分类（首页的 DAY 快捷入口用它）
      const QUESTIONS = [ ...题库... ]
    题目对象：
-     单选 {type:"mcq", cat, text, options:{A,B,C,D}, correct}
+     单选 {type:"mcq", cat, text, options:{A,B,C,D}, correct, note?}
+       note    答完（或背题）后跟在正确选项后面显示的小字，如音标；不参与判分和指纹
      填空 {type:"blank", cat, text(用 {{}} 标空), code?, ans:[每空一项，| 分隔多个可接受答案], ordered?, vocab?}
        code    单独用代码块样式显示的片段，里面也可以有 {{}}（含 HTML 标签的大题必须放这里）
        多个空默认逐空按位置判（填错位置就是错）；例外用下面三个标记：
@@ -1148,6 +1149,8 @@ function markOptions(q, picked){
     el.classList.toggle("selected", L===picked);
     if(L===q.correct) el.classList.add("opt-correct");
     else if(L===picked) el.classList.add("opt-wrongpick");
+    // 答后说明（q.note，如四级「选单词」的音标）：答完 / 背题时跟在正确选项后面。答对时快速模式不出答案框，放这里才看得到
+    if(L===q.correct && q.note && !el.querySelector(".opt-note")) el.querySelector(".opt-text").insertAdjacentHTML("beforeend", ` <span class="opt-note">${esc(q.note)}</span>`);
   });
 }
 function pickOption(L){
@@ -1170,7 +1173,8 @@ function showAnswerBoxMcq(q, allCorrect, userOpt){
   const box = $("answerBox");
   box.className = "answer-box show " + (allCorrect ? "right" : "wrong");
   box.innerHTML = `<b>我的答案：</b><span class="my-ans${allCorrect?"":" wrong-color"}">${userOpt ? esc(userOpt) : "未作答"}</span>`
-    + `　　<b>正确答案：</b><span class="correct-ans">${esc(q.correct)}. ${esc(q.options[q.correct])}</span>`;
+    + `　　<b>正确答案：</b><span class="correct-ans">${esc(q.correct)}. ${esc(q.options[q.correct])}</span>`
+    + (q.note ? ` <span class="opt-note">${esc(q.note)}</span>` : "");
 }
 function showAnswerBoxBlank(q, allCorrect, self, userInputs, assignment){
   const box = $("answerBox");

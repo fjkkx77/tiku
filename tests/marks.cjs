@@ -13,7 +13,7 @@ async function runMarks(BASE, ok) {
       loose: [...document.querySelectorAll('#list > .item[data-key]')].map(x=>x.dataset.key),
       open: document.querySelector('.folder-card[data-fid="auto-cet4"]').classList.contains('open'),
       d3: document.querySelector('[data-key="cet4-vocab-day3"]').getAttribute('href') })`);
-    const want = ['cet4-vocab'].concat(Array.from({ length: 15 }, (_, i) => 'cet4-vocab-day' + (i + 1)), ['cet4-spell']);
+    const want = ['cet4-vocab'].concat(Array.from({ length: 15 }, (_, i) => 'cet4-vocab-day' + (i + 1)), ['cet4-choose', 'cet4-spell']);
     ok(JSON.stringify(r.folders) === '[{"id":"auto-cet4","name":"四级词汇"}]' && JSON.stringify(r.inF) === JSON.stringify(want) && !r.loose.some(k => /^cet4/.test(k)) && !r.open,
       '首页：四级的两科 + 15 个 DAY 入口自动进「四级词汇」文件夹，默认收着', r);
     ok(r.d3 === './cet4-vocab/?cat=DAY%203', 'DAY 3 入口指向选意思科目、带 ?cat=DAY 3', r.d3);
@@ -25,6 +25,10 @@ async function runMarks(BASE, ok) {
     await c.ev(`localStorage.tiku_folders="[]";localStorage.tiku_subject_folder="{}";location.reload()`).catch(() => null); await sleep(600);
     r = await c.ev(`localStorage.tiku_folders`);
     ok(r === '[]', '首页：删掉自动建的文件夹后不会再自动建回来', r);
+    // 删了文件夹之后又来了新科目（比如 10-24 加的选单词）：也不能把文件夹建回来
+    await c.ev(`(()=>{const p=JSON.parse(localStorage.tiku_auto_placed);localStorage.tiku_auto_placed=JSON.stringify(p.filter(k=>k!=="cet4-choose"&&k!=="folder:cet4"));location.reload();})()`).catch(() => null); await sleep(600);
+    r = await c.ev(`({f:localStorage.tiku_folders,loose:[...document.querySelectorAll('#list > .item[data-key]')].map(x=>x.dataset.key).includes('cet4-choose')})`);
+    ok(r.f === '[]' && r.loose, '首页：文件夹被删过，新加的四级科目放在外面，不重建文件夹（连 10-23 那版没写记号的旧数据也算）', r);
     // 用户已经自己把四级放进别的文件夹：不动
     await c.ev(`localStorage.clear();localStorage.tiku_folders=JSON.stringify([{id:"mine",name:"英语"}]);localStorage.tiku_subject_folder=JSON.stringify({"cet4-vocab":"mine"});location.reload()`).catch(() => null); await sleep(600);
     r = await c.ev(`JSON.parse(localStorage.tiku_subject_folder)`);
@@ -143,6 +147,21 @@ async function runMarks(BASE, ok) {
       const ps=JSON.parse(localStorage.getItem("cet4vocabquiz_progs"));
       return {n:Object.keys(ps).length,gone:!("全部DAY（不会的）" in ps),tip:document.getElementById("ptrTip").textContent};})()`);
     ok(r.n === 10 && /最多留 10 份/.test(r.tip), '进行中的练习最多 10 份：多出来的删最久没碰的那份，并提示', r);
+
+    /* ---------- 选单词（2026-10-24）：看中文选英文、形近词干扰、答完显示音标 ---------- */
+    await p.goto(BASE + 'cet4-choose/'); await p.ev('localStorage.clear()'); await p.goto(BASE + 'cet4-choose/');
+    r = await p.ev(`(()=>{const by=w=>QUESTIONS.find(q=>q.options[q.correct]===w);
+      const pr=by("principal"),ad=by("adopt");
+      return {n:QUESTIONS.length,allMcq:QUESTIONS.every(q=>q.type==="mcq"&&Object.keys(q.options).length===4&&q.note.length>2&&q.note.startsWith("/")&&q.note.endsWith("/")),
+        pr:Object.values(pr.options),ad:Object.values(ad.options),uniq:QUESTIONS.every(q=>new Set(Object.values(q.options)).size===4)};})()`);
+    ok(r.n === 1742 && r.allMcq && r.uniq, '选单词：1742 道四选一，每题都带音标、选项不重复', r);
+    ok(r.pr.includes('principle') && r.ad.includes('adapt'), '选单词：错误选项是形近词（principal 碰上 principle、adopt 碰上 adapt）', r);
+    r = await p.ev(`(async()=>{const w=ms=>new Promise(r=>setTimeout(r,ms));const Q=__quiz;document.getElementById("startBtn").click();await w(60);
+      const before=document.querySelectorAll(".opt-note").length;const q=Q.session.queue[0];Q.pickOption("ABCD".replace(q.correct,"")[0]);await w(30);
+      const row=document.querySelector(".opt-row.opt-correct .opt-note"),box=document.getElementById("answerBox").textContent;
+      Q.session.idx=1;Q.renderQuestion();Q.pickOption(Q.session.queue[1].correct);await w(30);
+      return {before,after:row&&row.textContent,note:q.note,box,right:!!document.querySelector(".opt-row.opt-correct .opt-note")};})()`);
+    ok(r.before === 0 && r.after === r.note && r.box.includes(r.note) && r.right, '选单词：答之前不显示音标；答完正确选项后面出音标（答错时答案框里也有）', r);
   } finally { p.close(); }
 }
 module.exports = { runMarks };
