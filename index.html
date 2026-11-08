@@ -27,7 +27,7 @@
 })();
 </script>
 <title>刷题合集</title>
-<link rel="stylesheet" href="assets/sync-panel.css?v=7a888ca384">
+<link rel="stylesheet" href="assets/sync-panel.css?v=7139132b28">
 <style>
   /* 外观＝2026-10-15 之前的样子（2026-10-16 用户看过 iOS 风格改版后决定回到原来的界面风格，只保留新的逻辑和交互） */
   :root{ --primary:#3b82f6; --primary-dark:#2563eb; --bg:#f3f4f6; --text:#1f2937; --muted:#6b7280; --border:#e5e7eb; --danger:#dc2626; --press:#eef2f7; --ease:cubic-bezier(.2,.9,.3,1); }
@@ -322,10 +322,10 @@
   </div>
 </div>
 
-<script src="assets/sync-core.js?v=7a888ca384"></script>
-<script src="assets/sync-client.js?v=7a888ca384"></script>
-<script src="assets/sync-panel.js?v=7a888ca384"></script>
-<script src="assets/tiku-sync.js?v=7a888ca384"></script>
+<script src="assets/sync-core.js?v=7139132b28"></script>
+<script src="assets/sync-client.js?v=7139132b28"></script>
+<script src="assets/sync-panel.js?v=7139132b28"></script>
+<script src="assets/tiku-sync.js?v=7139132b28"></script>
 <script src="assets/drag.js?v=2.0.0"></script>
 <script>
 const SUBJECTS = [
@@ -340,6 +340,9 @@ const SUBJECTS = [
   { key:'cet4-vocab', prefix:'cet4vocabquiz',        href:'./cet4-vocab/',          defaultName:'四级高频词汇 · 选意思',  total:1742, desc:'单选题，1742题（DAY 1–15，看英文选中文，带英式音标） · 错题本 / 练习记录 / 题目总览', folder:'cet4v', marks:true },
   { key:'cet4-choose', prefix:'cet4choosequiz',      href:'./cet4-choose/',         defaultName:'四级高频词汇 · 选单词',  total:1742, desc:'单选题，1742题（DAY 1–15，看中文选英文，形近词干扰） · 错题本 / 练习记录 / 题目总览', folder:'cet4c', marks:true },
   { key:'cet4-spell', prefix:'cet4spellquiz',        href:'./cet4-spell/',          defaultName:'四级高频词汇 · 写单词',  total:1742, desc:'填空题，1742题（DAY 1–15，看中文写英文，给首字母） · 错题本 / 练习记录 / 题目总览', folder:'cet4s', marks:true },
+  { key:'lijing-vocab', prefix:'lijingvocabquiz',    href:'./lijing-vocab/',        defaultName:'李婧老师单词 · 选意思',  total:1241, desc:'单选题，1241题（色彩词、讲义高频词、阅读核心词、经济、翻译、考前必背，看英文选中文，带英式音标） · 错题本 / 练习记录 / 题目总览', folder:'lijing', marks:true },
+  { key:'lijing-choose', prefix:'lijingchoosequiz',  href:'./lijing-choose/',       defaultName:'李婧老师单词 · 选单词',  total:1241, desc:'单选题，1241题（六类，看中文选英文，形近词干扰） · 错题本 / 练习记录 / 题目总览', folder:'lijing', marks:true },
+  { key:'lijing-spell', prefix:'lijingspellquiz',    href:'./lijing-spell/',        defaultName:'李婧老师单词 · 写单词',  total:1241, desc:'填空题，1241题（六类，看中文写英文，给首字母） · 错题本 / 练习记录 / 题目总览', folder:'lijing', marks:true },
 ];
 /* 快捷入口（2026-10-23）：不是独立科目，点进去就是父科目、开始练习页只勾这一个分类（科目页认 ?cat=）。
    错题本、练习记录、「会 / 不会」标记都跟父科目共用一份——从哪个入口刷都算数。
@@ -359,7 +362,8 @@ const SHORTCUTS = [
 }, []);
 // 带 folder 的科目 / 快捷入口第一次出现在这台设备上时，自动放进这个文件夹（id 固定：两台设备各自建，同步后还是同一个）。
 // 10-24 用户要求拆成三个（原来一个「四级词汇」auto-cet4），老设备上的由 splitCet4 搬过去
-const AUTO_FOLDERS = { cet4v: '四级 · 选意思', cet4c: '四级 · 选单词', cet4s: '四级 · 写单词' };
+// 2026-11-08 加「李婧老师单词」三科（桌面「词汇」6 个 PDF 整理的），用户要放进一个叫这个名字的新文件夹
+const AUTO_FOLDERS = { cet4v: '四级 · 选意思', cet4c: '四级 · 选单词', cet4s: '四级 · 写单词', lijing: '李婧老师单词' };
 // total＝科目页题库的题数（tests 会核对，加题后要跟着改）；desc 现在只当鼠标悬停提示用
 
 const STORAGE_KEY = 'tiku_custom_names';

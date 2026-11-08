@@ -10,15 +10,16 @@ async function runMarks(BASE, ok) {
     const IN = fid => `[...document.querySelectorAll('.folder-card[data-fid="${fid}"] .item[data-key]')].map(x=>x.dataset.key)`;
     let r = await c.ev(`({
       folders: JSON.parse(localStorage.tiku_folders||"[]"),
-      v: ${IN('auto-cet4v')}, ch: ${IN('auto-cet4c')}, sp: ${IN('auto-cet4s')},
+      v: ${IN('auto-cet4v')}, ch: ${IN('auto-cet4c')}, sp: ${IN('auto-cet4s')}, lj: ${IN('auto-lijing')},
       loose: [...document.querySelectorAll('#list > .item[data-key]')].map(x=>x.dataset.key),
       open: [...document.querySelectorAll('.folder-card[data-fid^="auto-cet4"]')].some(f=>f.classList.contains('open')),
       d3: document.querySelector('[data-key="cet4-vocab-day3"]').getAttribute('href'), c3: document.querySelector('[data-key="cet4-choose-day3"]').getAttribute('href') })`);
     const days = p => Array.from({ length: 15 }, (_, i) => p + '-day' + (i + 1));
-    ok(JSON.stringify(r.folders) === '[{"id":"auto-cet4v","name":"四级 · 选意思"},{"id":"auto-cet4c","name":"四级 · 选单词"},{"id":"auto-cet4s","name":"四级 · 写单词"}]'
+    ok(JSON.stringify(r.folders) === '[{"id":"auto-cet4v","name":"四级 · 选意思"},{"id":"auto-cet4c","name":"四级 · 选单词"},{"id":"auto-cet4s","name":"四级 · 写单词"},{"id":"auto-lijing","name":"李婧老师单词"}]'
       && JSON.stringify(r.v) === JSON.stringify(['cet4-vocab'].concat(days('cet4-vocab'))) && JSON.stringify(r.ch) === JSON.stringify(['cet4-choose'].concat(days('cet4-choose')))
-      && JSON.stringify(r.sp) === '["cet4-spell"]' && !r.loose.some(k => /^cet4/.test(k)) && !r.open,
-      '首页：四级拆成三个文件夹（选意思 / 选单词各带 15 个 DAY 入口，写单词只有总入口），默认收着', r);
+      && JSON.stringify(r.sp) === '["cet4-spell"]' && !r.loose.some(k => /^(cet4|lijing)/.test(k)) && !r.open
+      && JSON.stringify(r.lj) === '["lijing-vocab","lijing-choose","lijing-spell"]',
+      '首页：四级拆成三个文件夹（选意思 / 选单词各带 15 个 DAY 入口，写单词只有总入口），默认收着；李婧老师单词三科进同名文件夹（2026-11-08）', r);
     ok(r.d3 === './cet4-vocab/?cat=DAY%203' && r.c3 === './cet4-choose/?cat=DAY%203', 'DAY 3 入口各自指向自己的科目、带 ?cat=DAY 3', r);
     // 挪出来以后，刷新不会被放回去；删了文件夹也不会重建
     r = await c.ev(`(async()=>{const m=JSON.parse(localStorage.tiku_subject_folder);delete m["cet4-spell"];localStorage.tiku_subject_folder=JSON.stringify(m);location.reload();})()`).catch(() => null);
@@ -42,13 +43,14 @@ async function runMarks(BASE, ok) {
       localStorage.tiku_folders=JSON.stringify([{id:"a",name:"甲"},{id:"auto-cet4",name:"四级词汇",pinned:true},{id:"b",name:"乙"}]);
       localStorage.tiku_subject_folder=JSON.stringify(m);localStorage.tiku_auto_placed=JSON.stringify(${JSON.stringify(OLDKEYS)}.concat(["folder:cet4"]));location.reload();})()`).catch(() => null); await sleep(700);
     r = await c.ev(`({f:JSON.parse(localStorage.tiku_folders),m:JSON.parse(localStorage.tiku_subject_folder)})`);
-    ok(JSON.stringify(r.f.map(x => x.id + (x.pinned ? '*' : ''))) === '["a","auto-cet4v*","auto-cet4c*","auto-cet4s*","b"]'
+    ok(JSON.stringify(r.f.map(x => x.id + (x.pinned ? '*' : ''))) === '["a","auto-cet4v*","auto-cet4c*","auto-cet4s*","b","auto-lijing"]'
       && r.m['cet4-vocab-day7'] === 'auto-cet4v' && r.m['cet4-choose'] === 'auto-cet4c' && r.m['cet4-choose-day7'] === 'auto-cet4c' && r.m['cet4-spell'] === 'auto-cet4s' && r.m.os === 'a',
       '老设备的「四级词汇」文件夹：拆成三个、插在原位置、置顶跟着走，新的 15 个选单词入口也进去', r);
     // 老设备删过「四级词汇」：拆的时候什么都不建，新加的选单词 DAY 入口放外面
     await c.ev(`(()=>{localStorage.clear();localStorage.tiku_folders="[]";localStorage.tiku_subject_folder="{}";localStorage.tiku_auto_placed=JSON.stringify(${JSON.stringify(OLDKEYS)}.concat(["folder:cet4"]));location.reload();})()`).catch(() => null); await sleep(700);
     r = await c.ev(`({f:localStorage.tiku_folders,loose:[...document.querySelectorAll('#list > .item[data-key]')].map(x=>x.dataset.key).filter(k=>/cet4-choose-day/.test(k)).length})`);
-    ok(r.f === '[]' && r.loose === 15, '老设备删过「四级词汇」：不建新文件夹，新加的 15 个选单词入口放外面', r);
+    // 李婧老师单词是另一个文件夹、没被删过，照常建（2026-11-08）
+    ok(r.f === '[{"id":"auto-lijing","name":"李婧老师单词"}]' && r.loose === 15, '老设备删过「四级词汇」：不建新的四级文件夹，新加的 15 个选单词入口放外面', r);
     // DAY 入口的总题数和题库里这个 DAY 的题数一致
     const perCat = {};
     for (const s of ['cet4-vocab', 'cet4-choose']) { await c.goto(BASE + s + '/'); perCat[s] = await c.ev(`(()=>{const o={};QUESTIONS.forEach(q=>o[q.cat]=(o[q.cat]||0)+1);return o;})()`); }

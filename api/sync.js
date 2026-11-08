@@ -141,7 +141,7 @@ module.exports = async (req, res) => {
       const next = { version: base + 1, updatedAt: Date.now(), items: items };
       const text = JSON.stringify(next);
       if(Buffer.byteLength(text, "utf8") > MAX_BODY_BYTES){
-        return send(res, 413, { ok: false, error: "数据超过 1.5MB 上限" });
+        return send(res, 413, { ok: false, error: "数据超过 3.5MB 上限" });
       }
 
       const r = await redis(["EVAL", CAS_SCRIPT, "1", keyOf(code), String(base), text, String(TTL_SECONDS)]);
