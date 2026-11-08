@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="theme-color" content="#2f6ff0" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#1f47b0" media="(prefers-color-scheme: dark)">
+<title>李婧每日单词 · 写单词</title>
+<link rel="stylesheet" href="../assets/quiz.css?v=43a30b640f">
+</head>
+<body>
+<script>
+/* 本科目的配置。界面和答题逻辑在 ../assets/quiz.js，8 个科目站共用一份，改那里 = 8 个站一起改 */
+const QUIZ = {
+  title: "李婧每日单词 · 写单词",
+  subtitle: "看中文写英文 · 给首字母 · 错题本",
+  prefix: "lijingdailyspellquiz",
+  intro: "30 词（1 天），看中文写英文，给首字母",
+  catWord: "日期",
+  font: "en",
+  marks: true,          // 「会 / 不会」标记（照四级三科）
+};
+/* ===================== 题库数据 ===================== */
+// 由 C:\Users\Administrator\CodeProjects\lijing-daily\build_daily.py 从 days\ 里每天的词生成，别手改——加词或改词后重新生成
+const QUESTIONS = [
+{"type": "blank", "cat": "11月8日", "text": "n. 模拟器；模拟装置（首字母 s，共 9 个字母）{{}}", "ans": ["simulator"]},
+{"type": "blank", "cat": "11月8日", "text": "n. 航空；航空业（首字母 a，共 8 个字母）{{}}", "ans": ["aviation"]},
+{"type": "blank", "cat": "11月8日", "text": "adj. 灾难性的；极糟糕的（首字母 d，共 10 个字母）{{}}", "ans": ["disastrous"]},
+{"type": "blank", "cat": "11月8日", "text": "v. 模拟；模仿（首字母 s，共 8 个字母）{{}}", "ans": ["simulate"]},
+{"type": "blank", "cat": "11月8日", "text": "n. 干预；介入（首字母 i，共 12 个字母）{{}}", "ans": ["intervention"]},
+{"type": "blank", "cat": "11月8日", "text": "v. 渴望；立志；追求（首字母 a，共 6 个字母）{{}}", "ans": ["aspire"]},
+{"type": "blank", "cat": "11月8日", "text": "v. 部署；实施；调动（首字母 d，共 6 个字母）{{}}", "ans": ["deploy"]},
+{"type": "blank", "cat": "11月8日", "text": "v. 实施；执行　n. 工具（首字母 i，共 9 个字母）{{}}", "ans": ["implement"]},
+{"type": "blank", "cat": "11月8日", "text": "n. 愿景；视野；想象力（首字母 v，共 6 个字母）{{}}", "ans": ["vision"]},
+{"type": "blank", "cat": "11月8日", "text": "v. 欣然接受；拥抱（首字母 e，共 7 个字母）{{}}", "ans": ["embrace"]},
+{"type": "blank", "cat": "11月8日", "text": "n. 转型；变革；改造（首字母 t，共 14 个字母）{{}}", "ans": ["transformation"]},
+{"type": "blank", "cat": "11月8日", "text": "n. 层级；层　v. 分层（首字母 l，共 5 个字母）{{}}", "ans": ["layer"]},
+{"type": "blank", "cat": "11月8日", "text": "n. 承诺；投入；奉献（首字母 c，共 10 个字母）{{}}", "ans": ["commitment"]},
+{"type": "blank", "cat": "11月8日", "text": "n. 举措；倡议　adj. 主动的（首字母 i，共 10 个字母）{{}}", "ans": ["initiative"]},
+{"type": "blank", "cat": "11月8日", "text": "v. 衰退；枯萎；消亡（首字母 w，共 6 个字母）{{}}", "ans": ["wither"]},
+{"type": "blank", "cat": "11月8日", "text": "n. 范式；范例；思维模式（首字母 p，共 8 个字母）{{}}", "ans": ["paradigm"]},
+{"type": "blank", "cat": "11月8日", "text": "adj. 可供选择的　n. 备选方案（首字母 a，共 11 个字母）{{}}", "ans": ["alternative"]},
+{"type": "blank", "cat": "11月8日", "text": "v. 促使；激发　adj. 迅速的（首字母 p，共 6 个字母）{{}}", "ans": ["prompt"]},
+{"type": "blank", "cat": "11月8日", "text": "adj. 智力的；知识的　n. 知识分子（首字母 i，共 12 个字母）{{}}", "ans": ["intellectual"]},
+{"type": "blank", "cat": "11月8日", "text": "n. 研讨会；讲习班（首字母 w，共 8 个字母）{{}}", "ans": ["workshop"]},
+{"type": "blank", "cat": "11月8日", "text": "n. 刺激；激励（复数 ～）（首字母 s，共 8 个字母）{{}}", "ans": ["stimulus"]},
+{"type": "blank", "cat": "11月8日", "text": "v. 加速；促进（首字母 a，共 10 个字母）{{}}", "ans": ["accelerate"]},
+{"type": "blank", "cat": "11月8日", "text": "v. 压缩；压紧（首字母 c，共 8 个字母）{{}}", "ans": ["compress"]},
+{"type": "blank", "cat": "11月8日", "text": "adj. 沉浸式的（首字母 i，共 9 个字母）{{}}", "ans": ["immersive"]},
+{"type": "blank", "cat": "11月8日", "text": "adj. 富有成效的；多产的（首字母 p，共 10 个字母）{{}}", "ans": ["productive"]},
+{"type": "blank", "cat": "11月8日", "text": "adj. 直觉的；凭直觉的（首字母 i，共 9 个字母）{{}}", "ans": ["intuitive"]},
+{"type": "blank", "cat": "11月8日", "text": "v. 收获；获得（回报）（首字母 r，共 4 个字母）{{}}", "ans": ["reap"]},
+{"type": "blank", "cat": "11月8日", "text": "adj. 无关的；不相关的（首字母 i，共 10 个字母）{{}}", "ans": ["irrelevant"]},
+{"type": "blank", "cat": "11月8日", "text": "v. 建立；锻造（首字母 f，共 5 个字母）{{}}", "ans": ["forge"]},
+{"type": "blank", "cat": "11月8日", "text": "adj. 顺畅的；平滑的　v. 使平稳（首字母 s，共 6 个字母）{{}}", "ans": ["smooth"]}
+];
+</script>
+<script src="../assets/sync-core.js?v=43a30b640f"></script>
+<script src="../assets/sync-client.js?v=43a30b640f"></script>
+<script src="../assets/tiku-sync.js?v=43a30b640f"></script>
+<script src="../assets/quiz.js?v=43a30b640f"></script>
+</body>
+</html>

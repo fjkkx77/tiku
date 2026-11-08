@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="theme-color" content="#2f6ff0" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#1f47b0" media="(prefers-color-scheme: dark)">
+<title>李婧每日单词 · 选意思</title>
+<link rel="stylesheet" href="../assets/quiz.css?v=43a30b640f">
+</head>
+<body>
+<script>
+/* 本科目的配置。界面和答题逻辑在 ../assets/quiz.js，8 个科目站共用一份，改那里 = 8 个站一起改 */
+const QUIZ = {
+  title: "李婧每日单词 · 选意思",
+  subtitle: "看英文选中文 · 带英式音标 · 错题本",
+  prefix: "lijingdailyvocabquiz",
+  intro: "30 词（1 天），看英文（带英式音标）选中文",
+  catWord: "日期",
+  font: "en",
+  marks: true,          // 「会 / 不会」标记（照四级三科）
+};
+/* ===================== 题库数据 ===================== */
+// 由 C:\Users\Administrator\CodeProjects\lijing-daily\build_daily.py 从 days\ 里每天的词生成，别手改——加词或改词后重新生成
+const QUESTIONS = [
+{"type": "mcq", "cat": "11月8日", "text": "simulator　​/⁠ˈsɪmjʊleɪtə/", "options": {"A": "n. 模拟器；模拟装置", "B": "n. 研讨会；讲习班", "C": "v. 渴望；立志；追求", "D": "n. 航空；航空业"}, "correct": "A"},
+{"type": "mcq", "cat": "11月8日", "text": "aviation　​/⁠ˌeɪvi⁠ˈeɪʃən/", "options": {"A": "adj. 灾难性的；极糟糕的", "B": "adj. 顺畅的；平滑的　v. 使平稳", "C": "n. 航空；航空业", "D": "adj. 直觉的；凭直觉的"}, "correct": "C"},
+{"type": "mcq", "cat": "11月8日", "text": "disastrous　​/dɪ⁠ˈzɑːstrəs/", "options": {"A": "v. 压缩；压紧", "B": "adj. 灾难性的；极糟糕的", "C": "v. 加速；促进", "D": "n. 研讨会；讲习班"}, "correct": "B"},
+{"type": "mcq", "cat": "11月8日", "text": "simulate　​/⁠ˈsɪmjʊleɪt/", "options": {"A": "v. 实施；执行　n. 工具", "B": "v. 模拟；模仿", "C": "n. 转型；变革；改造", "D": "v. 衰退；枯萎；消亡"}, "correct": "B"},
+{"type": "mcq", "cat": "11月8日", "text": "intervention　​/⁠ˌɪntə⁠ˈvenʃən/", "options": {"A": "n. 举措；倡议　adj. 主动的", "B": "v. 衰退；枯萎；消亡", "C": "n. 层级；层　v. 分层", "D": "n. 干预；介入"}, "correct": "D"},
+{"type": "mcq", "cat": "11月8日", "text": "aspire　​/ə⁠ˈspaɪə/", "options": {"A": "adj. 直觉的；凭直觉的", "B": "v. 渴望；立志；追求", "C": "adj. 沉浸式的", "D": "n. 转型；变革；改造"}, "correct": "B"},
+{"type": "mcq", "cat": "11月8日", "text": "deploy　​/dɪ⁠ˈplɔɪ/", "options": {"A": "adj. 直觉的；凭直觉的", "B": "v. 建立；锻造", "C": "v. 部署；实施；调动", "D": "adj. 可供选择的　n. 备选方案"}, "correct": "C"},
+{"type": "mcq", "cat": "11月8日", "text": "implement　​/⁠ˈɪmplɪment/", "options": {"A": "v. 实施；执行　n. 工具", "B": "v. 建立；锻造", "C": "n. 层级；层　v. 分层", "D": "n. 模拟器；模拟装置"}, "correct": "A"},
+{"type": "mcq", "cat": "11月8日", "text": "vision　​/⁠ˈvɪʒən/", "options": {"A": "v. 压缩；压紧", "B": "adj. 富有成效的；多产的", "C": "adj. 可供选择的　n. 备选方案", "D": "n. 愿景；视野；想象力"}, "correct": "D"},
+{"type": "mcq", "cat": "11月8日", "text": "embrace　​/ɪm⁠ˈbreɪs/", "options": {"A": "v. 部署；实施；调动", "B": "n. 模拟器；模拟装置", "C": "v. 欣然接受；拥抱", "D": "n. 愿景；视野；想象力"}, "correct": "C"},
+{"type": "mcq", "cat": "11月8日", "text": "transformation　​/⁠ˌtrænsfə⁠ˈmeɪʃən/", "options": {"A": "v. 欣然接受；拥抱", "B": "v. 模拟；模仿", "C": "n. 转型；变革；改造", "D": "v. 收获；获得（回报）"}, "correct": "C"},
+{"type": "mcq", "cat": "11月8日", "text": "layer　​/⁠ˈleɪə/", "options": {"A": "v. 促使；激发　adj. 迅速的", "B": "n. 层级；层　v. 分层", "C": "v. 收获；获得（回报）", "D": "v. 欣然接受；拥抱"}, "correct": "B"},
+{"type": "mcq", "cat": "11月8日", "text": "commitment　​/kə⁠ˈmɪtmənt/", "options": {"A": "v. 衰退；枯萎；消亡", "B": "v. 加速；促进", "C": "v. 实施；执行　n. 工具", "D": "n. 承诺；投入；奉献"}, "correct": "D"},
+{"type": "mcq", "cat": "11月8日", "text": "initiative　​/ɪ⁠ˈnɪʃiətɪv/", "options": {"A": "n. 举措；倡议　adj. 主动的", "B": "n. 刺激；激励（复数 ～）", "C": "n. 转型；变革；改造", "D": "v. 欣然接受；拥抱"}, "correct": "A"},
+{"type": "mcq", "cat": "11月8日", "text": "wither　​/⁠ˈwɪðə/", "options": {"A": "v. 建立；锻造", "B": "v. 部署；实施；调动", "C": "v. 衰退；枯萎；消亡", "D": "v. 收获；获得（回报）"}, "correct": "C"},
+{"type": "mcq", "cat": "11月8日", "text": "paradigm　​/⁠ˈpærədaɪm/", "options": {"A": "n. 范式；范例；思维模式", "B": "v. 压缩；压紧", "C": "v. 加速；促进", "D": "adj. 无关的；不相关的"}, "correct": "A"},
+{"type": "mcq", "cat": "11月8日", "text": "alternative　​/ɔːl⁠ˈtɜːnətɪv/", "options": {"A": "adj. 可供选择的　n. 备选方案", "B": "v. 收获；获得（回报）", "C": "v. 模拟；模仿", "D": "n. 干预；介入"}, "correct": "A"},
+{"type": "mcq", "cat": "11月8日", "text": "prompt　​/prɒmpt/", "options": {"A": "v. 促使；激发　adj. 迅速的", "B": "adj. 直觉的；凭直觉的", "C": "v. 模拟；模仿", "D": "n. 转型；变革；改造"}, "correct": "A"},
+{"type": "mcq", "cat": "11月8日", "text": "intellectual　​/⁠ˌɪntə⁠ˈlektʃuəl/", "options": {"A": "v. 实施；执行　n. 工具", "B": "v. 建立；锻造", "C": "adj. 智力的；知识的　n. 知识分子", "D": "n. 航空；航空业"}, "correct": "C"},
+{"type": "mcq", "cat": "11月8日", "text": "workshop　​/⁠ˈwɜːkʃɒp/", "options": {"A": "adj. 直觉的；凭直觉的", "B": "n. 研讨会；讲习班", "C": "adj. 灾难性的；极糟糕的", "D": "v. 衰退；枯萎；消亡"}, "correct": "B"},
+{"type": "mcq", "cat": "11月8日", "text": "stimulus　​/⁠ˈstɪmjʊləs/", "options": {"A": "n. 转型；变革；改造", "B": "n. 愿景；视野；想象力", "C": "v. 模拟；模仿", "D": "n. 刺激；激励（复数 ～）"}, "correct": "D"},
+{"type": "mcq", "cat": "11月8日", "text": "accelerate　​/ək⁠ˈseləreɪt/", "options": {"A": "adj. 可供选择的　n. 备选方案", "B": "adj. 智力的；知识的　n. 知识分子", "C": "v. 加速；促进", "D": "v. 衰退；枯萎；消亡"}, "correct": "C"},
+{"type": "mcq", "cat": "11月8日", "text": "compress　​/kəm⁠ˈpres/", "options": {"A": "v. 压缩；压紧", "B": "v. 渴望；立志；追求", "C": "n. 层级；层　v. 分层", "D": "adj. 灾难性的；极糟糕的"}, "correct": "A"},
+{"type": "mcq", "cat": "11月8日", "text": "immersive　​/ɪ⁠ˈmɜːsɪv/", "options": {"A": "n. 转型；变革；改造", "B": "adj. 沉浸式的", "C": "v. 加速；促进", "D": "v. 部署；实施；调动"}, "correct": "B"},
+{"type": "mcq", "cat": "11月8日", "text": "productive　​/prə⁠ˈdʌktɪv/", "options": {"A": "v. 促使；激发　adj. 迅速的", "B": "n. 刺激；激励（复数 ～）", "C": "adj. 富有成效的；多产的", "D": "adj. 顺畅的；平滑的　v. 使平稳"}, "correct": "C"},
+{"type": "mcq", "cat": "11月8日", "text": "intuitive　​/ɪn⁠ˈtjuːɪtɪv/", "options": {"A": "v. 加速；促进", "B": "n. 举措；倡议　adj. 主动的", "C": "v. 实施；执行　n. 工具", "D": "adj. 直觉的；凭直觉的"}, "correct": "D"},
+{"type": "mcq", "cat": "11月8日", "text": "reap　​/riːp/", "options": {"A": "adj. 灾难性的；极糟糕的", "B": "v. 收获；获得（回报）", "C": "v. 衰退；枯萎；消亡", "D": "v. 部署；实施；调动"}, "correct": "B"},
+{"type": "mcq", "cat": "11月8日", "text": "irrelevant　​/ɪ⁠ˈreləvənt/", "options": {"A": "adj. 灾难性的；极糟糕的", "B": "adj. 无关的；不相关的", "C": "v. 衰退；枯萎；消亡", "D": "v. 模拟；模仿"}, "correct": "B"},
+{"type": "mcq", "cat": "11月8日", "text": "forge　​/fɔːdʒ/", "options": {"A": "v. 衰退；枯萎；消亡", "B": "adj. 直觉的；凭直觉的", "C": "v. 建立；锻造", "D": "n. 研讨会；讲习班"}, "correct": "C"},
+{"type": "mcq", "cat": "11月8日", "text": "smooth　​/smuːð/", "options": {"A": "adj. 顺畅的；平滑的　v. 使平稳", "B": "v. 收获；获得（回报）", "C": "adj. 直觉的；凭直觉的", "D": "adj. 富有成效的；多产的"}, "correct": "A"}
+];
+</script>
+<script src="../assets/sync-core.js?v=43a30b640f"></script>
+<script src="../assets/sync-client.js?v=43a30b640f"></script>
+<script src="../assets/tiku-sync.js?v=43a30b640f"></script>
+<script src="../assets/quiz.js?v=43a30b640f"></script>
+</body>
+</html>

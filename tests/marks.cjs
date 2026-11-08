@@ -10,15 +10,16 @@ async function runMarks(BASE, ok) {
     const IN = fid => `[...document.querySelectorAll('.folder-card[data-fid="${fid}"] .item[data-key]')].map(x=>x.dataset.key)`;
     let r = await c.ev(`({
       folders: JSON.parse(localStorage.tiku_folders||"[]"),
-      v: ${IN('auto-cet4v')}, ch: ${IN('auto-cet4c')}, sp: ${IN('auto-cet4s')}, lj: ${IN('auto-lijing')},
+      v: ${IN('auto-cet4v')}, ch: ${IN('auto-cet4c')}, sp: ${IN('auto-cet4s')}, lj: ${IN('auto-lijing')}, ld: ${IN('auto-lijingdaily')},
       loose: [...document.querySelectorAll('#list > .item[data-key]')].map(x=>x.dataset.key),
       open: [...document.querySelectorAll('.folder-card[data-fid^="auto-cet4"]')].some(f=>f.classList.contains('open')),
       d3: document.querySelector('[data-key="cet4-vocab-day3"]').getAttribute('href'), c3: document.querySelector('[data-key="cet4-choose-day3"]').getAttribute('href') })`);
     const days = p => Array.from({ length: 15 }, (_, i) => p + '-day' + (i + 1));
-    ok(JSON.stringify(r.folders) === '[{"id":"auto-cet4v","name":"四级 · 选意思"},{"id":"auto-cet4c","name":"四级 · 选单词"},{"id":"auto-cet4s","name":"四级 · 写单词"},{"id":"auto-lijing","name":"李婧老师单词"}]'
+    ok(JSON.stringify(r.folders) === '[{"id":"auto-cet4v","name":"四级 · 选意思"},{"id":"auto-cet4c","name":"四级 · 选单词"},{"id":"auto-cet4s","name":"四级 · 写单词"},{"id":"auto-lijing","name":"李婧老师单词"},{"id":"auto-lijingdaily","name":"李婧老师每日单词背诵"}]'
       && JSON.stringify(r.v) === JSON.stringify(['cet4-vocab'].concat(days('cet4-vocab'))) && JSON.stringify(r.ch) === JSON.stringify(['cet4-choose'].concat(days('cet4-choose')))
       && JSON.stringify(r.sp) === '["cet4-spell"]' && !r.loose.some(k => /^(cet4|lijing)/.test(k)) && !r.open
-      && JSON.stringify(r.lj) === '["lijing-vocab","lijing-choose","lijing-spell"]',
+      && JSON.stringify(r.lj) === '["lijing-vocab","lijing-choose","lijing-spell"]'
+      && JSON.stringify(r.ld.slice(0, 4)) === '["lijing-daily-vocab","lijing-daily-choose","lijing-daily-spell","lijing-daily-2026-11-08"]',
       '首页：四级拆成三个文件夹（选意思 / 选单词各带 15 个 DAY 入口，写单词只有总入口），默认收着；李婧老师单词三科进同名文件夹（2026-11-08）', r);
     ok(r.d3 === './cet4-vocab/?cat=DAY%203' && r.c3 === './cet4-choose/?cat=DAY%203', 'DAY 3 入口各自指向自己的科目、带 ?cat=DAY 3', r);
     // 挪出来以后，刷新不会被放回去；删了文件夹也不会重建
@@ -43,20 +44,39 @@ async function runMarks(BASE, ok) {
       localStorage.tiku_folders=JSON.stringify([{id:"a",name:"甲"},{id:"auto-cet4",name:"四级词汇",pinned:true},{id:"b",name:"乙"}]);
       localStorage.tiku_subject_folder=JSON.stringify(m);localStorage.tiku_auto_placed=JSON.stringify(${JSON.stringify(OLDKEYS)}.concat(["folder:cet4"]));location.reload();})()`).catch(() => null); await sleep(700);
     r = await c.ev(`({f:JSON.parse(localStorage.tiku_folders),m:JSON.parse(localStorage.tiku_subject_folder)})`);
-    ok(JSON.stringify(r.f.map(x => x.id + (x.pinned ? '*' : ''))) === '["a","auto-cet4v*","auto-cet4c*","auto-cet4s*","b","auto-lijing"]'
+    ok(JSON.stringify(r.f.map(x => x.id + (x.pinned ? '*' : ''))) === '["a","auto-cet4v*","auto-cet4c*","auto-cet4s*","b","auto-lijing","auto-lijingdaily"]'
       && r.m['cet4-vocab-day7'] === 'auto-cet4v' && r.m['cet4-choose'] === 'auto-cet4c' && r.m['cet4-choose-day7'] === 'auto-cet4c' && r.m['cet4-spell'] === 'auto-cet4s' && r.m.os === 'a',
       '老设备的「四级词汇」文件夹：拆成三个、插在原位置、置顶跟着走，新的 15 个选单词入口也进去', r);
     // 老设备删过「四级词汇」：拆的时候什么都不建，新加的选单词 DAY 入口放外面
     await c.ev(`(()=>{localStorage.clear();localStorage.tiku_folders="[]";localStorage.tiku_subject_folder="{}";localStorage.tiku_auto_placed=JSON.stringify(${JSON.stringify(OLDKEYS)}.concat(["folder:cet4"]));location.reload();})()`).catch(() => null); await sleep(700);
     r = await c.ev(`({f:localStorage.tiku_folders,loose:[...document.querySelectorAll('#list > .item[data-key]')].map(x=>x.dataset.key).filter(k=>/cet4-choose-day/.test(k)).length})`);
     // 李婧老师单词是另一个文件夹、没被删过，照常建（2026-11-08）
-    ok(r.f === '[{"id":"auto-lijing","name":"李婧老师单词"}]' && r.loose === 15, '老设备删过「四级词汇」：不建新的四级文件夹，新加的 15 个选单词入口放外面', r);
+    ok(r.f === '[{"id":"auto-lijing","name":"李婧老师单词"},{"id":"auto-lijingdaily","name":"李婧老师每日单词背诵"}]' && r.loose === 15, '老设备删过「四级词汇」：不建新的四级文件夹，新加的 15 个选单词入口放外面', r);
     // DAY 入口的总题数和题库里这个 DAY 的题数一致
     const perCat = {};
-    for (const s of ['cet4-vocab', 'cet4-choose']) { await c.goto(BASE + s + '/'); perCat[s] = await c.ev(`(()=>{const o={};QUESTIONS.forEach(q=>o[q.cat]=(o[q.cat]||0)+1);return o;})()`); }
+    for (const s of ['cet4-vocab', 'cet4-choose', 'lijing-daily-vocab', 'lijing-daily-choose', 'lijing-daily-spell']) { await c.goto(BASE + s + '/'); perCat[s] = await c.ev(`(()=>{const o={};QUESTIONS.forEach(q=>o[q.cat]=(o[q.cat]||0)+1);return o;})()`); }
     await c.goto(BASE);
     const sc = await c.ev(`SHORTCUTS.map(s=>[s.parent,s.cat,s.total])`);
-    ok(sc.length === 30 && sc.every(([p, k, n]) => perCat[p][k] === n), '首页：每个 DAY 入口写的题数和题库一致（选意思、选单词各 15 个）', { sc, perCat });
+    const cet = sc.filter(x => /^cet4/.test(x[0])), daily = sc.filter(x => x[0] === 'lijing-daily-vocab');
+    ok(cet.length === 30 && cet.every(([p, k, n]) => perCat[p][k] === n), '首页：每个 DAY 入口写的题数和题库一致（选意思、选单词各 15 个）', { sc, perCat });
+    // 每日单词：每天一张卡片，题数和三科题库里这一天的题数都一致；三科总数也一致（日期列表由 build_daily.py 写，防止它写错或漏跑）
+    const tot = await c.ev(`["lijing-daily-vocab","lijing-daily-choose","lijing-daily-spell"].map(k=>SUBJECTS.find(s=>s.key===k).total)`);
+    const qn = s => Object.values(perCat[s]).reduce((a, b) => a + b, 0);
+    ok(daily.length >= 1 && daily.length === Object.keys(perCat['lijing-daily-vocab']).length
+      && daily.every(([p, k, n]) => ['lijing-daily-vocab', 'lijing-daily-choose', 'lijing-daily-spell'].every(s => perCat[s][k] === n))
+      && tot[0] === qn('lijing-daily-vocab') && tot[1] === qn('lijing-daily-choose') && tot[2] === qn('lijing-daily-spell'),
+      '首页：每日单词每天一张入口，题数和三科题库一致', { daily, tot, perCat });
+    // 用户自己先建好了同名文件夹（id 随机）：放进用户那个，不另建一个同名的（2026-11-08 用户先建了「李婧老师每日单词背诵」）
+    await c.ev(`(()=>{localStorage.clear();localStorage.tiku_folders=JSON.stringify([{id:"u1",name:"李婧老师每日单词背诵"}]);location.reload();})()`).catch(() => null); await sleep(700);
+    r = await c.ev(`({f:JSON.parse(localStorage.tiku_folders).map(x=>x.id),m:JSON.parse(localStorage.tiku_subject_folder)})`);
+    ok(r.f.filter(x => /lijingdaily|u1/.test(x)).join() === 'u1' && r.m['lijing-daily-vocab'] === 'u1' && r.m['lijing-daily-spell'] === 'u1' && r.m['lijing-daily-2026-11-08'] === 'u1',
+      '首页：用户自己建了同名文件夹，每日单词放进用户那个、不另建', r);
+    // 这台设备先自动建了固定 id 的，之后同步来了用户建的同名文件夹：合并进用户那个、删掉固定 id 的
+    await c.ev(`(()=>{const m=JSON.parse(localStorage.tiku_subject_folder);Object.keys(m).forEach(k=>{if(m[k]==="u1")m[k]="auto-lijingdaily";});
+      localStorage.tiku_subject_folder=JSON.stringify(m);localStorage.tiku_folders=JSON.stringify(JSON.parse(localStorage.tiku_folders).concat([{id:"auto-lijingdaily",name:"李婧老师每日单词背诵"}]));location.reload();})()`).catch(() => null); await sleep(700);
+    r = await c.ev(`({f:JSON.parse(localStorage.tiku_folders).map(x=>x.id),m:JSON.parse(localStorage.tiku_subject_folder),n:document.querySelectorAll('.folder-card[data-fid="u1"] .item[data-key]').length})`);
+    ok(r.f.indexOf('auto-lijingdaily') < 0 && r.f.indexOf('u1') >= 0 && r.m['lijing-daily-vocab'] === 'u1' && r.m['lijing-daily-2026-11-08'] === 'u1' && r.n === 4,
+      '首页：自动建的和用户建的同名文件夹并存时，合并进用户那个', r);
   } finally { c.close(); }
 
   /* ---------- 科目页：?cat=、标记、自动改回、首页统计、备份 ---------- */

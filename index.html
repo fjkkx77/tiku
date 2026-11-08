@@ -27,7 +27,7 @@
 })();
 </script>
 <title>刷题合集</title>
-<link rel="stylesheet" href="assets/sync-panel.css?v=7139132b28">
+<link rel="stylesheet" href="assets/sync-panel.css?v=43a30b640f">
 <style>
   /* 外观＝2026-10-15 之前的样子（2026-10-16 用户看过 iOS 风格改版后决定回到原来的界面风格，只保留新的逻辑和交互） */
   :root{ --primary:#3b82f6; --primary-dark:#2563eb; --bg:#f3f4f6; --text:#1f2937; --muted:#6b7280; --border:#e5e7eb; --danger:#dc2626; --press:#eef2f7; --ease:cubic-bezier(.2,.9,.3,1); }
@@ -322,12 +322,18 @@
   </div>
 </div>
 
-<script src="assets/sync-core.js?v=7139132b28"></script>
-<script src="assets/sync-client.js?v=7139132b28"></script>
-<script src="assets/sync-panel.js?v=7139132b28"></script>
-<script src="assets/tiku-sync.js?v=7139132b28"></script>
+<script src="assets/sync-core.js?v=43a30b640f"></script>
+<script src="assets/sync-client.js?v=43a30b640f"></script>
+<script src="assets/sync-panel.js?v=43a30b640f"></script>
+<script src="assets/tiku-sync.js?v=43a30b640f"></script>
 <script src="assets/drag.js?v=2.0.0"></script>
 <script>
+/* 李婧老师每日单词背诵（2026-11-08 起，用户每天发当天的词）：下面这段由 CodeProjects/lijing-daily/build_daily.py 自动改写，别手改。
+   每项 [日期, 分类名, 题数]；三科的总题数、每天一张的入口卡片都从它算 */
+// <lijing-daily-days>
+const LIJING_DAILY_DAYS = [["2026-11-08","11月8日",30]];
+// </lijing-daily-days>
+const LIJING_DAILY_TOTAL = LIJING_DAILY_DAYS.reduce(function(a, d){ return a + d[2]; }, 0);
 const SUBJECTS = [
   { key:'web-design', prefix:'webquiz',         href:'./web-design/',          defaultName:'WEB程序设计',           total:90,  desc:'单选+填空混合，90题 · 错题本 / 练习记录 / 题目总览' },
   { key:'os', prefix:'osquiz',                 href:'./os/',                  defaultName:'操作系统',               total:85,  desc:'填空题，85题 · 错题本 / 练习记录 / 题目总览' },
@@ -343,6 +349,9 @@ const SUBJECTS = [
   { key:'lijing-vocab', prefix:'lijingvocabquiz',    href:'./lijing-vocab/',        defaultName:'李婧老师单词 · 选意思',  total:1241, desc:'单选题，1241题（色彩词、讲义高频词、阅读核心词、经济、翻译、考前必背，看英文选中文，带英式音标） · 错题本 / 练习记录 / 题目总览', folder:'lijing', marks:true },
   { key:'lijing-choose', prefix:'lijingchoosequiz',  href:'./lijing-choose/',       defaultName:'李婧老师单词 · 选单词',  total:1241, desc:'单选题，1241题（六类，看中文选英文，形近词干扰） · 错题本 / 练习记录 / 题目总览', folder:'lijing', marks:true },
   { key:'lijing-spell', prefix:'lijingspellquiz',    href:'./lijing-spell/',        defaultName:'李婧老师单词 · 写单词',  total:1241, desc:'填空题，1241题（六类，看中文写英文，给首字母） · 错题本 / 练习记录 / 题目总览', folder:'lijing', marks:true },
+  { key:'lijing-daily-vocab', prefix:'lijingdailyvocabquiz',   href:'./lijing-daily-vocab/',  defaultName:'李婧每日单词 · 选意思', total:LIJING_DAILY_TOTAL, desc:'单选题，按日期分组（看英文选中文，带英式音标） · 错题本 / 练习记录 / 题目总览', folder:'lijingdaily', marks:true },
+  { key:'lijing-daily-choose', prefix:'lijingdailychoosequiz', href:'./lijing-daily-choose/', defaultName:'李婧每日单词 · 选单词', total:LIJING_DAILY_TOTAL, desc:'单选题，按日期分组（看中文选英文，形近词干扰） · 错题本 / 练习记录 / 题目总览', folder:'lijingdaily', marks:true },
+  { key:'lijing-daily-spell', prefix:'lijingdailyspellquiz',   href:'./lijing-daily-spell/',  defaultName:'李婧每日单词 · 写单词', total:LIJING_DAILY_TOTAL, desc:'填空题，按日期分组（看中文写英文，给首字母） · 错题本 / 练习记录 / 题目总览', folder:'lijingdaily', marks:true },
 ];
 /* 快捷入口（2026-10-23）：不是独立科目，点进去就是父科目、开始练习页只勾这一个分类（科目页认 ?cat=）。
    错题本、练习记录、「会 / 不会」标记都跟父科目共用一份——从哪个入口刷都算数。
@@ -359,11 +368,17 @@ const SHORTCUTS = [
     return { key:p.parent + '-day' + (i + 1), parent:p.parent, cat:cat, prefix:p.prefix, href:'./' + p.parent + '/?cat=' + encodeURIComponent(cat),
              defaultName:p.name + ' · ' + cat, total:n, desc:'单选题，' + n + '题（' + cat + '，' + p.desc + '）', folder:p.folder, marks:true };
   }));
-}, []);
+}, []).concat(LIJING_DAILY_DAYS.map(function(d){
+  // 每日单词每天一张卡片，点进去是选意思、只勾当天（用户 2026-11-08 选的）；after：排在三科后面，按日期往下接（不插在选意思紧后面）
+  return { key:'lijing-daily-' + d[0], parent:'lijing-daily-vocab', after:'lijing-daily-spell', cat:d[1], prefix:'lijingdailyvocabquiz',
+           href:'./lijing-daily-vocab/?cat=' + encodeURIComponent(d[1]), defaultName:d[1], total:d[2],
+           desc:'单选题，' + d[2] + '题（' + d[1] + ' 的单词，看英文选中文）', folder:'lijingdaily', marks:true };
+}));
 // 带 folder 的科目 / 快捷入口第一次出现在这台设备上时，自动放进这个文件夹（id 固定：两台设备各自建，同步后还是同一个）。
 // 10-24 用户要求拆成三个（原来一个「四级词汇」auto-cet4），老设备上的由 splitCet4 搬过去
 // 2026-11-08 加「李婧老师单词」三科（桌面「词汇」6 个 PDF 整理的），用户要放进一个叫这个名字的新文件夹
-const AUTO_FOLDERS = { cet4v: '四级 · 选意思', cet4c: '四级 · 选单词', cet4s: '四级 · 写单词', lijing: '李婧老师单词' };
+const AUTO_FOLDERS = { cet4v: '四级 · 选意思', cet4c: '四级 · 选单词', cet4s: '四级 · 写单词', lijing: '李婧老师单词',
+  lijingdaily: '李婧老师每日单词背诵' };   // 这个文件夹是用户自己先建好的（id 随机）：autoPlace 按名字找到它就放进去，不另建（见 autoFolderId）
 // total＝科目页题库的题数（tests 会核对，加题后要跟着改）；desc 现在只当鼠标悬停提示用
 
 const STORAGE_KEY = 'tiku_custom_names';
@@ -388,7 +403,7 @@ const SUBJ_BY_KEY = {};
 SUBJECTS.concat(SHORTCUTS).forEach(function(s){ SUBJ_BY_KEY[s.key] = s; });
 // 默认先后：科目照 SUBJECTS 的顺序，它的快捷入口紧跟在它后面
 const DEFAULT_ORDER = [];
-SUBJECTS.forEach(function(s){ DEFAULT_ORDER.push(s.key); SHORTCUTS.forEach(function(x){ if (x.parent === s.key) DEFAULT_ORDER.push(x.key); }); });
+SUBJECTS.forEach(function(s){ DEFAULT_ORDER.push(s.key); SHORTCUTS.forEach(function(x){ if ((x.after || x.parent) === s.key) DEFAULT_ORDER.push(x.key); }); });
 const ICON = {
   more:'<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg>',
   chev:'<svg width="9" height="15" viewBox="0 0 9 15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1.5 1.5l6 6-6 6"/></svg>',
@@ -503,7 +518,7 @@ function autoPlace() {
   }
   todo.forEach(function(s){
     // 建过没有：有记号，或者以前（这次之前）自动放过同一个文件夹的科目（10-23 那版还没写记号）
-    const fid = 'auto-' + s.folder, made = placed.indexOf('folder:' + s.folder) >= 0
+    const fid = autoFolderId(folders, s.folder), made = placed.indexOf('folder:' + s.folder) >= 0
       || before.some(function(k){ return SUBJ_BY_KEY[k] && SUBJ_BY_KEY[k].folder === s.folder; });
     const exists = folders.some(function(f){ return f.id === fid; });
     if (!map[s.key] && pinned.indexOf(s.key) < 0 && (exists || !made)) {
@@ -517,6 +532,31 @@ function autoPlace() {
   if (fch) saveFolders(folders);
   if (mch) saveSubjectFolderMap(map);
   try { localStorage.setItem(AUTO_PLACED_KEY, JSON.stringify(placed)); } catch(e) {}
+  mergeAutoDup();
+}
+/* 自动文件夹放哪：固定 id 的那个在就用它；不在、但用户自己建过同名的文件夹（「李婧老师每日单词背诵」就是用户先建的，id 随机），用用户那个 */
+function autoFolderId(folders, f) {
+  const fid = 'auto-' + f;
+  if (folders.some(function(x){ return x.id === fid; })) return fid;
+  const mine = folders.find(function(x){ return x.name === AUTO_FOLDERS[f]; });
+  return mine ? mine.id : fid;
+}
+/* 同名合并：这台设备还没同步到用户建的那个文件夹时，autoPlace 会先建一个固定 id 的；同步过来以后两个同名并存。
+   发现了就把固定 id 那个里的科目挪进用户的那个、删掉固定 id 的。打开页面和每次同步落地后都跑，几台设备最后收敛到同一个 */
+function mergeAutoDup() {
+  if (window.__noAutoPlace) return;
+  const folders = loadFolders(), map = loadSubjectFolderMap();
+  let fch = false, mch = false;
+  Object.keys(AUTO_FOLDERS).forEach(function(f){
+    const fid = 'auto-' + f, at = folders.findIndex(function(x){ return x.id === fid; });
+    const mine = folders.find(function(x){ return x.id !== fid && x.name === AUTO_FOLDERS[f]; });
+    if (at < 0 || !mine) return;
+    Object.keys(map).forEach(function(k){ if (map[k] === fid) { map[k] = mine.id; mch = true; } });
+    folders.splice(at, 1); fch = true;
+  });
+  if (fch) saveFolders(folders);
+  if (mch) saveSubjectFolderMap(map);
+  return fch;
 }
 // 同一层的几科换了先后：它们原来在总顺序里占着哪些位置，就按新顺序填回这些位置；别的科目不动
 function reorderSubjects(keys) {
@@ -807,6 +847,7 @@ if (window.TikuSync) {
   /* 另一台设备的改动同步过来了：重画列表。正在拖动排序时先不画（画了手里拖着的那张卡就没了），松手后再画 */
   window.addEventListener('tiku-sync-applied', function syncRepaint(){
     if (document.body.classList.contains('dragging')) { setTimeout(syncRepaint, 400); return; }
+    mergeAutoDup();
     render();
   });
 }

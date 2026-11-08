@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="theme-color" content="#2f6ff0" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#1f47b0" media="(prefers-color-scheme: dark)">
+<title>李婧每日单词 · 选单词</title>
+<link rel="stylesheet" href="../assets/quiz.css?v=43a30b640f">
+</head>
+<body>
+<script>
+/* 本科目的配置。界面和答题逻辑在 ../assets/quiz.js，8 个科目站共用一份，改那里 = 8 个站一起改 */
+const QUIZ = {
+  title: "李婧每日单词 · 选单词",
+  subtitle: "看中文选英文 · 形近词干扰 · 错题本",
+  prefix: "lijingdailychoosequiz",
+  intro: "30 词（1 天），看中文选英文，错误选项是长得像的词",
+  catWord: "日期",
+  font: "en",
+  marks: true,          // 「会 / 不会」标记（照四级三科）
+};
+/* ===================== 题库数据 ===================== */
+// 由 C:\Users\Administrator\CodeProjects\lijing-daily\build_daily.py 从 days\ 里每天的词生成，别手改——加词或改词后重新生成
+const QUESTIONS = [
+{"type": "mcq", "cat": "11月8日", "text": "n. 模拟器；模拟装置", "options": {"A": "simulator", "B": "stimulate", "C": "singular", "D": "smuggler"}, "correct": "A", "note": "/⁠ˈsɪmjʊleɪtə/"},
+{"type": "mcq", "cat": "11月8日", "text": "n. 航空；航空业", "options": {"A": "alleviation", "B": "variation", "C": "addition", "D": "aviation"}, "correct": "D", "note": "/⁠ˌeɪvi⁠ˈeɪʃən/"},
+{"type": "mcq", "cat": "11月8日", "text": "adj. 灾难性的；极糟糕的", "options": {"A": "distress", "B": "disastrous", "C": "distaste", "D": "disapprove"}, "correct": "B", "note": "/dɪ⁠ˈzɑːstrəs/"},
+{"type": "mcq", "cat": "11月8日", "text": "v. 模拟；模仿", "options": {"A": "stimulate", "B": "speculate", "C": "simulate", "D": "manipulate"}, "correct": "C", "note": "/⁠ˈsɪmjʊleɪt/"},
+{"type": "mcq", "cat": "11月8日", "text": "n. 干预；介入", "options": {"A": "intention", "B": "interpretation", "C": "injection", "D": "intervention"}, "correct": "D", "note": "/⁠ˌɪntə⁠ˈvenʃən/"},
+{"type": "mcq", "cat": "11月8日", "text": "v. 渴望；立志；追求", "options": {"A": "aspiration", "B": "assure", "C": "atmosphere", "D": "aspire"}, "correct": "D", "note": "/ə⁠ˈspaɪə/"},
+{"type": "mcq", "cat": "11月8日", "text": "v. 部署；实施；调动", "options": {"A": "deputy", "B": "deploy", "C": "deadly", "D": "display"}, "correct": "B", "note": "/dɪ⁠ˈplɔɪ/"},
+{"type": "mcq", "cat": "11月8日", "text": "v. 实施；执行　n. 工具", "options": {"A": "implement", "B": "improvement", "C": "inclement", "D": "impatient"}, "correct": "A", "note": "/⁠ˈɪmplɪment/"},
+{"type": "mcq", "cat": "11月8日", "text": "n. 愿景；视野；想象力", "options": {"A": "division", "B": "provision", "C": "vision", "D": "invasion"}, "correct": "C", "note": "/⁠ˈvɪʒən/"},
+{"type": "mcq", "cat": "11月8日", "text": "v. 欣然接受；拥抱", "options": {"A": "grace", "B": "embrace", "C": "embroidery", "D": "brake"}, "correct": "B", "note": "/ɪm⁠ˈbreɪs/"},
+{"type": "mcq", "cat": "11月8日", "text": "n. 转型；变革；改造", "options": {"A": "transportation", "B": "translation", "C": "transport", "D": "transformation"}, "correct": "D", "note": "/⁠ˌtrænsfə⁠ˈmeɪʃən/"},
+{"type": "mcq", "cat": "11月8日", "text": "n. 层级；层　v. 分层", "options": {"A": "latter", "B": "laughter", "C": "layer", "D": "lame"}, "correct": "C", "note": "/⁠ˈleɪə/"},
+{"type": "mcq", "cat": "11月8日", "text": "n. 承诺；投入；奉献", "options": {"A": "comment", "B": "commit", "C": "constituent", "D": "commitment"}, "correct": "D", "note": "/kə⁠ˈmɪtmənt/"},
+{"type": "mcq", "cat": "11月8日", "text": "n. 举措；倡议　adj. 主动的", "options": {"A": "instinctive", "B": "initiative", "C": "intuitive", "D": "incentive"}, "correct": "B", "note": "/ɪ⁠ˈnɪʃiətɪv/"},
+{"type": "mcq", "cat": "11月8日", "text": "v. 衰退；枯萎；消亡", "options": {"A": "wither", "B": "withdraw", "C": "width", "D": "bitter"}, "correct": "A", "note": "/⁠ˈwɪðə/"},
+{"type": "mcq", "cat": "11月8日", "text": "n. 范式；范例；思维模式", "options": {"A": "parade", "B": "paradigm", "C": "paradoxical", "D": "preceding"}, "correct": "B", "note": "/⁠ˈpærədaɪm/"},
+{"type": "mcq", "cat": "11月8日", "text": "adj. 可供选择的　n. 备选方案", "options": {"A": "attractive", "B": "alternative", "C": "alter", "D": "cooperative"}, "correct": "B", "note": "/ɔːl⁠ˈtɜːnətɪv/"},
+{"type": "mcq", "cat": "11月8日", "text": "v. 促使；激发　adj. 迅速的", "options": {"A": "prompt", "B": "preempt", "C": "promote", "D": "product"}, "correct": "A", "note": "/prɒmpt/"},
+{"type": "mcq", "cat": "11月8日", "text": "adj. 智力的；知识的　n. 知识分子", "options": {"A": "intelligent", "B": "integral", "C": "illegal", "D": "intellectual"}, "correct": "D", "note": "/⁠ˌɪntə⁠ˈlektʃuəl/"},
+{"type": "mcq", "cat": "11月8日", "text": "n. 研讨会；讲习班", "options": {"A": "worship", "B": "workshop", "C": "workload", "D": "worrisome"}, "correct": "B", "note": "/⁠ˈwɜːkʃɒp/"},
+{"type": "mcq", "cat": "11月8日", "text": "n. 刺激；激励（复数 ～）", "options": {"A": "surplus", "B": "stimulus", "C": "status", "D": "simulate"}, "correct": "B", "note": "/⁠ˈstɪmjʊləs/"},
+{"type": "mcq", "cat": "11月8日", "text": "v. 加速；促进", "options": {"A": "accelerate", "B": "accurate", "C": "accumulate", "D": "tolerate"}, "correct": "A", "note": "/ək⁠ˈseləreɪt/"},
+{"type": "mcq", "cat": "11月8日", "text": "v. 压缩；压紧", "options": {"A": "compass", "B": "compress", "C": "impress", "D": "compromise"}, "correct": "B", "note": "/kəm⁠ˈpres/"},
+{"type": "mcq", "cat": "11月8日", "text": "adj. 沉浸式的", "options": {"A": "immense", "B": "impulsive", "C": "improve", "D": "immersive"}, "correct": "D", "note": "/ɪ⁠ˈmɜːsɪv/"},
+{"type": "mcq", "cat": "11月8日", "text": "adj. 富有成效的；多产的", "options": {"A": "protective", "B": "productive", "C": "product", "D": "provocative"}, "correct": "B", "note": "/prə⁠ˈdʌktɪv/"},
+{"type": "mcq", "cat": "11月8日", "text": "adj. 直觉的；凭直觉的", "options": {"A": "intuitive", "B": "initiative", "C": "intensive", "D": "inclusive"}, "correct": "A", "note": "/ɪn⁠ˈtjuːɪtɪv/"},
+{"type": "mcq", "cat": "11月8日", "text": "v. 收获；获得（回报）", "options": {"A": "rear", "B": "heap", "C": "leap", "D": "reap"}, "correct": "D", "note": "/riːp/"},
+{"type": "mcq", "cat": "11月8日", "text": "adj. 无关的；不相关的", "options": {"A": "elegant", "B": "irrelevant", "C": "irregular", "D": "ingredient"}, "correct": "B", "note": "/ɪ⁠ˈreləvənt/"},
+{"type": "mcq", "cat": "11月8日", "text": "v. 建立；锻造", "options": {"A": "force", "B": "former", "C": "forge", "D": "outrage"}, "correct": "C", "note": "/fɔːdʒ/"},
+{"type": "mcq", "cat": "11月8日", "text": "adj. 顺畅的；平滑的　v. 使平稳", "options": {"A": "myth", "B": "smash", "C": "spot", "D": "smooth"}, "correct": "D", "note": "/smuːð/"}
+];
+</script>
+<script src="../assets/sync-core.js?v=43a30b640f"></script>
+<script src="../assets/sync-client.js?v=43a30b640f"></script>
+<script src="../assets/tiku-sync.js?v=43a30b640f"></script>
+<script src="../assets/quiz.js?v=43a30b640f"></script>
+</body>
+</html>

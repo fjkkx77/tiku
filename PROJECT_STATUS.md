@@ -43,6 +43,12 @@ node tools/stamp.cjs
 题库由 `C:\Users\Administrator\CodeProjects\lijing-vocab\build_quiz.py` 生成（**别手改科目页**，流程和改正表见那边 `PROGRESS.md`；改词义只改 `edits.txt`）。写单词：释义里出现本词换成「～」；同分类题面完全一样的 7 组互认答案；判分快照手写 35 条。
 **同步数据量**：加这三科后「全部题同时进错题本」实测 3.78MB，超 3.5MB 上限约 3%。用户选 A：上限不动，`tests/sync.cjs` 改测「全做过 + 一半题在错题本」。超了会报错停同步、不丢数据；以后再加大科目要重新量。`api/sync.js` 超限报错文案顺手从过时的「1.5MB」改成「3.5MB」。
 
+**李婧老师每日单词背诵（2026-11-08 起，每天加）**：`lijing-daily-vocab` / `-choose` / `-spell` 三科 + 每天一张入口卡片（`lijing-daily-YYYY-MM-DD`，点进去是选意思、`?cat=11月8日`）。
+题库和首页 `<lijing-daily-days>` 那段（`LIJING_DAILY_DAYS`）都由 `C:\Users\Administrator\CodeProjects\lijing-daily\build_daily.py` 生成/改写，**别手改**；每天怎么加见那边 `PROGRESS.md`。
+- 文件夹「李婧老师每日单词背诵」是用户自己先建的（id 随机）：`autoFolderId` 按名字找用户的文件夹；`mergeAutoDup`（打开页面 + 每次同步落地后）把固定 id `auto-lijingdaily` 合并进同名的用户文件夹——没同步到之前先建了固定 id 的设备，同步后会自动收敛成一个。两条都在 tests/marks.cjs，改坏版本上看过变红。
+- SHORTCUTS 加了可选 `after`：默认顺序里排在哪个科目后面（缺省＝parent）。每日卡片排在三科后面、按日期往下接。
+- 测试里首页卡片数、home.cjs 的 NEW 都从 `LIJING_DAILY_DAYS` 读，每天加词不用改测试；marks.cjs 核对每天卡片题数和三科题库一致。
+
 **四级第三科「选单词」cet4-choose（2026-10-24，用户选的都是推荐方案）**：看中文选英文，1742 道四选一。错误选项是**形近词**（`cet4-vocab/lookalike.py`：difflib 相似度 + 共同前后缀加分，最像的两个必上，第三个从其余形近词随机；释义有相同两字词的排除，保证只有一个说得通；1692 题三个都是形近词、10 题找不到用同 DAY 随机补）。
 引擎单选加可选字段 `note`：答完 / 背题时跟在正确选项后面（答错时答案框里也有），这里放音标；不进指纹。没做 DAY 快捷入口（用户定先不做）。
 首页 autoPlace 补了一条：用户删过「四级词汇」文件夹后，新加的四级科目不再把文件夹建回来（看 `folder:<名>` 记号，或这次之前放过同文件夹的科目——10-23 那版没写记号）。
