@@ -114,6 +114,11 @@ async function runSync(ok) {
     await go(A, ''); await sync(A);
     m = await A.ev(`({folders:loadFolders().map(f=>f.id).sort(),seWb:Object.keys(JSON.parse(localStorage.getItem('rjgcquiz_wrongbook')||'{}')).length,os:loadNames().os})`);
     ok(JSON.stringify(m.folders) === '["fA","fB"]' && m.seWb >= 1 && m.os === '操作系统A', 'A 再同步：拿到了 B 的文件夹和错题，自己的改名没被 B 的旧名冲掉', m);
+    // 文件夹套文件夹（2026-11-10）：上级关系就是文件夹上的 parent，跟着文件夹整条同步，同步协议不用改
+    await A.ev(`applyFolderMove('fB','fA')`); await sleep(100); await sync(A);
+    await go(Bd, ''); await sync(Bd); await sleep(100);
+    m = await Bd.ev(`({p:(loadFolders().find(f=>f.id==='fB')||{}).parent,dom:!!document.querySelector('.folder-card[data-fid="fA"] .folder-card[data-fid="fB"]')})`);
+    ok(m.p === 'fA' && m.dom, '同步：A 把文件夹挪进另一个文件夹，B 同步后也是套着的', m);
 
     /* ---------- 3. 接上之后的改动：谁后改听谁的；删了不复活 ---------- */
     await Bd.ev(`saveName('os','B后来改的名')`); await sync(Bd);

@@ -102,6 +102,13 @@
   .folder-fold{overflow:hidden;border-radius:0 0 10px 10px;}
   .folder-body{display:flex;flex-direction:column;gap:10px;padding:10px 12px 14px;background:#f8f9fb;border-radius:0 0 10px 10px;position:relative;}
   .folder-body .item{border:1px solid var(--border);}
+  /* 子文件夹：跟文件夹里的科目卡片一样带细边、不带阴影；缩进靠上级 .folder-body 自己的左右内边距，一层 12px */
+  .folder-body .folder-card{border:1px solid var(--border);box-shadow:none;}
+  .folder-body .folder-header{border-radius:9px;}
+  .folder-body .folder-card.open .folder-header{border-radius:9px 9px 0 0;}
+  .folder-body .folder-fold,.folder-body .folder-body{border-radius:0 0 9px 9px;}
+  /* 第 2、3 层的内边距收窄：层级靠左边缩进就看得出来，右边不用每层再让 12px（320 宽时第 3 层的科目卡片从 216px 变成 232px） */
+  .folder-body .folder-body{padding:8px 6px 10px 10px;gap:8px;}
   .folder-empty-note{font-size:12px;color:var(--muted);text-align:center;padding:10px 0;}
 
   /* 主界面顶部的"新建文件夹"入口 */
@@ -216,6 +223,11 @@
   .sheet .opt.danger .ic{color:#ef4444;}
   .sheet .opt.on{color:var(--primary-dark);font-weight:bold;}
   .sheet .opt.on .ic{color:var(--primary-dark);}
+  .sheet .opt:disabled{color:#b6bcc6;cursor:default;}
+  .sheet .opt:disabled:active{background:#fff;}
+  .sheet .opt:disabled .ic{color:#c9ced6;}
+  .sheet .opt .nt{display:block;font-size:12px;color:var(--muted);font-weight:normal;margin-top:2px;}
+  .sheet .opt:disabled .nt{color:#b6bcc6;}
   .sheet .cancel{width:100%;margin-top:10px;min-height:50px;border:0;border-radius:10px;background:#fff;font-size:16px;font-weight:bold;color:var(--primary-dark);font-family:inherit;cursor:pointer;}
   .sheet .cancel:active{background:#f3f4f6;}
   .sheet .field{margin-top:12px;position:relative;}
@@ -469,6 +481,39 @@ function loadFolders() {
   return readList(FOLDERS_KEY).filter(function(f){ if (seen[f.id]) return false; seen[f.id] = 1; return true; });
 }
 function saveFolders(folders) { return safeSet(FOLDERS_KEY, folders); }
+/* 文件夹套文件夹（2026-11-10 用户要求，原地展开 + 缩进，最多 3 层）：文件夹上多一个 parent＝上级文件夹的 id，没有＝最外层。
+   存储里的 parent 不一定靠得住（两台设备同时挪、导入旧备份、上级在别的设备上被删了），所以每次都重新推一遍、只在显示上纠正，存储不改：
+   上级不存在 → 当最外层；绕成圈 → 按数组顺序先算到的那个断开（几台设备数组顺序一致，结果也一致）；超过 3 层 → 挂到第 2 层那个祖先下面。
+   置顶只对最外层的文件夹有效（子文件夹被置顶了也不单独拎出来，不然它会脱离上级显示） */
+const MAX_DEPTH = 3;
+function folderTree(folders) {
+  const byId = {}, parent = {}, depth = {}, state = {}, kids = { '': [] };
+  folders.forEach(function(f){ byId[f.id] = f; kids[f.id] = []; });
+  function walk(id) {                       // 返回深度（最外层＝1）；0＝正在算它（说明绕回来了）
+    if (state[id] === 2) return depth[id];
+    if (state[id] === 1) return 0;
+    state[id] = 1;
+    let p = byId[id].parent, d = 1;
+    if (typeof p !== 'string' || !byId[p] || p === id) p = null;
+    if (p) {
+      const pd = walk(p);
+      if (!pd) p = null;
+      else if (pd >= MAX_DEPTH) { while (depth[p] > MAX_DEPTH - 1) p = parent[p]; d = MAX_DEPTH; }
+      else d = pd + 1;
+    }
+    parent[id] = p; depth[id] = d; state[id] = 2;
+    return d;
+  }
+  folders.forEach(function(f){ walk(f.id); });
+  folders.forEach(function(f){ kids[parent[f.id] || ''].push(f); });
+  // 从它往下还有几层（含它自己）：挪文件夹时算「挪过去会不会超过 3 层」
+  function height(id) { return 1 + kids[id].reduce(function(m, c){ return Math.max(m, height(c.id)); }, 0); }
+  function within(id, root) { for (let x = id; x; x = parent[x]) if (x === root) return true; return false; }   // id 是 root 自己或在它里面
+  // 从最外层往下排好（每个文件夹排在它上级后面），给「移到文件夹」面板用
+  const flat = [];
+  (function add(list){ list.forEach(function(f){ flat.push(f); add(kids[f.id]); }); })(kids['']);
+  return { byId: byId, parent: parent, depth: depth, kids: kids, height: height, within: within, flat: flat };
+}
 function loadSubjectFolderMap() { return readObj(SUBJECT_FOLDER_KEY); }
 function saveSubjectFolderMap(map) { return safeSet(SUBJECT_FOLDER_KEY, map); }
 function loadPinned() { return readKeys(PINNED_KEY); }
@@ -552,6 +597,7 @@ function mergeAutoDup() {
     const mine = folders.find(function(x){ return x.id !== fid && x.name === AUTO_FOLDERS[f]; });
     if (at < 0 || !mine) return;
     Object.keys(map).forEach(function(k){ if (map[k] === fid) { map[k] = mine.id; mch = true; } });
+    folders.forEach(function(x){ if (x.parent === fid) x.parent = mine.id; });   // 放在它里面的子文件夹也跟着挪
     folders.splice(at, 1); fch = true;
   });
   if (fch) saveFolders(folders);
@@ -629,21 +675,26 @@ function render() {
       + '<span class="name">' + esc(displayName(k, names)) + '</span>'
       + '</div><div class="desc">' + descHtml(s, subjectStats(s)) + '</div></a>';
   }
-  const pinF = folders.filter(function(f){ return f.pinned; }), restF = folders.filter(function(f){ return !f.pinned; });
+  const tree = folderTree(folders), roots = tree.kids[''];
+  // 标题上的数：这个文件夹里（连同子文件夹里）一共几科
+  function countIn(id) { return (inFolder[id] || []).length + tree.kids[id].reduce(function(n, c){ return n + countIn(c.id); }, 0); }
+  const pinF = roots.filter(function(f){ return f.pinned; }), restF = roots.filter(function(f){ return !f.pinned; });
   const anyPin = pinned.length + pinF.length > 0, anyRest = restF.length + loose.length > 0;
   let h = anyPin ? '<div class="sec-label">📌 置顶</div>' : '';
   h += pinned.map(function(k){ return card(k, true); }).join('');
-  pinF.forEach(folderCard);
+  pinF.forEach(function(f){ h += folderCard(f); });
   if (anyPin && anyRest) h += '<div class="sec-label">全部</div>';
-  restF.forEach(folderCard);
+  restF.forEach(function(f){ h += folderCard(f); });
+  // 文件夹里先放子文件夹、再放科目（跟手机「文件」App 一样，文件夹在前）
   function folderCard(f) {
-    const ks = inFolder[f.id] || [], open = expandedFolders.has(f.id);
-    h += '<div class="folder-card' + (open ? ' open' : '') + (f.pinned ? ' pinned' : '') + (batchMode ? ' batch-active' : '') + '" data-fid="' + esc(f.id) + '" data-k="f:' + esc(f.id) + '">'
+    const ks = inFolder[f.id] || [], subs = tree.kids[f.id], open = expandedFolders.has(f.id), top = !tree.parent[f.id];
+    return '<div class="folder-card' + (open ? ' open' : '') + (top && f.pinned ? ' pinned' : '') + (top ? '' : ' sub') + (batchMode ? ' batch-active' : '') + '" data-fid="' + esc(f.id) + '" data-k="f:' + esc(f.id) + '" data-depth="' + tree.depth[f.id] + '">'
       + '<div class="folder-header lsw-item" role="button" tabindex="0" aria-expanded="' + open + '">'
-      + '<span class="chevron">▶</span><span class="folder-icon">📁</span><span class="folder-name">' + esc(f.name) + '</span><span class="folder-count">(' + ks.length + ')</span>'
+      + '<span class="chevron">▶</span><span class="folder-icon">📁</span><span class="folder-name">' + esc(f.name) + '</span><span class="folder-count">(' + countIn(f.id) + ')</span>'
       + '</div>'
       + '<div class="folder-fold"' + (open ? '' : ' hidden') + '><div class="folder-body">'
-      + (ks.length ? ks.map(function(k){ return card(k, false); }).join('') : '<div class="folder-empty-note">空文件夹：左滑科目点「更多」→「移到文件夹」</div>')
+      + subs.map(folderCard).join('')
+      + (ks.length ? ks.map(function(k){ return card(k, false); }).join('') : subs.length ? '' : '<div class="folder-empty-note">空文件夹：左滑科目点「更多」→「移到文件夹」</div>')
       + '</div></div></div>';
   }
   h += loose.map(function(k){ return card(k, false); }).join('');
@@ -663,10 +714,13 @@ function flip(change) {
   if (reduce || !document.body.animate) return;
   const moved = new Map();
   const anim = function(n, d){ if (Math.abs(d) >= 1) n.animate([{ transform: 'translateY(' + d + 'px)' }, { transform: 'none' }], { duration: 420, easing: 'cubic-bezier(.2,.9,.3,1)' }); };
+  // moved 记的是每个文件夹「看起来要走多远」（绝对位移）；子文件夹自己只补去掉上级那段之后剩下的（上级的动画会带着它走）。
+  // querySelectorAll 按文档顺序，上级一定先算到
   document.querySelectorAll('#list .folder-card[data-k]').forEach(function(n){
-    const b = before[n.dataset.k];
-    if (b === undefined) { n.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 260, easing: 'ease' }); moved.set(n, 0); return; }
-    const d = b - n.getBoundingClientRect().top; moved.set(n, d); anim(n, d);
+    if (!visible(n)) return;
+    const b = before[n.dataset.k], up = n.parentElement.closest('.folder-card'), ds = up ? (moved.get(up) || 0) : 0;
+    if (b === undefined) { n.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 260, easing: 'ease' }); moved.set(n, ds); return; }
+    const d = b - n.getBoundingClientRect().top; moved.set(n, d); anim(n, d - ds);
   });
   document.querySelectorAll('#list .item[data-k]').forEach(function(n){
     if (!visible(n)) return;
@@ -680,9 +734,9 @@ function flip(change) {
 function toggleFolder(card) {
   const fid = card.dataset.fid, open = !expandedFolders.has(fid);
   setExpanded(fid, open);
-  const fold = card.querySelector('.folder-fold');
+  const fold = card.querySelector(':scope > .folder-fold');   // 只认自己这一层的（里面还可能有子文件夹）
   card.classList.toggle('open', open);
-  card.querySelector('.folder-header').setAttribute('aria-expanded', String(open));
+  card.querySelector(':scope > .folder-header').setAttribute('aria-expanded', String(open));
   const reduce = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
   if (reduce || !fold.animate) { fold.hidden = !open; return; }
   if (fold.__anim) fold.__anim.cancel();
@@ -750,7 +804,9 @@ $('list').addEventListener('contextmenu', function(e){
   if (Date.now() - lastTouch < 1500 || (drag && (drag.active() || drag.holding()))) { e.preventDefault(); return; }
   if (batchMode || anyOverlay()) return;
   const item = e.target.closest('.item[data-key]');
-  if (item) { e.preventDefault(); openSubjectSheet(item.dataset.key); }
+  if (item) { e.preventDefault(); openSubjectSheet(item.dataset.key); return; }
+  const head = e.target.closest('.folder-header');
+  if (head) { e.preventDefault(); openFolderSheet(head.parentElement.dataset.fid); }
 });
 
 /* ===================== ⋯ 菜单（头部） ===================== */
@@ -933,7 +989,11 @@ function actionSheet(title, sub, items) {
       b.className = 'opt' + (it.danger ? ' danger' : '') + (it.on ? ' on' : '');
       b.innerHTML = '<span class="lb"></span><span class="ic">' + (it.icon || '') + '</span>';
       b.querySelector('.lb').textContent = it.label;
+      if (it.note) { const n = document.createElement('span'); n.className = 'nt'; n.textContent = it.note; b.querySelector('.lb').appendChild(n); }
+      if (it.indent) b.style.paddingLeft = (16 + 22 * it.indent) + 'px';   // 文件夹树：每深一层往右缩一点
       if (it.id) b.id = it.id;
+      if (it.fid) b.dataset.fid = it.fid;
+      if (it.disabled) { b.disabled = true; return box.appendChild(b); }   // 留在列表里（树的结构才看得懂），只是点不了
       b.addEventListener('click', function(){ closeSheet(); it.onClick(); });
       box.appendChild(b);
     });
@@ -993,8 +1053,9 @@ function moveSheet(keys) {
   const folders = loadFolders(), map = loadSubjectFolderMap();
   const same = keys.every(function(k){ return map[k] === map[keys[0]]; }) ? map[keys[0]] : null;
   const anyIn = keys.some(function(k){ return map[k] && folders.some(function(f){ return f.id === map[k]; }); });
-  const items = folders.map(function(f){
-    return { label: f.name, icon: f.id === same ? ICON.checkB : ICON.folder, on: f.id === same, onClick: function(){ applyMove(keys, f.id); } };
+  const tree = folderTree(folders);
+  const items = tree.flat.map(function(f){
+    return { label: f.name, icon: f.id === same ? ICON.checkB : ICON.folder, on: f.id === same, indent: tree.depth[f.id] - 1, fid: f.id, onClick: function(){ applyMove(keys, f.id); } };
   });
   if (anyIn) items.push({ label: '移出文件夹', icon: ICON.out, danger: true, id: 'actMoveOut', onClick: function(){ applyMove(keys, null); } });
   items.push({ label: '新建文件夹…', icon: ICON.plus, id: 'actMoveNew', onClick: function(){ promptNewFolder(keys); } });
@@ -1005,19 +1066,65 @@ function applyMove(keys, fid) {
   const map = loadSubjectFolderMap();
   keys.forEach(function(k){ if (fid) map[k] = fid; else delete map[k]; });
   if (!saveSubjectFolderMap(map)) return;
-  if (fid) setExpanded(fid, true);
+  if (fid) expandTo(fid);
   if (batchMode) { batchMode = false; selected.clear(); renderToolbar(); }
   flip(render);
 }
-function promptNewFolder(keys) {
-  inputSheet({ title: '新建文件夹', placeholder: '文件夹名称', okLabel: '创建', allowSame: true,
+// 展开这个文件夹和它所有上级（挪进去、新建以后要看得见）
+function expandTo(fid) {
+  const tree = folderTree(loadFolders());
+  for (let x = fid; x; x = tree.parent[x]) setExpanded(x, true);
+}
+// parentId：建在哪个文件夹里面（不给＝最外层）
+function promptNewFolder(keys, parentId) {
+  inputSheet({ title: parentId ? '新建子文件夹' : '新建文件夹', placeholder: '文件夹名称', okLabel: '创建', allowSame: true,
     onOk: function(v){
       const folders = loadFolders(), f = { id: newFolderId(), name: v };
+      if (parentId && folders.some(function(x){ return x.id === parentId; })) f.parent = parentId;
       folders.push(f);
       if (!saveFolders(folders)) return;
-      setExpanded(f.id, true);
+      expandTo(f.id);
       if (keys && keys.length) applyMove(keys, f.id); else flip(render);
     } });
+}
+/* 文件夹的「更多」：重命名 / 移到文件夹 / 新建子文件夹（左滑标题行、电脑上右键都到这里） */
+function openFolderSheet(fid) {
+  if (swipe) swipe.close(false);
+  const folders = loadFolders(), tree = folderTree(folders), f = tree.byId[fid];
+  if (!f) return;
+  const up = tree.byId[tree.parent[fid]], deep = tree.depth[fid] >= MAX_DEPTH;
+  actionSheet('📁 ' + f.name, up ? '在「' + up.name + '」文件夹里' : '', [
+    { label: '重命名', icon: ICON.pencil, id: 'actFolderRename', onClick: function(){ renameFolder(fid); } },
+    { label: '移到文件夹…', icon: ICON.folder, id: 'actFolderMove', onClick: function(){ folderMoveSheet(fid); } },
+    { label: '新建子文件夹…', icon: ICON.plus, id: 'actFolderNewSub', disabled: deep, note: deep ? '最多套 ' + MAX_DEPTH + ' 层，这里已经是第 ' + MAX_DEPTH + ' 层' : '',
+      onClick: function(){ promptNewFolder(null, fid); } },
+  ]);
+}
+/* 把一个文件夹（连同里面的东西）挪进另一个文件夹。点不了的照样列出来、灰掉并写明原因：
+   它自己和它里面的子文件夹（挪进去就绕成圈了）、挪过去会超过 3 层的 */
+function folderMoveSheet(fid) {
+  const tree = folderTree(loadFolders()), f = tree.byId[fid];
+  if (!f) return;
+  const h = tree.height(fid), cur = tree.parent[fid] || null;
+  const items = tree.flat.map(function(t){
+    const self = tree.within(t.id, fid), tooDeep = !self && tree.depth[t.id] + h > MAX_DEPTH;
+    return { label: t.name, indent: tree.depth[t.id] - 1, fid: t.id, icon: t.id === cur ? ICON.checkB : ICON.folder, on: t.id === cur,
+      disabled: self || tooDeep, note: t.id === fid ? '就是它自己' : self ? '在它里面' : tooDeep ? '放进去会超过 ' + MAX_DEPTH + ' 层' : '',
+      onClick: function(){ applyFolderMove(fid, t.id); } };
+  });
+  if (cur) items.push({ label: '移到最外层', icon: ICON.out, danger: true, id: 'actFolderOut', onClick: function(){ applyFolderMove(fid, null); } });
+  actionSheet('把文件夹「' + f.name + '」移到', h > 1 ? '里面的东西跟着一起挪' : '', items);
+}
+function applyFolderMove(fid, target) {
+  const fs = loadFolders(), tree = folderTree(fs), i = fs.findIndex(function(x){ return x.id === fid; });
+  if (i < 0 || (target && (!tree.byId[target] || tree.within(target, fid) || tree.depth[target] + tree.height(fid) > MAX_DEPTH))) return;   // 面板开着时别的设备同步改了
+  const f = fs[i];
+  if ((tree.parent[fid] || null) === target) return;
+  if (target) { f.parent = target; delete f.pinned; } else delete f.parent;   // 置顶只给最外层：挪进去就不再置顶
+  fs.splice(i, 1); fs.push(f);   // 排到新地方的同层最后
+  if (!saveFolders(fs)) return;
+  if (target) expandTo(target);
+  flip(render);
 }
 function renameFolder(fid) {
   const f = loadFolders().find(function(x){ return x.id === fid; });
@@ -1029,17 +1136,26 @@ function renameFolder(fid) {
 async function deleteFolder(fid) {
   const f = loadFolders().find(function(x){ return x.id === fid; });
   if (!f) return;
-  if (!await showConfirm('确定要删除文件夹"' + f.name + '"吗？\n文件夹里的科目不会被删除，只会移回未分类列表。', '删除', true)) return;
-  saveFolders(loadFolders().filter(function(x){ return x.id !== fid; }));
+  // 里面的科目和子文件夹都不删，挪到它的上一层（它在最外层就挪到最外层）
+  const t0 = folderTree(loadFolders()), up = t0.parent[fid] || null, upF = up && t0.byId[up], hasSub = t0.kids[fid].length > 0;
+  const where = upF ? '移到上一层「' + upF.name + '」里' : '移回未分类列表';
+  if (!await showConfirm('确定要删除文件夹"' + f.name + '"吗？\n' + (hasSub ? '里面的科目和子文件夹' : '文件夹里的科目') + '不会被删除，只会' + where + '。', '删除', true)) return;
+  // 确认框开着时可能同步进来了改动：按现在的数据重新算一遍
+  const fs = loadFolders(), tree = folderTree(fs), to = tree.parent[fid] || null;
+  saveFolders(fs.filter(function(x){ return x.id !== fid; }).map(function(x){
+    if (tree.parent[x.id] !== fid) return x;
+    if (to) x.parent = to; else delete x.parent;
+    return x;
+  }));
   const map = loadSubjectFolderMap();
-  Object.keys(map).forEach(function(k){ if (map[k] === fid) delete map[k]; });
+  Object.keys(map).forEach(function(k){ if (map[k] === fid) { if (to) map[k] = to; else delete map[k]; } });
   saveSubjectFolderMap(map);
   setExpanded(fid, false);
   flip(render);
 }
 function toggleFolderPin(fid) {
   const fs = loadFolders(), f = fs.find(function(x){ return x.id === fid; });
-  if (!f) return;
+  if (!f || folderTree(fs).parent[fid]) return;   // 子文件夹不能置顶（左滑里也没有这个按钮）
   if (f.pinned) delete f.pinned; else f.pinned = true;
   if (!saveFolders(fs)) return;
   if (swipe) swipe.close(false);
@@ -1299,13 +1415,15 @@ const swipe = SwipeActions({
   blocked: function(){ return batchMode || anyOverlay() || (drag && drag.active()); },   // 按住等拿起时不算：横滑一出死区就取消长按（onLock）
   onLock: function(){ clearPress(); if (drag) drag.cancelHold(); },
   actions: function(el){
+    // 文件夹标题行：更多（重命名 / 移到文件夹 / 新建子文件夹）/ 置顶 / 删除；子文件夹没有置顶。
+    // 2026-11-10 起「重命名」收进「更多」：挪文件夹也要有入口，四个按钮 288px，320 宽手机上第 3 层的标题行放不下
     if (el.matches('.folder-header')) {
-      const fid = el.parentElement.dataset.fid, f = loadFolders().find(function(x){ return x.id === fid; });
-      return [
-        { label: '重命名', icon: ICON.pencil, cls: 'lsw-more', onClick: function(){ swipe.close(true); renameFolder(fid); } },
-        { label: f && f.pinned ? '取消置顶' : '置顶', icon: ICON.pin, cls: 'lsw-pin', onClick: function(){ toggleFolderPin(fid); } },
-        { label: '删除', icon: ICON.trash, cls: 'lsw-del', onClick: function(){ swipe.close(true); deleteFolder(fid); } },
-      ];
+      const fid = el.parentElement.dataset.fid, fs = loadFolders(), f = fs.find(function(x){ return x.id === fid; });
+      const top = !folderTree(fs).parent[fid];
+      const acts = [{ label: '更多', icon: ICON.more, cls: 'lsw-more', onClick: function(){ openFolderSheet(fid); } }];
+      if (top) acts.push({ label: f && f.pinned ? '取消置顶' : '置顶', icon: ICON.pin, cls: 'lsw-pin', onClick: function(){ toggleFolderPin(fid); } });
+      acts.push({ label: '删除', icon: ICON.trash, cls: 'lsw-del', onClick: function(){ swipe.close(true); deleteFolder(fid); } });
+      return acts;
     }
     const k = el.dataset.key, pinned = loadPinned().indexOf(k) >= 0;
     return [
@@ -1335,11 +1453,12 @@ drag = LongPressDrag({
       const items = Array.prototype.filter.call(box.children, function(x){ return x.matches('.item[data-key]') && x.classList.contains('pinned') === pin; });
       return items.length > 1 ? { item: item, box: box, items: items } : null;
     }
+    // 文件夹：跟同一层的兄弟文件夹换位（最外层的在 #list 里，子文件夹在上级的 .folder-body 里）
     const head = t.closest('.folder-card > .folder-header');
     if (head) {
-      const pin = head.parentElement.classList.contains('pinned');
-      const items = Array.prototype.filter.call(list.querySelectorAll(':scope > .folder-card'), function(x){ return x.classList.contains('pinned') === pin; });
-      return items.length > 1 ? { item: head.parentElement, box: list, items: items } : null;
+      const fc = head.parentElement, box = fc.parentElement, pin = fc.classList.contains('pinned');
+      const items = Array.prototype.filter.call(box.children, function(x){ return x.matches('.folder-card') && x.classList.contains('pinned') === pin; });
+      return items.length > 1 ? { item: fc, box: box, items: items } : null;
     }
     return null;
   },

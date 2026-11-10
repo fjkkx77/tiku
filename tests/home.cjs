@@ -211,6 +211,91 @@ async function runHome(BASE, ok) {
         const t=document.querySelector("#sheet h2")&&document.querySelector("#sheet h2").textContent;document.dispatchEvent(new KeyboardEvent("keydown",{key:"Escape",bubbles:true}));await w(30);return {t,closed:!document.getElementById("sheet")};})()`);
       ok(r.t === '操作系统' && r.closed, '电脑：右键科目打开「更多」面板，Esc 关闭', r);
     }
+
+    /* ---------- 文件夹套文件夹（2026-11-10 用户要求：原地展开 + 缩进，最多 3 层） ---------- */
+    // 每个文件夹在页面上正好出现一次；套几层（DOM 里数）
+    const FTREE = `(()=>{const o={},s={};document.querySelectorAll("#list .folder-card").forEach(n=>{let d=0;for(let x=n;x;x=x.parentElement.closest(".folder-card"))d++;o[n.dataset.fid]=(o[n.dataset.fid]?"重复":"")+d+(n.parentElement.closest(".folder-card")?"<"+n.parentElement.closest(".folder-card").dataset.fid:"");});Object.keys(o).sort().forEach(k=>s[k]=o[k]);return s;})()`;
+    // 显示：子文件夹在上级里面、排在科目前面；标题上的数连子文件夹里的科目一起算；子文件夹被置顶了也不拎出来
+    await reset(`localStorage.setItem("tiku_folders",JSON.stringify([{id:"a",name:"甲"},{id:"b",name:"乙",parent:"a",pinned:true},{id:"c",name:"丙",parent:"b"}]));
+      localStorage.setItem("tiku_subject_folder",JSON.stringify({os:"a","web-design":"b","mobile-app":"c"}));localStorage.setItem("tiku_expanded_folders",'["a"]')`);
+    {
+      const r = await c.ev(`({tree:${FTREE},cnt:[...document.querySelectorAll(".folder-count")].map(n=>n.textContent),
+        first:document.querySelector('.folder-card[data-fid="a"] > .folder-fold > .folder-body').firstElementChild.dataset.fid,
+        pinSec:!!document.querySelector(".sec-label"),bOpen:!document.querySelector('.folder-card[data-fid="b"] > .folder-fold').hidden,aOpen:!document.querySelector('.folder-card[data-fid="a"] > .folder-fold').hidden})`);
+      ok(JSON.stringify(r.tree) === '{"a":"1","b":"2<a","c":"3<b"}' && JSON.stringify(r.cnt) === '["(3)","(2)","(1)"]' && r.first === 'b' && !r.pinSec && r.aOpen && !r.bOpen,
+        '套文件夹：子文件夹在上级里、排在科目前面；数量连子文件夹一起数；子文件夹的置顶不生效；各层展开状态分开记', r);
+    }
+    // 只点开里层：toggleFolder 只动自己那一层（里面还有子文件夹的 .folder-fold，别认错）
+    {
+      const r = await c.ev(`(async()=>{${W8}document.querySelector('.folder-card[data-fid="b"] > .folder-header').click();await w(450);
+        return {b:!document.querySelector('.folder-card[data-fid="b"] > .folder-fold').hidden,c:!document.querySelector('.folder-card[data-fid="c"] > .folder-fold').hidden,a:!document.querySelector('.folder-card[data-fid="a"] > .folder-fold').hidden,saved:localStorage.getItem("tiku_expanded_folders")};})()`);
+      ok(r.a && r.b && !r.c && JSON.parse(r.saved).sort().join() === 'a,b', '点开第 2 层：只有它自己展开，第 3 层照旧收着，状态记下来', r);
+    }
+    // 存储里的上级关系坏了（两台设备同时挪、旧备份、上级被删）：照样能显示，每个文件夹只出现一次、不超过 3 层，存储不被改写
+    {
+      const bad = [{id:"x",name:"X",parent:"y"},{id:"y",name:"Y",parent:"x"},{id:"z",name:"Z",parent:"z"},{id:"g",name:"孤",parent:"不存在"},
+        {id:"d1",name:"D1"},{id:"d2",name:"D2",parent:"d1"},{id:"d3",name:"D3",parent:"d2"},{id:"d4",name:"D4",parent:"d3"},{id:"d5",name:"D5",parent:"d4"},{id:"n",name:"N",parent:123}];
+      await reset(`localStorage.setItem("tiku_folders",${JSON.stringify(JSON.stringify(bad))});localStorage.setItem("tiku_subject_folder",JSON.stringify({os:"d5"}));localStorage.setItem("tiku_expanded_folders",'["d1","d2","d3"]')`);
+      const r = await c.ev(`({tree:${FTREE},os:document.querySelector('.item[data-key="os"]').parentElement.closest(".folder-card").dataset.fid,raw:localStorage.getItem("tiku_folders"),errs:0})`);
+      ok(JSON.stringify(r.tree) === '{"d1":"1","d2":"2<d1","d3":"3<d2","d4":"3<d2","d5":"3<d2","g":"1","n":"1","x":"2<y","y":"1","z":"1"}' && r.os === 'd5' && r.raw === JSON.stringify(bad),
+        '上级关系坏了：绕成圈的断开、自己套自己/上级不存在/不是字符串的放最外层、超过 3 层的挂到第 2 层下面；存储原样不动', r);
+    }
+    // 挪文件夹：自己和自己里面的、挪过去会超过 3 层的灰掉并写明原因；挪进去以后不再置顶、上级都展开；能移到最外层
+    await reset(`localStorage.setItem("tiku_folders",JSON.stringify([{id:"a",name:"甲",pinned:true},{id:"b",name:"乙",parent:"a"},{id:"p",name:"丙"},{id:"q",name:"丁",parent:"p"},{id:"r",name:"戊",parent:"q"}]))`);
+    {
+      const r = await c.ev(`(async()=>{${W8}const opts=()=>[...document.querySelectorAll("#sheet .opt")].map(b=>(b.disabled?"×":"")+b.firstChild.firstChild.textContent+(b.querySelector(".nt")?"("+b.querySelector(".nt").textContent+")":""));
+        folderMoveSheet("a");await w(30);const forA=opts(),title=document.querySelector("#sheet h2").textContent,indent=[...document.querySelectorAll("#sheet .opt")].map(b=>b.style.paddingLeft||"");
+        document.querySelector('#sheet .opt[data-fid="b"]').click();await w(30);const stillA=loadFolders().find(f=>f.id==="a").parent===undefined&&!!document.getElementById("sheet");closeSheet();await w(400);
+        folderMoveSheet("a");await w(30);document.querySelector('#sheet .opt[data-fid="p"]').click();await w(80);
+        const fa=loadFolders().find(f=>f.id==="a"),afterP={parent:fa.parent,pinned:!!fa.pinned,open:JSON.parse(localStorage.getItem("tiku_expanded_folders")).includes("p")};
+        folderMoveSheet("a");await w(30);const forA2=opts();document.getElementById("actFolderOut").click();await w(80);
+        return {forA,title,indent,stillA,afterP,forA2,back:loadFolders().find(f=>f.id==="a").parent===undefined};})()`);
+      ok(JSON.stringify(r.forA) === '["×甲(就是它自己)","×乙(在它里面)","丙","×丁(放进去会超过 3 层)","×戊(放进去会超过 3 层)"]' && r.title === '把文件夹「甲」移到' && r.indent.join() === ',38px,,38px,60px' && r.stillA,
+        '挪文件夹面板：按树缩进；自己 / 自己里面的 / 会超过 3 层的灰掉、写原因、点了没反应', r);
+      ok(r.afterP.parent === 'p' && !r.afterP.pinned && r.afterP.open && r.forA2[r.forA2.length - 1] === '移到最外层' && r.back,
+        '挪进别的文件夹：不再置顶、目标展开；在里层的有「移到最外层」', r);
+    }
+    // 「更多」：第 3 层不能再建子文件夹（灰掉写原因）；在第 2 层建的子文件夹挂在它下面、上级都展开
+    {
+      const r = await c.ev(`(async()=>{${W8}openFolderSheet("r");await w(30);const deep=document.getElementById("actFolderNewSub");const d3={dis:deep.disabled,note:deep.querySelector(".nt")&&deep.querySelector(".nt").textContent,sub:document.querySelector("#sheet .sub").textContent};closeSheet();await w(400);
+        openFolderSheet("q");await w(30);document.getElementById("actFolderNewSub").click();await w(400);const h2=document.querySelector("#sheet h2").textContent,inp=document.querySelector("#sheet input");
+        inp.value="新的";inp.dispatchEvent(new Event("input",{bubbles:true}));document.querySelector("#sheet .b1").click();await w(80);
+        const nf=loadFolders().find(f=>f.name==="新的");return {d3,h2,parent:nf&&nf.parent,shown:nf&&!!document.querySelector('.folder-card[data-fid="q"] .folder-card[data-fid="'+nf.id+'"]'),open:JSON.parse(localStorage.getItem("tiku_expanded_folders"))};})()`);
+      ok(r.d3.dis && r.d3.note === '最多套 3 层，这里已经是第 3 层' && r.d3.sub === '在「丁」文件夹里' && r.h2 === '新建子文件夹' && r.parent === 'q' && r.shown && ['p', 'q'].every(x => r.open.includes(x)),
+        '「更多」→ 新建子文件夹：建在它下面并展开；第 3 层这项灰掉写原因', r);
+    }
+    // 删除带子文件夹的文件夹：里面的科目和子文件夹挪到上一层（最外层的就挪到最外层），确认框说清楚
+    await reset(`localStorage.setItem("tiku_folders",JSON.stringify([{id:"a",name:"甲"},{id:"b",name:"乙",parent:"a"},{id:"c",name:"丙",parent:"b"}]));localStorage.setItem("tiku_subject_folder",JSON.stringify({os:"b","web-design":"c"}))`);
+    {
+      const r = await c.ev(`(async()=>{${W8}deleteFolder("b");await w(50);const msg=document.getElementById("confirmMsg").textContent;document.getElementById("confirmOkBtn").click();await w(80);
+        const f1=loadFolders().map(f=>f.id+(f.parent?"<"+f.parent:"")).join(),m1=JSON.parse(localStorage.getItem("tiku_subject_folder"));
+        deleteFolder("a");await w(50);const msg2=document.getElementById("confirmMsg").textContent;document.getElementById("confirmOkBtn").click();await w(80);
+        return {msg,f1,m1,msg2,f2:loadFolders().map(f=>f.id+(f.parent?"<"+f.parent:"")).join(),m2:JSON.parse(localStorage.getItem("tiku_subject_folder"))};})()`);
+      ok(r.msg === '确定要删除文件夹"乙"吗？\n里面的科目和子文件夹不会被删除，只会移到上一层「甲」里。' && r.f1 === 'a,c<a' && r.m1.os === 'a' && r.m1['web-design'] === 'c'
+        && r.msg2 === '确定要删除文件夹"甲"吗？\n里面的科目和子文件夹不会被删除，只会移回未分类列表。' && r.f2 === 'c' && !r.m2.os && r.m2['web-design'] === 'c',
+        '删除带子文件夹的文件夹：科目和子文件夹挪到上一层；确认框写明挪到哪', r);
+    }
+    // 科目「移到文件夹」：按树缩进列出所有层；挪进第 3 层，上面几层都展开
+    {
+      await reset(`localStorage.setItem("tiku_folders",JSON.stringify([{id:"a",name:"甲"},{id:"b",name:"乙",parent:"a"},{id:"c",name:"丙",parent:"b"},{id:"d",name:"丁"}]))`);
+      const r = await c.ev(`(async()=>{${W8}moveSheet(["os"]);await w(30);const opts=[...document.querySelectorAll("#sheet .opt[data-fid]")].map(b=>b.firstChild.textContent+":"+(b.style.paddingLeft||"0"));
+        document.querySelector('#sheet .opt[data-fid="c"]').click();await w(80);
+        return {opts,map:JSON.parse(localStorage.getItem("tiku_subject_folder")).os,open:JSON.parse(localStorage.getItem("tiku_expanded_folders")).sort().join(),vis:document.querySelector('.item[data-key="os"]').offsetParent!==null};})()`);
+      ok(r.opts.join() === '甲:0,乙:38px,丙:60px,丁:0' && r.map === 'c' && r.open === 'a,b,c' && r.vis, '科目「移到文件夹」：按树缩进列出所有层；挪进第 3 层后一路展开、看得见', r);
+    }
+    // 电脑上右键文件夹标题 = 文件夹的「更多」
+    {
+      const r = await c.ev(`(async()=>{${W8}const h=document.querySelector('.folder-card[data-fid="b"] > .folder-header');const rc=h.getBoundingClientRect();
+        h.dispatchEvent(new MouseEvent("contextmenu",{bubbles:true,cancelable:true,clientX:rc.left+20,clientY:rc.top+10}));await w(30);
+        const t=document.querySelector("#sheet h2")&&document.querySelector("#sheet h2").textContent;closeSheet();await w(400);return t;})()`);
+      ok(r === '📁 乙', '电脑：右键文件夹标题打开文件夹的「更多」', r);
+    }
+    // 同名自动文件夹合并时，放在固定 id 那个里面的子文件夹跟着挪到用户那个里（不然会突然跑到最外层）
+    {
+      const r = await c.ev(`(()=>{window.__noAutoPlace=false;localStorage.setItem("tiku_folders",JSON.stringify([{id:"auto-cet4v",name:AUTO_FOLDERS.cet4v},{id:"u1",name:AUTO_FOLDERS.cet4v},{id:"k",name:"子",parent:"auto-cet4v"}]));
+        mergeAutoDup();window.__noAutoPlace=true;return loadFolders().map(f=>f.id+(f.parent?"<"+f.parent:"")).join();})()`);
+      ok(r === 'u1,k<u1', '同名自动文件夹合并：里面的子文件夹跟着挪', r);
+    }
     if (c.errors.length) ok(false, '首页逻辑：页面 JS 异常', c.errors);
   } finally { c.close(); }
 
@@ -267,14 +352,46 @@ async function runHome(BASE, ok) {
         const pin = await t.ev('(()=>{const r=[...document.querySelectorAll(".lsw-acts.is-open .lsw-btn")][1].getBoundingClientRect();return [r.left+r.width/2,r.top+r.height/2];})()');
         await T('touchStart', [{ x: pin[0], y: pin[1] }]); await T('touchEnd', []); await sleep(600);
         const pinned = await t.ev('!!loadFolders()[0].pinned&&document.getElementById("list").firstElementChild.textContent==="📌 置顶"');
-        // 「重命名」：打开改名面板，输入框当场聚焦
+        // 「更多」→「重命名」：打开改名面板，输入框当场聚焦（2026-11-10 起重命名收进「更多」，给「移到文件夹」腾地方）
         const fy2 = await t.ev(`(()=>{const r=document.querySelector('.folder-header .folder-name').getBoundingClientRect();return r.top+r.height/2;})()`);
         await swipe(W * 0.8, fy2, W * 0.15, fy2 + 3, 220);
         const rn = await t.ev('(()=>{const r=[...document.querySelectorAll(".lsw-acts.is-open .lsw-btn")][0].getBoundingClientRect();return [r.left+r.width/2,r.top+r.height/2];})()');
         await T('touchStart', [{ x: rn[0], y: rn[1] }]); await T('touchEnd', []); await sleep(500);
+        const more = await t.ev('[...document.querySelectorAll("#sheet .opt")].map(b=>b.firstChild.textContent)');
+        const rr = await t.ev('(()=>{const r=document.getElementById("actFolderRename").getBoundingClientRect();return [r.left+r.width/2,r.top+r.height/2];})()');
+        await T('touchStart', [{ x: rr[0], y: rr[1] }]); await T('touchEnd', []); await sleep(500);
         const renamer = await t.ev('!!document.querySelector("#sheet input")&&document.activeElement===document.querySelector("#sheet input")&&document.querySelector("#sheet h2").textContent==="重命名文件夹"');
         await t.ev('closeSheet()');
-        ok(JSON.stringify(labels) === '["重命名","置顶","删除"]' && asked && kept === 1 && pinned && renamer, `${W} 文件夹标题左滑：重命名 / 置顶 / 删除（删除先确认，重命名当场聚焦）`, { labels, asked, kept, pinned, renamer });
+        ok(JSON.stringify(labels) === '["更多","置顶","删除"]' && JSON.stringify(more) === '["重命名","移到文件夹…","新建子文件夹…"]' && asked && kept === 1 && pinned && renamer,
+          `${W} 文件夹标题左滑：更多 / 置顶 / 删除（删除先确认；更多＝重命名 / 移到文件夹 / 新建子文件夹，重命名当场聚焦）`, { labels, more, asked, kept, pinned, renamer });
+      }
+      // 套文件夹（2026-11-10）：3 层、名字很长，窄屏上不横向溢出；第 3 层的科目卡片还有像样的宽度；
+      // 第 3 层标题行左滑只有「更多」「删除」（子文件夹不能置顶），按钮完整落在卡片里面
+      {
+        const LONG = '一二三四五六七八九十一二三四五六七八九十ABCDEFG';
+        await reset(`localStorage.setItem("tiku_folders",JSON.stringify([{id:"a",name:"甲${LONG}"},{id:"b",name:"乙${LONG}",parent:"a"},{id:"c",name:"丙${LONG}",parent:"b"}]));
+          localStorage.setItem("tiku_subject_folder",JSON.stringify({os:"c","web-design":"b"}));localStorage.setItem("tiku_expanded_folders",'["a","b","c"]');
+          localStorage.setItem("tiku_custom_names",JSON.stringify({os:"${LONG}${LONG}"}))`);
+        const m3 = await t.ev(`(()=>{const L=[...document.querySelectorAll("#list .folder-card,#list .item")];return {sw:document.documentElement.scrollWidth,
+          over:L.filter(n=>n.scrollWidth>n.clientWidth+1).map(n=>n.dataset.k),cardW:Math.round(document.querySelector('.item[data-key="os"]').getBoundingClientRect().width),
+          nest:document.querySelector('.folder-card[data-fid="a"] .folder-card[data-fid="b"] .folder-card[data-fid="c"] .item[data-key="os"]')!==null};})()`);
+        ok(m3.sw <= W && !m3.over.length && m3.nest && m3.cardW >= W * 0.7, `${W} 套 3 层 + 长名字：不横向溢出，第 3 层的科目卡片宽 ${m3.cardW}px`, m3);
+        const cy = await t.ev(`(()=>{const el=document.querySelector('.folder-card[data-fid="c"] > .folder-header');el.scrollIntoView({block:"center",behavior:"instant"});const r=el.querySelector(".folder-name").getBoundingClientRect();return r.top+r.height/2;})()`);
+        await swipe(W * 0.8, cy, W * 0.2, cy + 3, 220);
+        const sa = await t.ev(`(()=>{const a=document.querySelector(".lsw-acts.is-open"),h=document.querySelector('.folder-card[data-fid="c"]').getBoundingClientRect();if(!a)return null;const r=a.getBoundingClientRect();
+          return {labels:[...a.querySelectorAll(".lsw-btn")].map(b=>b.textContent),inside:r.left>=h.left-1&&r.right<=h.right+1};})()`);
+        ok(sa && JSON.stringify(sa.labels) === '["更多","删除"]' && sa.inside, `${W} 第 3 层文件夹左滑：更多 / 删除，按钮在卡片里面`, sa);
+        await t.ev('swipe.close(false)');
+        // 长按子文件夹标题拖动：跟同一层的兄弟换位（存进 tiku_folders 的数组顺序），上级不动
+        await reset(`localStorage.setItem("tiku_folders",JSON.stringify([{id:"a",name:"甲"},{id:"b",name:"乙",parent:"a"},{id:"c",name:"丙",parent:"a"}]));localStorage.setItem("tiku_subject_folder",JSON.stringify({os:"b","web-design":"c"}));localStorage.setItem("tiku_expanded_folders",'["a"]')`);
+        const bh = await t.ev(`document.querySelector('.folder-card[data-fid="c"]').getBoundingClientRect().height`);
+        const [bx, by] = await t.ev(`(()=>{const el=document.querySelector('.folder-card[data-fid="b"] > .folder-header');el.scrollIntoView({block:"center",behavior:"instant"});const r=el.querySelector(".folder-name").getBoundingClientRect();return [r.left+r.width/2,r.top+r.height/2];})()`);
+        await T('touchStart', [{ x: bx, y: by }]); await sleep(600);
+        const lifted2 = await t.ev('drag.active()');
+        await move(bx, by, bx, by + bh * 1.3, 300); await sleep(60);
+        await T('touchEnd', []); await sleep(900);
+        const sub = await t.ev(`({order:loadFolders().map(f=>f.id).join(""),dom:[...document.querySelectorAll('.folder-card[data-fid="a"] > .folder-fold > .folder-body > .folder-card')].map(n=>n.dataset.fid).join(""),parents:loadFolders().map(f=>f.parent||"-").join("")})`);
+        ok(lifted2 && sub.order === 'acb' && sub.dom === 'cb' && sub.parents === '-aa', `${W} 长按子文件夹拖动：跟同层兄弟换位，还在原来的上级里`, { lifted2, sub });
       }
       // 长按拖动：文件夹里第一张往下拖过一张 → 换位，松手不跳转
       await reset(REAL);
