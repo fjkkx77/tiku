@@ -77,6 +77,23 @@ async function runMarks(BASE, ok) {
     r = await c.ev(`({f:JSON.parse(localStorage.tiku_folders).map(x=>x.id),m:JSON.parse(localStorage.tiku_subject_folder),n:document.querySelectorAll('.folder-card[data-fid="u1"] .item[data-key]').length,want:3+LIJING_DAILY_DAYS.length})`);
     ok(r.f.indexOf('auto-lijingdaily') < 0 && r.f.indexOf('u1') >= 0 && r.m['lijing-daily-vocab'] === 'u1' && r.m['lijing-daily-2026-11-08'] === 'u1' && r.n === r.want,   // 三科 + 每天一张卡片（以前写死 4，第二天加词就红了）
       '首页：自动建的和用户建的同名文件夹并存时，合并进用户那个', r);
+    // 新的一天跟着前一天走（2026-11-11 用户要求）：第一天放过、后面几天还没出现过的设备上打开——
+    // 前一天在子文件夹里 → 新的几天都进那个子文件夹、按日期排；前一天在最外层 → 新的也在最外层；前一天被置顶 → 照老规矩进自动文件夹
+    const follow = async (setup) => {
+      await c.ev(`(()=>{localStorage.clear();const days=LIJING_DAILY_DAYS.map(d=>"lijing-daily-"+d[0]);
+        localStorage.tiku_auto_placed=JSON.stringify(DEFAULT_ORDER.filter(k=>days.indexOf(k)<1).concat(["folder:lijingdaily","split:cet4"]));
+        localStorage.tiku_folders=JSON.stringify([{id:"u1",name:"李婧老师每日单词背诵"},{id:"s",name:"每日卡片",parent:"u1"}]);
+        const m={"lijing-daily-vocab":"u1","lijing-daily-choose":"u1","lijing-daily-spell":"u1"};${setup}
+        localStorage.tiku_subject_folder=JSON.stringify(m);location.reload();})()`).catch(() => null); await sleep(700);
+      return c.ev(`(()=>{const days=LIJING_DAILY_DAYS.map(d=>"lijing-daily-"+d[0]),m=JSON.parse(localStorage.tiku_subject_folder);
+        return {n:days.length,where:days.slice(1).map(k=>m[k]||"外"),inS:[...document.querySelectorAll('.folder-card[data-fid="s"] .item[data-key]')].map(x=>x.dataset.key).join()===days.join()};})()`);
+    };
+    r = await follow(`m[days[0]]="s";`);
+    ok(r.n >= 2 && r.where.every(x => x === 's') && r.inS, '首页：前一天的卡片在子文件夹里，新的几天跟进去、按日期排', r);
+    r = await follow('');
+    ok(r.where.every(x => x === '外'), '首页：前一天的卡片在最外层，新的几天也放最外层', r);
+    r = await follow(`localStorage.tiku_pinned=JSON.stringify([days[0]]);`);
+    ok(r.where.every(x => x === 'u1'), '首页：前一天的卡片置顶了，新的几天照老规矩进「李婧老师每日单词背诵」', r);
   } finally { c.close(); }
 
   /* ---------- 科目页：?cat=、标记、自动改回、首页统计、备份 ---------- */
