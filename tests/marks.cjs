@@ -74,8 +74,8 @@ async function runMarks(BASE, ok) {
     // 这台设备先自动建了固定 id 的，之后同步来了用户建的同名文件夹：合并进用户那个、删掉固定 id 的
     await c.ev(`(()=>{const m=JSON.parse(localStorage.tiku_subject_folder);Object.keys(m).forEach(k=>{if(m[k]==="u1")m[k]="auto-lijingdaily";});
       localStorage.tiku_subject_folder=JSON.stringify(m);localStorage.tiku_folders=JSON.stringify(JSON.parse(localStorage.tiku_folders).concat([{id:"auto-lijingdaily",name:"李婧老师每日单词背诵"}]));location.reload();})()`).catch(() => null); await sleep(700);
-    r = await c.ev(`({f:JSON.parse(localStorage.tiku_folders).map(x=>x.id),m:JSON.parse(localStorage.tiku_subject_folder),n:document.querySelectorAll('.folder-card[data-fid="u1"] .item[data-key]').length})`);
-    ok(r.f.indexOf('auto-lijingdaily') < 0 && r.f.indexOf('u1') >= 0 && r.m['lijing-daily-vocab'] === 'u1' && r.m['lijing-daily-2026-11-08'] === 'u1' && r.n === 4,
+    r = await c.ev(`({f:JSON.parse(localStorage.tiku_folders).map(x=>x.id),m:JSON.parse(localStorage.tiku_subject_folder),n:document.querySelectorAll('.folder-card[data-fid="u1"] .item[data-key]').length,want:3+LIJING_DAILY_DAYS.length})`);
+    ok(r.f.indexOf('auto-lijingdaily') < 0 && r.f.indexOf('u1') >= 0 && r.m['lijing-daily-vocab'] === 'u1' && r.m['lijing-daily-2026-11-08'] === 'u1' && r.n === r.want,   // 三科 + 每天一张卡片（以前写死 4，第二天加词就红了）
       '首页：自动建的和用户建的同名文件夹并存时，合并进用户那个', r);
   } finally { c.close(); }
 

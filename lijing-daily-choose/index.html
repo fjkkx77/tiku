@@ -18,7 +18,7 @@ const QUIZ = {
   title: "李婧每日单词 · 选单词",
   subtitle: "看中文选英文 · 形近词干扰 · 错题本",
   prefix: "lijingdailychoosequiz",
-  intro: "30 词（1 天），看中文选英文，错误选项是长得像的词",
+  intro: "60 词（2 天），看中文选英文，错误选项是长得像的词",
   catWord: "日期",
   font: "en",
   marks: true,          // 「会 / 不会」标记（照四级三科）
@@ -26,7 +26,7 @@ const QUIZ = {
 /* ===================== 题库数据 ===================== */
 // 由 C:\Users\Administrator\CodeProjects\lijing-daily\build_daily.py 从 days\ 里每天的词生成，别手改——加词或改词后重新生成
 const QUESTIONS = [
-{"type": "mcq", "cat": "11月8日", "text": "n. 模拟器；模拟装置", "options": {"A": "simulator", "B": "stimulate", "C": "singular", "D": "smuggler"}, "correct": "A", "note": "/⁠ˈsɪmjʊleɪtə/"},
+{"type": "mcq", "cat": "11月8日", "text": "n. 模拟器；模拟装置", "options": {"A": "simulator", "B": "stimulate", "C": "singular", "D": "tutor"}, "correct": "A", "note": "/⁠ˈsɪmjʊleɪtə/"},
 {"type": "mcq", "cat": "11月8日", "text": "n. 航空；航空业", "options": {"A": "alleviation", "B": "variation", "C": "addition", "D": "aviation"}, "correct": "D", "note": "/⁠ˌeɪvi⁠ˈeɪʃən/"},
 {"type": "mcq", "cat": "11月8日", "text": "adj. 灾难性的；极糟糕的", "options": {"A": "distress", "B": "disastrous", "C": "distaste", "D": "disapprove"}, "correct": "B", "note": "/dɪ⁠ˈzɑːstrəs/"},
 {"type": "mcq", "cat": "11月8日", "text": "v. 模拟；模仿", "options": {"A": "stimulate", "B": "speculate", "C": "simulate", "D": "manipulate"}, "correct": "C", "note": "/⁠ˈsɪmjʊleɪt/"},
@@ -55,7 +55,37 @@ const QUESTIONS = [
 {"type": "mcq", "cat": "11月8日", "text": "v. 收获；获得（回报）", "options": {"A": "rear", "B": "heap", "C": "leap", "D": "reap"}, "correct": "D", "note": "/riːp/"},
 {"type": "mcq", "cat": "11月8日", "text": "adj. 无关的；不相关的", "options": {"A": "elegant", "B": "irrelevant", "C": "irregular", "D": "ingredient"}, "correct": "B", "note": "/ɪ⁠ˈreləvənt/"},
 {"type": "mcq", "cat": "11月8日", "text": "v. 建立；锻造", "options": {"A": "force", "B": "former", "C": "forge", "D": "outrage"}, "correct": "C", "note": "/fɔːdʒ/"},
-{"type": "mcq", "cat": "11月8日", "text": "adj. 顺畅的；平滑的　v. 使平稳", "options": {"A": "myth", "B": "smash", "C": "spot", "D": "smooth"}, "correct": "D", "note": "/smuːð/"}
+{"type": "mcq", "cat": "11月8日", "text": "adj. 顺畅的；平滑的　v. 使平稳", "options": {"A": "myth", "B": "smash", "C": "spot", "D": "smooth"}, "correct": "D", "note": "/smuːð/"},
+{"type": "mcq", "cat": "11月9日", "text": "n. 指标；标志；指示器", "options": {"A": "indict", "B": "indirect", "C": "indicator", "D": "investor"}, "correct": "C", "note": "/⁠ˈɪndɪkeɪtə/"},
+{"type": "mcq", "cat": "11月9日", "text": "adj. 可持续的", "options": {"A": "sustain", "B": "susceptible", "C": "unmistakable", "D": "sustainable"}, "correct": "D", "note": "/sə⁠ˈsteɪnəbl/"},
+{"type": "mcq", "cat": "11月9日", "text": "n. 可持续性", "options": {"A": "sustainability", "B": "stability", "C": "possibility", "D": "availability"}, "correct": "A", "note": "/sə⁠ˌsteɪnə⁠ˈbɪləti/"},
+{"type": "mcq", "cat": "11月9日", "text": "n. 批评者；反对者", "options": {"A": "critique", "B": "artistic", "C": "realistic", "D": "critic"}, "correct": "D", "note": "/⁠ˈkrɪtɪk/"},
+{"type": "mcq", "cat": "11月9日", "text": "adj. 短暂的；转瞬即逝的", "options": {"A": "fling", "B": "fleeting", "C": "flee", "D": "marketing"}, "correct": "B", "note": "/⁠ˈfliːtɪŋ/"},
+{"type": "mcq", "cat": "11月9日", "text": "adj. 主观的", "options": {"A": "subject", "B": "respective", "C": "successive", "D": "subjective"}, "correct": "D", "note": "/səb⁠ˈdʒektɪv/"},
+{"type": "mcq", "cat": "11月9日", "text": "n. 繁荣；兴旺；富足", "options": {"A": "property", "B": "prosperity", "C": "prospect", "D": "security"}, "correct": "B", "note": "/prɒs⁠ˈperɪti/"},
+{"type": "mcq", "cat": "11月9日", "text": "n. 理解；解读；阐释", "options": {"A": "intervention", "B": "intention", "C": "expectation", "D": "interpretation"}, "correct": "D", "note": "/ɪn⁠ˌtɜːprɪ⁠ˈteɪʃən/"},
+{"type": "mcq", "cat": "11月9日", "text": "v. 强加；强制推行", "options": {"A": "impossible", "B": "impose", "C": "pose", "D": "improve"}, "correct": "B", "note": "/ɪm⁠ˈpəʊz/"},
+{"type": "mcq", "cat": "11月9日", "text": "adj. 合作的；协作的", "options": {"A": "collaborative", "B": "comparative", "C": "collective", "D": "elaborate"}, "correct": "A", "note": "/kə⁠ˈlæbərətɪv/"},
+{"type": "mcq", "cat": "11月9日", "text": "n. 义务；责任", "options": {"A": "obligation", "B": "combination", "C": "publication", "D": "objection"}, "correct": "A", "note": "/⁠ˌɒblɪ⁠ˈgeɪʃən/"},
+{"type": "mcq", "cat": "11月9日", "text": "n. 资产；有利条件", "options": {"A": "assent", "B": "assert", "C": "asset", "D": "assure"}, "correct": "C", "note": "/⁠ˈæset/"},
+{"type": "mcq", "cat": "11月9日", "text": "n. 提议；提案", "options": {"A": "propel", "B": "prosperous", "C": "proposal", "D": "professional"}, "correct": "C", "note": "/prə⁠ˈpəʊzl/"},
+{"type": "mcq", "cat": "11月9日", "text": "n. 倡导者　v. 拥护；主张", "options": {"A": "allocate", "B": "abdicate", "C": "advocate", "D": "adequate"}, "correct": "C", "note": "/⁠ˈædvəkeɪt/"},
+{"type": "mcq", "cat": "11月9日", "text": "v. 补救；纠正　n. 疗法", "options": {"A": "greedy", "B": "remedy", "C": "comedy", "D": "recommend"}, "correct": "B", "note": "/⁠ˈremɪdi/"},
+{"type": "mcq", "cat": "11月9日", "text": "n. 流行病　adj. 泛滥的", "options": {"A": "episode", "B": "evidence", "C": "economic", "D": "epidemic"}, "correct": "D", "note": "/⁠ˌepɪ⁠ˈdemɪk/"},
+{"type": "mcq", "cat": "11月9日", "text": "v. 困扰；折磨　n. 瘟疫", "options": {"A": "vague", "B": "colleague", "C": "plague", "D": "fatigue"}, "correct": "C", "note": "/pleɪg/"},
+{"type": "mcq", "cat": "11月9日", "text": "adj. 有害的；不利的", "options": {"A": "dental", "B": "detrimental", "C": "mental", "D": "detail"}, "correct": "B", "note": "/⁠ˌdetrɪ⁠ˈmentəl/"},
+{"type": "mcq", "cat": "11月9日", "text": "n. 福祉；健康幸福", "options": {"A": "being", "B": "bearing", "C": "cling", "D": "wellbeing"}, "correct": "D", "note": "/⁠ˌwel⁠ˈbiːɪŋ/"},
+{"type": "mcq", "cat": "11月9日", "text": "adj. 治疗的；疗法的", "options": {"A": "therapeutic", "B": "thereby", "C": "synthetic", "D": "tragic"}, "correct": "A", "note": "/⁠ˌθerə⁠ˈpjuːtɪk/"},
+{"type": "mcq", "cat": "11月9日", "text": "adj. 预防的", "options": {"A": "preventative", "B": "representative", "C": "prevent", "D": "protective"}, "correct": "A", "note": "/prɪ⁠ˈventətɪv/"},
+{"type": "mcq", "cat": "11月9日", "text": "v. 促进；使便利", "options": {"A": "fascinate", "B": "imitate", "C": "finite", "D": "facilitate"}, "correct": "D", "note": "/fə⁠ˈsɪlɪteɪt/"},
+{"type": "mcq", "cat": "11月9日", "text": "v. 参与；参加", "options": {"A": "particularly", "B": "private", "C": "participate", "D": "certificate"}, "correct": "C", "note": "/pɑː⁠ˈtɪsɪpeɪt/"},
+{"type": "mcq", "cat": "11月9日", "text": "v./n. 呼吁；求助；吸引", "options": {"A": "apply", "B": "appeal", "C": "appraisal", "D": "apparent"}, "correct": "B", "note": "/ə⁠ˈpiːl/"},
+{"type": "mcq", "cat": "11月9日", "text": "v. 说服；劝说", "options": {"A": "persuade", "B": "parade", "C": "pursue", "D": "upgrade"}, "correct": "A", "note": "/pə⁠ˈsweɪd/"},
+{"type": "mcq", "cat": "11月9日", "text": "v. 证明……合理；为……辩护", "options": {"A": "justice", "B": "justification", "C": "rectify", "D": "justify"}, "correct": "D", "note": "/⁠ˈdʒʌstɪfaɪ/"},
+{"type": "mcq", "cat": "11月9日", "text": "n. 优先事项；优先权", "options": {"A": "priority", "B": "superiority", "C": "prosperity", "D": "minority"}, "correct": "A", "note": "/praɪ⁠ˈɒrɪti/"},
+{"type": "mcq", "cat": "11月9日", "text": "n. 生产力；生产率", "options": {"A": "productive", "B": "product", "C": "productivity", "D": "protective"}, "correct": "C", "note": "/⁠ˌprəʊdʌk⁠ˈtɪvɪti/"},
+{"type": "mcq", "cat": "11月9日", "text": "n. 哲学家", "options": {"A": "philosopher", "B": "photocopier", "C": "prosper", "D": "poster"}, "correct": "A", "note": "/fɪ⁠ˈlɒsəfə/"},
+{"type": "mcq", "cat": "11月9日", "text": "n. 公民；市民", "options": {"A": "cite", "B": "citizen", "C": "criticize", "D": "conviction"}, "correct": "B", "note": "/⁠ˈsɪtɪzn/"}
 ];
 </script>
 <script src="../assets/sync-core.js?v=43a30b640f"></script>
