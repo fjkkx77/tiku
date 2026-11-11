@@ -15,7 +15,10 @@
    以前的练习也补上（fromHistory）：功能上线前已经刷完的，从练习记录里认出来——
      记录只存了「范围」文字、总题数、对错数，没存题号，所以只认得出这种：
      范围是一个或几个分类名（「、」隔开，可带「（没做过的）」），或「全部<分类叫法>」；
-     总题数正好等于这几个分类的题数之和，而且对 + 错 = 总题数（全答了）。 */
+     总题数正好等于这几个分类的题数之和，而且对 + 错 = 总题数（全答了）。
+     「全部」要按**当时**有哪些分类算（2026-11-12 用户报：每日单词头两天只有 11月8日 一天，那时从 11月8日 卡片进去刷，
+     范围也记成「全部日期」；按现在的 4 天 119 题去比，30 题对不上，就没认出来）。分类都是往后加的（每日单词按日期、
+     四级按 DAY），当时的「全部」就是现在的前 k 个：找前 k 个题数之和正好等于总题数的那个 k（题数都是正数，最多一个 k）。 */
 (function(){
   'use strict';
   const SUFFIX = '_passes';
@@ -63,8 +66,8 @@
     return Object.keys(got).filter(c => sizes[c] > 0 && got[c].size === sizes[c]);
   }
 
-  /* 从练习记录里认出以前刷完的。sizes：{分类: 题数}（首页只知道有快捷入口的分类，认不出的就不认）；
-     allLabel：「全部日期」这类（只有知道全部分类的科目页才传，首页传 null） */
+  /* 从练习记录里认出以前刷完的。sizes：{分类: 题数}，**按分类出现的先后排**（首页只知道有快捷入口的分类，认不出的就不认）；
+     allLabel：「全部日期」这类范围文字——字符串（科目页知道自己的分类叫法）或正则（首页不知道，传 /^全部/） */
   function fromHistory(history, sizes, allLabel) {
     const out = [];
     (Array.isArray(history) ? history : []).forEach(h => {
@@ -73,8 +76,13 @@
       if (total <= 0 || num(h.correct) + num(h.wrong) !== total) return;
       const label = h.scope.replace(/（没做过的）$/, '');
       let cats;
-      if (allLabel && label === allLabel) cats = Object.keys(sizes);
-      else if (sizes[label] > 0) cats = [label];                       // 分类名自己带「、」也认得
+      const isAll = allLabel instanceof RegExp ? allLabel.test(label) : !!allLabel && label === allLabel;
+      if (sizes[label] > 0) cats = [label];                            // 分类名自己带「、」也认得
+      else if (isAll) {                                                // 当时的「全部」＝现在的前 k 个
+        const order = Object.keys(sizes); let sum = 0; cats = [];
+        for (const c of order) { sum += sizes[c]; cats.push(c); if (sum >= total) break; }
+        if (sum !== total) return;
+      }
       else cats = label.split('、');
       if (!cats.length || cats.some(c => !(sizes[c] > 0))) return;
       if (cats.reduce((a, c) => a + sizes[c], 0) !== total) return;

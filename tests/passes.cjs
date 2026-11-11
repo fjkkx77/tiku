@@ -18,7 +18,10 @@ async function runPasses(BASE, ok) {
         h1:P.fromHistory([H("A",3,2,1)],S,"全部日期").join(),                     // 一个分类、全答了（错的也算）
         h2:P.fromHistory([H("A、B",5,5,0)],S,null).join(),                        // 两个分类一起
         h3:P.fromHistory([H("全部日期",7,7,0)],S,"全部日期").sort().join(),        // 全选
-        h3home:P.fromHistory([H("全部日期",7,7,0)],S,null).join(),                 // 首页不知道全部分类：不认
+        h3home:P.fromHistory([H("全部日期",7,7,0)],S,/^全部/).sort().join(),        // 首页：不知道叫法，按「全部」开头认
+        early1:P.fromHistory([H("全部日期",3,3,0)],S,"全部日期").join(),             // 当时只有 A 一个分类（11-12 用户报的）
+        early2:P.fromHistory([H("全部DAY",5,4,1)],S,/^全部/).join(),                // 当时只有 A、B
+        early3:P.fromHistory([H("全部日期",4,4,0)],S,"全部日期").join(),             // 前几个凑不出 4：不认
         h4:P.fromHistory([H("A（没做过的）",3,3,0)],S,null).join(),                // 只练没做过的、正好是整个分类
         no1:P.fromHistory([H("A（没做过的）",2,2,0)],S,null).join(),               // 只练没做过的、只剩 2 题
         no2:P.fromHistory([H("A",3,2,0)],S,null).join(),                          // 没答完
@@ -29,8 +32,8 @@ async function runPasses(BASE, ok) {
         dun:P.fromHistory([H("甲、乙",2,2,0)],S,null).join()                       // 分类名自己带「、」
       };})()`);
     ok(r.full === 'A,B' && r.partB === 'A' && r.dup === '', '刷完几遍：一次练习里分类的题全答了才算（少一题不算、同一题重复不能凑数）', r);
-    ok(r.h1 === '1000|A' && r.h2 === '1000|A,1000|B' && r.h3 === '1000|A,1000|B,1000|甲、乙' && r.h3home === '' && r.h4 === '1000|A' && r.dun === '1000|甲、乙',
-      '刷完几遍：从练习记录补以前的——单个分类、几个一起、全选、只练没做过的（正好整个分类）都认得', r);
+    ok(r.h1 === '1000|A' && r.h2 === '1000|A,1000|B' && r.h3 === '1000|A,1000|B,1000|甲、乙' && r.h3home === '1000|A,1000|B,1000|甲、乙' && r.early1 === '1000|A' && r.early2 === '1000|A,1000|B' && r.early3 === '' && r.h4 === '1000|A' && r.dun === '1000|甲、乙',
+      '刷完几遍：从练习记录补以前的——单个分类、几个一起、全选（按当时有几个分类算）、只练没做过的（正好整个分类）都认得', r);
     ok(!r.no1 && !r.no2 && !r.no3 && !r.no4 && !r.no5 && !r.no6, '刷完几遍：没答完、只练一部分、不会的、错题重练、题数对不上、坏数据都不认', r);
 
     /* ---------- 2. 科目页：真刷一遍 ---------- */
@@ -79,6 +82,18 @@ async function runPasses(BASE, ok) {
       localStorage.setItem("cet4vocabquiz_history",JSON.stringify([{date:1700000000003,scope:"DAY 2",total:116,correct:116,wrong:0}]));
       render();return {d8:${badge('lijing-daily-2026-11-08')},day2:${badge('cet4-vocab-day2')},day3:${badge('cet4-vocab-day3')}};})()`);
     ok(r.d8 === '✓ 刷完 1 遍' && r.day2 === '✓ 刷完 1 遍' && r.day3 === '', '首页：以前的练习记录里答完的那次补成 1 遍（没答完的那次不算），四级 DAY 卡片也有', r);
+    // 2026-11-12 用户截图：头两天只有 11月8日 一天，那时刷完的记录范围是「全部日期」、30 题 → 11月8日 要亮；之后两天一起刷的「全部日期」60 题 → 8、9 日各一遍
+    r = await p.ev(`(()=>{localStorage.removeItem("lijingdailyvocabquiz_passes");
+      localStorage.setItem("lijingdailyvocabquiz_history",JSON.stringify([{date:1700000000011,scope:"全部日期",total:30,correct:26,wrong:4},{date:1700000000012,scope:"全部日期",total:60,correct:50,wrong:10}]));
+      render();return {d8:${badge('lijing-daily-2026-11-08')},d9:${badge('lijing-daily-2026-11-09')},d10:${badge('lijing-daily-2026-11-10')}};})()`);
+    ok(r.d8 === '✓ 刷完 2 遍' && r.d9 === '✓ 刷完 1 遍' && r.d10 === '', '首页：只有一天时记成「全部日期」的那次也认得（按当时有几天算）', r);
+    await p.goto(BASE + 'lijing-daily-vocab/'); await p.ev('localStorage.removeItem("lijingdailyvocabquiz_passes")'); await p.goto(BASE + 'lijing-daily-vocab/');
+    r = await p.ev(`(()=>{const c=TikuPasses.counts("lijingdailyvocabquiz");return [c["11月8日"]||0,c["11月9日"]||0,c["11月10日"]||0];})()`);
+    ok(JSON.stringify(r) === '[2,1,0]', '科目页：同样认得「全部日期」按当时的天数算', r);
+    // 还原成上面那组记录，下面验备份的那条不受这里影响
+    await p.ev(`(()=>{localStorage.setItem("lijingdailyvocabquiz_history",JSON.stringify([{date:1700000000001,scope:"11月8日",total:30,correct:25,wrong:5},{date:1700000000002,scope:"11月8日",total:30,correct:10,wrong:3}]));
+      localStorage.setItem("lijingdailyvocabquiz_passes",JSON.stringify({"1700000000001|11月8日":1}));})()`);
+    await p.goto(BASE);
 
     /* ---------- 4. 导出 / 导入备份带上遍数（合并＝并集） ---------- */
     r = await p.ev(`(async()=>{const w=ms=>new Promise(r=>setTimeout(r,ms));
