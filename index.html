@@ -27,7 +27,7 @@
 })();
 </script>
 <title>刷题合集</title>
-<link rel="stylesheet" href="assets/sync-panel.css?v=43a30b640f">
+<link rel="stylesheet" href="assets/sync-panel.css?v=061776d069">
 <style>
   /* 外观＝2026-10-15 之前的样子（2026-10-16 用户看过 iOS 风格改版后决定回到原来的界面风格，只保留新的逻辑和交互） */
   :root{ --primary:#3b82f6; --primary-dark:#2563eb; --bg:#f3f4f6; --text:#1f2937; --muted:#6b7280; --border:#e5e7eb; --danger:#dc2626; --press:#eef2f7; --ease:cubic-bezier(.2,.9,.3,1); }
@@ -45,6 +45,8 @@
   .item .name-row{display:flex;align-items:center;gap:6px;margin-bottom:4px;}
   .item .name{font-size:17px;font-weight:bold;min-width:0;overflow-wrap:anywhere;}
   .item .desc{font-size:13px;color:var(--muted);}
+  /* 刷完几遍（2026-11-11 用户要的）：快捷入口卡片标题右边，没刷完过不显示。浅绿底深绿字，不折行、名字长了让名字折 */
+  .item .pass-badge{margin-left:auto;flex-shrink:0;white-space:nowrap;font-size:12px;font-weight:bold;line-height:1;color:#166534;background:#dcfce7;border-radius:999px;padding:4px 8px;}
   .item .desc b{color:var(--text);}
   .sec-label{font-size:13px;font-weight:bold;color:var(--muted);margin:4px 4px -4px;}
   .sec-label:first-child{margin-top:0;}
@@ -334,10 +336,11 @@
   </div>
 </div>
 
-<script src="assets/sync-core.js?v=43a30b640f"></script>
-<script src="assets/sync-client.js?v=43a30b640f"></script>
-<script src="assets/sync-panel.js?v=43a30b640f"></script>
-<script src="assets/tiku-sync.js?v=43a30b640f"></script>
+<script src="assets/sync-core.js?v=061776d069"></script>
+<script src="assets/sync-client.js?v=061776d069"></script>
+<script src="assets/sync-panel.js?v=061776d069"></script>
+<script src="assets/tiku-sync.js?v=061776d069"></script>
+<script src="assets/passes.js?v=061776d069"></script>
 <script src="assets/drag.js?v=2.0.0"></script>
 <script>
 /* 李婧老师每日单词背诵（2026-11-08 起，用户每天发当天的词）：下面这段由 CodeProjects/lijing-daily/build_daily.py 自动改写，别手改。
@@ -662,8 +665,24 @@ function descHtml(s, st) {
   return esc(base) + ' · ' + tail + (st.dunno ? ' · 不会 <b>' + st.dunno + '</b>' : '');
 }
 
+/* 刷完几遍（2026-11-11，算法在 assets/passes.js）：只有快捷入口（一天 / 一个 DAY）显示；整科的卡片不显示 */
+function passBadge(s) {
+  if (!s.parent || !window.TikuPasses) return '';
+  const n = TikuPasses.counts(s.prefix)[s.cat] || 0;
+  return n ? '<span class="pass-badge">✓ 刷完 ' + n + ' 遍</span>' : '';
+}
+/* 以前刷完的从练习记录里补上（科目页打开时也会补；这里先补，不用等点进去）。
+   首页只知道有快捷入口的分类各几题，认得出的才补；已有的不重复记、没新的不写存储 */
+function backfillPasses() {
+  if (!window.TikuPasses) return;
+  const sizes = {};
+  SHORTCUTS.forEach(function(c){ (sizes[c.prefix] = sizes[c.prefix] || {})[c.cat] = c.total; });
+  Object.keys(sizes).forEach(function(p){ TikuPasses.add(p, TikuPasses.fromHistory(readJSON(p + '_history', []), sizes[p], null)); });
+}
+
 function render() {
   if (drag && drag.active()) { renderPending = true; return; }   // 拖动中别重画：手里那一张会被换掉
+  backfillPasses();   // 别的页面 / 别的设备刚记了练习：先补遍数再画
   if (drag && drag.holding()) drag.cancelHold();                   // 正按住等拿起：旧的那一张马上就不在页面上了
   renderPending = false;
   if (swipe) swipe.forget();
@@ -684,6 +703,7 @@ function render() {
       + '<div class="name-row">'
       + (batchMode ? '<span class="batch-checkbox' + (sel ? ' checked' : '') + '">' + (sel ? '✓' : '') + '</span>' : '')
       + '<span class="name">' + esc(displayName(k, names)) + '</span>'
+      + passBadge(s)
       + '</div><div class="desc">' + descHtml(s, subjectStats(s)) + '</div></a>';
   }
   const tree = folderTree(folders), roots = tree.kids[''];
@@ -1517,7 +1537,7 @@ document.addEventListener('keydown', function(e){
 /* ===================== 备份：导出 / 导入 ===================== */
 /* 错题本、练习记录只存在这个浏览器里。导出 = 把 8 科的数据装进一个文件；导入 = 合并回来（不覆盖已有的）。
    只认下面这张清单里的存储项，文件里别的东西一律不写。 */
-const PER_SUBJECT = ['_wrongbook', '_wbremoved', '_history', '_done', '_inprogress', '_progs', '_exammode', '_recite', '_marks'];
+const PER_SUBJECT = ['_wrongbook', '_wbremoved', '_history', '_done', '_inprogress', '_progs', '_exammode', '_recite', '_marks', '_passes'];
 function backupKeys() {
   const keys = [STORAGE_KEY, FOLDERS_KEY, SUBJECT_FOLDER_KEY, PINNED_KEY, ORDER_KEY];
   SUBJECTS.forEach(function(s){ PER_SUBJECT.forEach(function(suf){ keys.push(s.prefix + suf); }); });
@@ -1582,7 +1602,7 @@ function mergeItem(key, incoming) {
     Object.keys(b).forEach(function(id){ if ((Number(b[id]) || 0) > (Number(out[id]) || 0)) out[id] = Number(b[id]); });
     safeSet(key, out); return 0;
   }
-  if (/_done$/.test(key)) {
+  if (/_(done|passes)$/.test(key)) {   // 做过的题、刷完几遍（2026-11-11）：都取并集
     const a = parseJSON(cur, {}), b = parseJSON(incoming, null);
     if (!isObj(b)) return 0;
     const out = isObj(a) ? a : {};

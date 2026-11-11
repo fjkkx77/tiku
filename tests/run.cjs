@@ -414,6 +414,8 @@ function serve() {
     console.log('2c. 多设备同步检查完成');
     await require('./marks.cjs').runMarks(BASE, ok);   // 四级：DAY 快捷入口、自动放文件夹、会/不会标记（2026-10-23）
     console.log('2d. 四级快捷入口与标记检查完成');
+    await require('./passes.cjs').runPasses(BASE, ok);   // 刷完几遍（2026-11-11）：算法、科目页、首页卡片、补以前的、备份、320 宽版面
+    console.log('2e. 刷完几遍检查完成');
 
     /* ---------- 3. 手势 + 4. 版面 ---------- */
     c.close();

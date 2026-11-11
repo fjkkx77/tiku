@@ -30,6 +30,7 @@ main{flex:1;padding:14px;}
 .cat-list label{display:flex;align-items:center;gap:8px;padding:9px 4px;border-bottom:1px solid var(--border);font-size:14px;}
 .cat-list label:last-child{border-bottom:none;}
 .cat-count{color:var(--muted);font-size:12px;margin-left:auto;}
+.cat-count .pass-cnt{color:#15803d;font-weight:bold;white-space:nowrap;}   /* 刷完几遍（2026-11-11）：深一档的绿，12px 小字对白底 5:1 */
 .btn{display:inline-block;border:none;border-radius:8px;padding:11px 18px;font-size:15px;cursor:pointer;background:var(--primary);color:#fff;text-align:center;}
 .btn:active{transform:scale(.98);}
 .btn.secondary{background:#fff;color:var(--primary-dark);border:1px solid var(--primary);}

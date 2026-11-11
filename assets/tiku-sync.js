@@ -14,6 +14,7 @@
      sf|<科目>      科目放在哪个文件夹    pin           置顶科目的先后            ord  全部科目的先后
      <前缀>|wb|<题号>  一道错题     <前缀>|h|<时间>  一条练习记录     <前缀>|d|<指纹>  做过的一道题
      <前缀>|mk|<指纹>  一个「会 / 不会」标记（2026-10-23；按标记时间算谁新）
+     <前缀>|ps|<时间>|<分类>  刷完一遍（2026-11-11，见 passes.js；取并集，清空练习记录时一起删）
      <前缀>|pg|<范围>  一份进行中的练习（2026-10-24 起每个范围一份；旧的单份 |prog 照旧认，给还没刷新的旧页面用）
      <前缀>|prog       继续上次练习  <前缀>|em / |rc  快速模式 / 背题 开关
    不同步：首页哪些文件夹展开着、上次导出时间（只跟这台设备有关）、错题移出记号（本机推出来的） */
@@ -74,6 +75,8 @@
       if (isObj(done)) Object.keys(done).forEach(f => m.set(P + '|d|' + f, 1));
       const mk = readJSON(P + '_marks');
       if (isObj(mk)) Object.keys(mk).forEach(f => { if (isObj(mk[f])) m.set(P + '|mk|' + f, mk[f]); });
+      const ps = readJSON(P + '_passes');
+      if (isObj(ps)) Object.keys(ps).forEach(k => { if (/^\d+\|./.test(k)) m.set(P + '|ps|' + k, 1); });
       const prog = readJSON(P + '_inprogress'); if (isObj(prog)) m.set(P + '|prog', prog);
       const pgs = readJSON(P + '_progs');
       if (isObj(pgs)) Object.keys(pgs).forEach(k => { if (isObj(pgs[k])) m.set(P + '|pg|' + k, pgs[k]); });
@@ -94,6 +97,7 @@
     else if (/\|prog$/.test(id) || id.indexOf('|pg|') > 0) t = Number(v.savedAt);
     else if (id.indexOf('|mk|') > 0) t = Number(v.t);
     else if (id.indexOf('|d|') > 0) return 1;
+    else if (id.indexOf('|ps|') > 0) t = Number(id.slice(id.indexOf('|ps|') + 4).split('|')[0]);   // 那次练习的时间
     return isFinite(t) && t > 0 ? t : null;
   }
 
@@ -169,6 +173,8 @@
       const done = pick(P + '|d|'); Object.keys(done).forEach(f => { done[f] = 1; });
       put(P + '_done', done, !Object.keys(done).length);
       const mk = pick(P + '|mk|'); put(P + '_marks', mk, !Object.keys(mk).length);
+      const ps = pick(P + '|ps|'); Object.keys(ps).forEach(k => { ps[k] = 1; });
+      put(P + '_passes', ps, !Object.keys(ps).length);
       if (isObj(live.get(P + '|prog'))) put(P + '_inprogress', live.get(P + '|prog'));
       else if (dead.has(P + '|prog') && rawDel(P + '_inprogress')) changed = true;
       const pgs = pick(P + '|pg|'); put(P + '_progs', pgs, !Object.keys(pgs).length);

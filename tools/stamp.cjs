@@ -6,13 +6,13 @@
 // 2026-10-19 起多了多设备同步的几个文件，首页（根目录 index.html）也引用了它们，一起盖。
 const fs = require('fs'), path = require('path'), crypto = require('crypto');
 const ROOT = path.resolve(__dirname, '..');
-const SHARED = ['quiz.css', 'quiz.js', 'sync-core.js', 'sync-client.js', 'sync-panel.js', 'sync-panel.css', 'tiku-sync.js'];
+const SHARED = ['quiz.css', 'quiz.js', 'sync-core.js', 'sync-client.js', 'sync-panel.js', 'sync-panel.css', 'tiku-sync.js', 'passes.js'];   // passes.js：2026-11-11 刷完几遍
 const eol = s => s.replace(/\r\n/g, '\n');   // 指纹按统一换行算，免得同一份内容在不同电脑上算出两个值
 const h = crypto.createHash('sha1');
 SHARED.forEach(f => h.update(eol(fs.readFileSync(path.join(ROOT, 'assets', f), 'utf8'))));
 const stamp = h.digest('hex').slice(0, 10);
 const check = process.argv.includes('--check');
-const RE = /(assets\/(?:quiz|sync-core|sync-client|sync-panel|tiku-sync)\.(?:css|js)\?v=)([0-9A-Za-z]+)/g;
+const RE = /(assets\/(?:quiz|sync-core|sync-client|sync-panel|tiku-sync|passes)\.(?:css|js)\?v=)([0-9A-Za-z]+)/g;
 const files = [path.join(ROOT, 'index.html')];
 for (const dir of fs.readdirSync(ROOT, { withFileTypes: true })) {
   if (dir.isDirectory() && fs.existsSync(path.join(ROOT, dir.name, 'index.html'))) files.push(path.join(ROOT, dir.name, 'index.html'));

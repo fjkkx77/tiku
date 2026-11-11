@@ -274,6 +274,11 @@ function markDone(q){ doneSet = loadJSON(LS_DONE, {}) || {}; if(typeof doneSet !
 /* 「会 / 不会」标记（CFG.marks 才有）：按指纹记，{指纹: {s:"know"|"dunno", t:标记时间, c:分类}}。
    c 存下来是给首页 DAY 快捷入口数「这一天不会几个」用的（首页不加载题库） */
 const LS_MARKS = CFG.prefix+"_marks", LS_CATDONE = CFG.prefix+"_catdone";
+/* 刷完几遍（2026-11-11，算法在 assets/passes.js）：每个分类题库里几题；「全部<分类叫法>」是开始练习时全选的范围文字 */
+const LS_PASSES = CFG.prefix+"_passes", PASSES = window.TikuPasses || null;
+const CAT_SIZE = {}; Q.forEach(q=>{ CAT_SIZE[q.cat] = (CAT_SIZE[q.cat]||0) + 1; });
+/* 以前（功能上线前、或别的设备上旧版页面）刷完的，从练习记录里补上；已有的不重复记 */
+function backfillPasses(){ if(PASSES) PASSES.add(CFG.prefix, PASSES.fromHistory(historyList, CAT_SIZE, `全部${CFG.catWord}`)); }
 function cleanMarks(m){
   const out = {};
   if(m && typeof m === "object" && !Array.isArray(m)) Object.keys(m).forEach(k=>{
@@ -695,14 +700,16 @@ document.querySelector(".home-btn").addEventListener("click", async e=>{
 function renderCatList(){
   // 重画时保留用户已经取消勾选的章节（旧版一回首页就全部重置成勾选）
   const unchecked = new Set([...document.querySelectorAll(".catChk")].filter(c=>!c.checked).map(c=>c.value));
+  const passes = PASSES ? PASSES.counts(CFG.prefix) : {};
   $("catList").innerHTML = CATS.map(cat=>{
     const inCat = Q.filter(q=>q.cat===cat), cnt = inCat.length;
     const dcnt = inCat.filter(isDone).length;
     const wcnt = Object.values(wrongbook).filter(w=>w.cat===cat).length;
+    const pcnt = passes[cat] || 0;
     return `<label>
       <input type="checkbox" class="catChk" value="${esc(cat)}"${unchecked.has(cat) ? "" : " checked"}>
       ${esc(cat)}
-      <span class="cat-count">${cnt}题${dcnt?` · 做过${dcnt}`:""}${wcnt?` · <span class="badge-cnt">${wcnt}错</span>`:""}</span>
+      <span class="cat-count">${pcnt?`<span class="pass-cnt">✓ 刷完 ${pcnt} 遍</span> · `:""}${cnt}题${dcnt?` · 做过${dcnt}`:""}${wcnt?` · <span class="badge-cnt">${wcnt}错</span>`:""}</span>
     </label>`;
   }).join("");
   renderResumeCard();
@@ -784,11 +791,12 @@ window.addEventListener("pageshow", e=>{ if(e.persisted) refreshFromStorage(); }
 window.addEventListener("storage", e=>{
   if(!e.key) return refreshFromStorage();                    // 整个存储被清空
   if(e.key === LS_PROGS) return checkStale();                // 别的页面在答题（每打几个字就会存一次草稿）：只看要不要让位，不重画
-  if([LS_WRONGBOOK, LS_HISTORY, LS_DONE, LS_MARKS].includes(e.key)) refreshFromStorage();
+  if([LS_WRONGBOOK, LS_HISTORY, LS_DONE, LS_MARKS, LS_PASSES].includes(e.key)) refreshFromStorage();
 });
 function refreshFromStorage(){
   wrongbook = cleanWrongbook(loadJSON(LS_WRONGBOOK, {}));
   historyList = cleanHistory(loadJSON(LS_HISTORY, []));
+  backfillPasses();   // 别的设备同步来的旧版练习记录也认一遍（已有的不会重复记，没新的就不写存储）
   doneSet = loadJSON(LS_DONE, {}) || {};
   marks = cleanMarks(loadJSON(LS_MARKS, {}));
   saveCatDone();
@@ -1297,6 +1305,8 @@ function finishQuiz(){
       if(at>=0) list[at] = entry; else { list.push(entry); list.sort((a,b)=>num(b.date)-num(a.date)); }
     });
     session.historyDate = entry.date;
+    // 这次把哪些分类整个答完了：各记一遍（键是这条记录的时间，「返回本次练习」再结束不会多记）
+    if(PASSES){ const q = session.queue; PASSES.add(CFG.prefix, PASSES.fullCats(q, i=>!!session.answers[i], CAT_SIZE).map(c=>PASSES.keyOf(entry.date, c))); }
   }
   session.finished = true;
   if(!someoneElseIsNewer()) clearProgress(session.slot);
@@ -1408,7 +1418,8 @@ function renderHistory(){
   }).join("");
 }
 $("clearHistoryBtn").onclick = async ()=>{
-  if(await showConfirm("确定清空所有练习记录吗？此操作不可恢复。")){ historyList = []; saveJSON(LS_HISTORY, historyList); renderHistory(); }
+  // 刷完几遍也一起清零（它是从练习里记下来的；不清的话记录没了、卡片上还挂着遍数，对不上）
+  if(await showConfirm("确定清空所有练习记录吗？每个" + CFG.catWord + "「刷完几遍」也会一起清零。此操作不可恢复。")){ historyList = []; saveJSON(LS_HISTORY, historyList); if(PASSES) PASSES.clear(CFG.prefix); renderHistory(); }
 };
 
 /* ===================== 键盘快捷键（电脑上用）：A-D/1-4 选项，回车提交/下一题，←→ 切题，Esc 关总览 ===================== */
@@ -1442,6 +1453,7 @@ document.addEventListener("keydown", e=>{
 });
 
 /* ===================== 初始化 ===================== */
+backfillPasses();
 renderCatList();
 saveCatDone();
 // 网址带 ?cat=分类名（首页 DAY 快捷入口）：只勾这一个分类，其余照常可以再改
@@ -1823,7 +1835,7 @@ window.__quiz = {
   renderQuestion, finishQuiz, showScreen, openOverview, closeOverview, startQuiz, submitAnswer, pickOption,
   isCorrect, gradeBlanksSet, gradeOrdered, gradeQuestion, normalize, fp, nearText, elapsedNow, refreshFromStorage,
   get wrongbook(){ return wrongbook; }, get history(){ return historyList; }, CFG,
-  get marks(){ return marks; }, setMark, renderMarkCard
+  get marks(){ return marks; }, setMark, renderMarkCard, renderCatList, CAT_SIZE
 };
 
 /* 离线也能刷：注册一个只做"断网时用上次存下来的页面"的缓存（见仓库根目录 sw.js） */

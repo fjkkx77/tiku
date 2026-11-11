@@ -145,6 +145,24 @@ async function runSync(ok) {
     await A.ev(`(()=>{__quiz.setMark("know");return 1;})()`); await sync(A); await sync(Bd);
     m = await Bd.ev(`Object.values(JSON.parse(localStorage.getItem('cet4vocabquiz_marks')||'{}')).map(x=>x.s).join(',')`);
     ok(m === 'dunno', '标记：A 取消一个 → B 那边也没了', m);
+    // 刷完几遍（2026-11-11）：A 刷完一遍 → B 收到；B 自己也刷完一遍 → 两边都是 2（并集，不重复不丢）；A 清空练习记录 → B 也清零
+    const fullPass = d => d.ev(`(async()=>{const w=ms=>new Promise(r=>setTimeout(r,ms));const Q=__quiz;
+      document.querySelectorAll(".catChk").forEach(c=>c.checked=c.value==="11月10日");document.getElementById("startBtn").click();await w(60);
+      if(document.getElementById("confirmBackdrop").classList.contains("show")){document.getElementById("confirmOkBtn").click();await w(60);}
+      for(let i=0;i<Q.session.queue.length;i++){Q.session.idx=i;Q.renderQuestion();Q.pickOption(Q.session.queue[i].correct);}
+      Q.finishQuiz();await w(20);return Q.session.queue.length;})()`);
+    const passN = d => d.ev(`TikuPasses.counts('lijingdailyvocabquiz')['11月10日']||0`);
+    await go(A, 'lijing-daily-vocab/'); await fullPass(A); await sync(A);
+    await go(Bd, 'lijing-daily-vocab/'); await sync(Bd);
+    m = { B: await passN(Bd), cloud: cloud().items.filter(e => !e.deletedAt && /^lijingdailyvocabquiz\|ps\|\d+\|11月10日$/.test(e.id)).length };
+    ok(m.B === 1 && m.cloud === 1, '刷完几遍：A 刷完 11月10日 一遍 → 云端一条、B 同步后也是 1 遍', m);
+    await sleep(5); await fullPass(Bd); await sync(Bd); await sync(A);
+    m = { A: await passN(A), B: await passN(Bd) };
+    ok(m.A === 2 && m.B === 2, '刷完几遍：B 自己又刷完一遍 → 两边都是 2 遍（取并集）', m);
+    await A.ev(`(async()=>{__quiz.showScreen("history");document.getElementById("clearHistoryBtn").click();await new Promise(r=>setTimeout(r,60));document.getElementById("confirmOkBtn").click();await new Promise(r=>setTimeout(r,60));return 1;})()`);
+    await sync(A); await sync(Bd); await go(Bd, 'lijing-daily-vocab/'); await sync(Bd);
+    m = { A: await passN(A), B: await passN(Bd), Bh: await Bd.ev(`__quiz.history.length`) };
+    ok(m.A === 0 && m.B === 0 && m.Bh === 0, '刷完几遍：A 清空练习记录 → 两边遍数清零、B 重新打开也不会从旧记录里补回来', m);
     await go(A, ''); await go(Bd, '');
     // 开关
     await go(A, 'web-design/'); await A.ev(`document.getElementById('modeToggleBtn').click()`); await sync(A);
