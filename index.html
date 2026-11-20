@@ -27,7 +27,7 @@
 })();
 </script>
 <title>刷题合集</title>
-<link rel="stylesheet" href="assets/sync-panel.css?v=3f5e7459e1">
+<link rel="stylesheet" href="assets/sync-panel.css?v=00bfac7b7b">
 <style>
   /* 外观＝2026-10-15 之前的样子（2026-10-16 用户看过 iOS 风格改版后决定回到原来的界面风格，只保留新的逻辑和交互） */
   :root{ --primary:#3b82f6; --primary-dark:#2563eb; --bg:#f3f4f6; --text:#1f2937; --muted:#6b7280; --border:#e5e7eb; --danger:#dc2626; --press:#eef2f7; --ease:cubic-bezier(.2,.9,.3,1); }
@@ -336,11 +336,11 @@
   </div>
 </div>
 
-<script src="assets/sync-core.js?v=3f5e7459e1"></script>
-<script src="assets/sync-client.js?v=3f5e7459e1"></script>
-<script src="assets/sync-panel.js?v=3f5e7459e1"></script>
-<script src="assets/tiku-sync.js?v=3f5e7459e1"></script>
-<script src="assets/passes.js?v=3f5e7459e1"></script>
+<script src="assets/sync-core.js?v=00bfac7b7b"></script>
+<script src="assets/sync-client.js?v=00bfac7b7b"></script>
+<script src="assets/sync-panel.js?v=00bfac7b7b"></script>
+<script src="assets/tiku-sync.js?v=00bfac7b7b"></script>
+<script src="assets/passes.js?v=00bfac7b7b"></script>
 <script src="assets/drag.js?v=2.0.0"></script>
 <script>
 /* 李婧老师每日单词背诵（2026-11-08 起，用户每天发当天的词）：下面这段由 CodeProjects/lijing-daily/build_daily.py 自动改写，别手改。
@@ -367,6 +367,7 @@ const SUBJECTS = [
   { key:'lijing-daily-vocab', prefix:'lijingdailyvocabquiz',   href:'./lijing-daily-vocab/',  defaultName:'李婧每日单词 · 选意思', total:LIJING_DAILY_TOTAL, desc:'单选题，按日期分组（看英文选中文，带英式音标） · 错题本 / 练习记录 / 题目总览', folder:'lijingdaily', marks:true },
   { key:'lijing-daily-choose', prefix:'lijingdailychoosequiz', href:'./lijing-daily-choose/', defaultName:'李婧每日单词 · 选单词', total:LIJING_DAILY_TOTAL, desc:'单选题，按日期分组（看中文选英文，形近词干扰） · 错题本 / 练习记录 / 题目总览', folder:'lijingdaily', marks:true },
   { key:'lijing-daily-spell', prefix:'lijingdailyspellquiz',   href:'./lijing-daily-spell/',  defaultName:'李婧每日单词 · 写单词', total:LIJING_DAILY_TOTAL, desc:'填空题，按日期分组（看中文写英文，给首字母） · 错题本 / 练习记录 / 题目总览', folder:'lijingdaily', marks:true },
+  { key:'computer-graphics', prefix:'computergraphicsquiz', href:'./computer-graphics/', defaultName:'计算机图形学', total:96, desc:'选择题64题 + 填空题30题 + 编程题2题 · 错题本 / 练习记录 / 题目总览' },
 ];
 /* 快捷入口（2026-10-23）：不是独立科目，点进去就是父科目、开始练习页只勾这一个分类（科目页认 ?cat=）。
    错题本、练习记录、「会 / 不会」标记都跟父科目共用一份——从哪个入口刷都算数。

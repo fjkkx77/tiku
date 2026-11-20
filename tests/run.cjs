@@ -9,7 +9,7 @@
 const http = require('http'), fs = require('fs'), path = require('path');
 const { open, sleep } = require('./cdp.cjs');
 const ROOT = path.resolve(__dirname, '..');
-const SITES = ['web-design','software-engineering','mobile-app','os','english-listening','english-reading','english-vocab','english-translation','cet4-vocab','cet4-choose','cet4-spell','lijing-vocab','lijing-choose','lijing-spell','lijing-daily-vocab','lijing-daily-choose','lijing-daily-spell'];
+const SITES = ['web-design','software-engineering','mobile-app','os','english-listening','english-reading','english-vocab','english-translation','cet4-vocab','cet4-choose','cet4-spell','lijing-vocab','lijing-choose','lijing-spell','lijing-daily-vocab','lijing-daily-choose','lijing-daily-spell','computer-graphics'];
 const MIME = { '.html':'text/html; charset=utf-8', '.css':'text/css; charset=utf-8', '.js':'text/javascript; charset=utf-8', '.json':'application/json' };
 
 // 首页卡片数＝科目 + 四级 30 个 DAY 入口 + 每日单词每天一张（日期列表由 lijing-daily/build_daily.py 写进首页）
