@@ -49,6 +49,27 @@ function serve() {
 
     /* ---------- 2. 逻辑 ---------- */
     let r;
+    await fresh('computer-graphics/');
+    r = await c.ev(`(async()=>{ ${start}
+      document.getElementById("overviewLink").click();
+      const groups = [...document.querySelectorAll("#ovContent .ov-section-title")];
+      const headers = groups.map(el=>el.textContent);
+      const last = [...groups.at(-1).nextElementSibling.querySelectorAll(".ov-item")];
+      const numbers = last.map(el=>el.querySelector(".ov-num").textContent);
+      last.at(-1).click();
+      return {headers, numbers, idx:Q.session.idx, tag:document.querySelector(".q-tag").textContent,
+        blanks:document.querySelectorAll(".qcard [contenteditable]").length};
+    })()`);
+    ok(JSON.stringify(r.headers) === JSON.stringify(['一、单选题（64题）', '二、填空题（30题）', '三、编程题（2题）']) &&
+      r.numbers.join(',') === '95,96' && r.idx === 95 && r.tag === '编程题' && r.blanks === 7,
+      '计算机图形学：编程题单独分组，总览跳到第96题后仍可填七个代码空', r);
+    await fresh('computer-graphics/');
+    r = await c.ev(`(async()=>{document.querySelector('input[value="random"]').checked=true;${start}
+      const cats = Q.session.queue.map(q=>q.cat);
+      return [cats.slice(0,64), cats.slice(64,94), cats.slice(94)].map(group=>[...new Set(group)]);
+    })()`);
+    ok(JSON.stringify(r) === JSON.stringify([['选择题'], ['填空题'], ['编程题']]),
+      '计算机图形学：随机顺序只在各题型内打乱', r);
     await fresh('web-design/');
     r = await c.ev(`(async()=>{document.querySelector('input[value="random"]').checked=true;${start}let sw=0;const q=Q.session.queue;for(let i=1;i<q.length;i++)if(q[i].type!==q[i-1].type)sw++;return sw;})()`);
     ok(r === 1, '随机顺序：单选、填空各成一段不穿插', r);
@@ -442,6 +463,19 @@ function serve() {
           ok(await t.ev('__quiz.session.idx') === 0, `${W} ${s} 右划 → 上一题`);
           await swipe(W / 2, y + 60, W / 2 + 6, y - 120, 200);
           ok(await t.ev('__quiz.session.idx') === 0, `${W} ${s} 竖划不翻页`);
+          if(s === 'computer-graphics'){
+            const overview = await t.ev(`(()=>{
+              document.getElementById("overviewLink").click();
+              const content = document.getElementById("ovContent");
+              const title = [...content.querySelectorAll(".ov-section-title")].at(-1);
+              title.nextElementSibling.lastElementChild.scrollIntoView({block:"center"});
+              return {title:title.textContent,width:innerWidth,scrollWidth:content.scrollWidth,
+                contentWidth:content.clientWidth};
+            })()`);
+            ok(overview.title === '三、编程题（2题）' && overview.width === W &&
+              overview.scrollWidth <= overview.contentWidth,
+              `${W} 计算机图形学：总览编程题分组无横向溢出`, overview);
+          }
         }
         // 填空的空是横线（2026-10-18 用户报：方框最宽 22 个字，长中文/英文截在框里看不全）：真打字进去，长内容要折行、全看得见
         {

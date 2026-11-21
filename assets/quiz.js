@@ -3,7 +3,7 @@
    以前每个站是一份完整拷贝，改着改着各自走样（同一个 bug 有的站修了有的没修），2026-10 合并成这一份。
 
    科目页只需要在引用本文件之前声明两样东西：
-     const QUIZ = { title, subtitle, prefix, intro, catWord?, font?, wordlist?, normalize?, fpAlias?, marks? }
+     const QUIZ = { title, subtitle, prefix, intro, catWord?, programmingCat?, font?, wordlist?, normalize?, fpAlias?, marks? }
      （fpAlias：改了某道题的答案后填「旧指纹 → 新指纹」，见 migrateFp）
      （marks: true：题目卡片右上角出「会 / 不会」标记，开始练习页出「不会的 / 会的」入口；2026-10-23 四级两科先开）
    网址带 ?cat=分类名（如 ?cat=DAY%203）：打开时开始练习页只勾这一个分类（首页的 DAY 快捷入口用它）
@@ -33,6 +33,7 @@ const CFG = Object.assign({
   prefix: "quiz",            // localStorage 前缀：各站必须不同，否则数据互相覆盖
   intro: "",                 // 首页底部「题库共 N 题（…）」括号里的说明
   catWord: "章节",           // 分类叫什么（听力站叫「单元」）
+  programmingCat: null,     // 该分类在练习和总览中单列，仍按代码补空判分
   font: "",                  // "code"＝题里是真代码（等宽字体）/ "en"＝英语（系统 UI 字体）/ 空＝默认
   wordlist: false,           // code 字段是词表：只给英文单词加粗
   normalize: null            // 自定义答案规范化函数（操作系统站有专用的）
@@ -923,6 +924,12 @@ function renderResumeCard(){
 let sidCounter = 0;
 function newSid(){ return PAGE_ID + "-" + (++sidCounter); }
 
+const QUESTION_GROUPS = ["单选题", "填空题", "编程题"];
+function questionGroup(q){
+  if(q.type==="mcq") return "单选题";
+  return CFG.programmingCat && q.cat===CFG.programmingCat ? "编程题" : "填空题";
+}
+
 /* fromEntry＝从入口（开始练习 / 不会的 / 错题本…）进来：这个范围有没做完的进度就接着做，不覆盖。
    false＝明确要从头来（重新开始、结果页的重练）：覆盖这个范围的那一份 */
 async function startQuiz(questionPool, scopeLabel, fromEntry){
@@ -935,10 +942,12 @@ async function startQuiz(questionPool, scopeLabel, fromEntry){
     }
   }
   const random = (document.querySelector('input[name="order"]:checked')||{}).value === "random";
-  // 单选题和填空题各自成一段、永远不穿插（来回切换"点选项"和"打字"两种操作很割裂）；随机只在题型内部打乱
-  const mcq = questionPool.filter(q=>q.type==="mcq"), blank = questionPool.filter(q=>q.type!=="mcq");
-  if(random){ shuffle(mcq); shuffle(blank); }
-  const pool = mcq.concat(blank);
+  // 各题型各成一段，随机只打乱组内顺序
+  const pool = QUESTION_GROUPS.flatMap(name=>{
+    const group = questionPool.filter(q=>questionGroup(q)===name);
+    if(random && group.length) shuffle(group);
+    return group;
+  });
   activeSince = null;
   for(const k in ansView) delete ansView[k];   // 「逐空对照」切换只记这一次练习
   session = { queue: pool, idx: 0, answers: new Array(pool.length).fill(null), drafts: {}, elapsed: 0, scopeLabel, slot: scopeLabel, sid: newSid(), savedAt: Date.now() };
@@ -1268,7 +1277,7 @@ $("overviewLink").onclick = openOverview;
 $("ovBackBtn").onclick = closeOverview;
 $("ovCloseBtn").onclick = closeOverview;
 $("ovBackdrop").onclick = closeOverview;
-// 大数字 = 在本次练习里的位置；两种题型都有时，小数字 = 在本题型里是第几题
+// 大数字 = 在本次练习里的位置；有多个题型时，小数字 = 在本题型里是第几题
 function renderOverviewGrid(indices, withSub){
   return `<div class="ov-grid">` + indices.map((i,local)=>{
     const a = session.answers[i];
@@ -1277,13 +1286,15 @@ function renderOverviewGrid(indices, withSub){
   }).join("") + `</div>`;
 }
 function renderOverview(){
-  const mcqIdx = [], blankIdx = [];
-  session.queue.forEach((q,i)=>(q.type==="mcq" ? mcqIdx : blankIdx).push(i));
-  const both = mcqIdx.length>0 && blankIdx.length>0;
-  let html = "";
-  if(mcqIdx.length) html += `<div class="ov-section-title">${both?"一、":""}单选题（${mcqIdx.length}题）</div>` + renderOverviewGrid(mcqIdx, both);
-  if(blankIdx.length) html += `<div class="ov-section-title">${both?"二、":""}填空题（${blankIdx.length}题）</div>` + renderOverviewGrid(blankIdx, both);
-  const c = $("ovContent"); c.innerHTML = html;
+  const groups = new Map(QUESTION_GROUPS.map(name=>[name, []]));
+  session.queue.forEach((q,i)=>groups.get(questionGroup(q)).push(i));
+  const sections = [...groups].filter(([, indices])=>indices.length);
+  const numbered = sections.length>1;
+  const c = $("ovContent");
+  c.innerHTML = sections.map(([name, indices], i)=>{
+    const label = numbered ? "一二三"[i]+"、"+name : name;
+    return `<div class="ov-section-title">${label}（${indices.length}题）</div>` + renderOverviewGrid(indices, numbered);
+  }).join("");
   c.querySelectorAll(".ov-item").forEach(el=>el.addEventListener("click", ()=>{
     keepDraft(); session.idx = parseInt(el.dataset.idx, 10); closeOverview(); showScreen("quiz"); renderQuestion();
   }));
