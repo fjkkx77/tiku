@@ -126,6 +126,9 @@ span.blank-input[contenteditable="false"]{cursor:default;}
 .answer-box.right{background:#ecfdf3;color:#15803d;}
 .answer-box.wrong{background:#fef2f2;color:#b91c1c;}
 .answer-box .real{font-weight:bold;}
+.source-explanation{margin-top:6px;white-space:pre-wrap;overflow-wrap:anywhere;}
+.source-reference{white-space:pre-wrap;}
+.essay-assessment{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px;}
 /* 参考答案逐空列出（2026-10-19 用户报：「a / b / c」挤成一段，分不清哪个答案是哪一空，长答案还从中间断开）。
    每空一行，左边编号＝题里那一空旁边的编号；答案是一整块（inline-block），放不下就整块换到下一行，比一整行还长才在里面折 */
 .ans-head{font-weight:bold;}

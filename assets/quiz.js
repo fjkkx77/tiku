@@ -3,7 +3,7 @@
    以前每个站是一份完整拷贝，改着改着各自走样（同一个 bug 有的站修了有的没修），2026-10 合并成这一份。
 
    科目页只需要在引用本文件之前声明两样东西：
-     const QUIZ = { title, subtitle, prefix, intro, catWord?, programmingCat?, font?, wordlist?, normalize?, fpAlias?, marks? }
+     const QUIZ = { title, subtitle, prefix, intro, catWord?, programmingCat?, sourceOrder?, font?, wordlist?, normalize?, fpAlias?, marks? }
      （fpAlias：改了某道题的答案后填「旧指纹 → 新指纹」，见 migrateFp）
      （marks: true：题目卡片右上角出「会 / 不会」标记，开始练习页出「不会的 / 会的」入口；2026-10-23 四级两科先开）
    网址带 ?cat=分类名（如 ?cat=DAY%203）：打开时开始练习页只勾这一个分类（首页的 DAY 快捷入口用它）
@@ -22,6 +22,8 @@
                  （只放过大小写、空格、标点，词一个不能差、顺序不能变），答错时标出差在哪几个词
        accept    翻译题：参考译文有几种写法时把每种完整写出来（ans 仍是显示用的那一句）
      没写 type 的按填空处理（操作系统站的老数据就没写）
+     简答 {type:"essay", cat, text, ans:[参考答案]}：多行作答，对照参考答案自评
+     group 可指定题目总览的题型；explanation 可提供答后解析
    ===================================================================== */
 (function(){
 "use strict";
@@ -463,6 +465,7 @@ function pct(a,b){ return b ? Math.round(a/b*100) : 0; }
 function firstAns(a){ return String(a).split("|")[0]; }
 function ansText(q, sep){
   if(q.type==="mcq") return `${q.correct}. ${(q.options||{})[q.correct]||""}`;
+  if(q.type==="essay") return q.ans[0];
   const list = q.ans || [];
   return q.ordered && list.length>1 ? list.map((a,i)=>`(${i+1})${firstAns(a)}`).join("；") : list.map(firstAns).join(sep || "；");
 }
@@ -582,6 +585,7 @@ function renderBlankAnswer(q, st){
     box.innerHTML = (head ? head + (allCorrect ? "！ " : "。 ") : "") + `参考答案：<span class="real correct-ans">${ansLineHtml(q)}</span>${near}`;
   }
   numberBlanks(q, mode==="list", judged ? st.assignment : null, allCorrect);
+  box.insertAdjacentHTML("beforeend", explanationHtml(q));
   box._toggle = n > 1 ? ()=>{ ansView[q.id] = mode==="list" ? "line" : "list"; renderBlankAnswer(q, st); } : null;
 }
 /* 双击答案区＝切换一行 / 逐空（2026-10-19 用户要的）。
@@ -924,8 +928,9 @@ function renderResumeCard(){
 let sidCounter = 0;
 function newSid(){ return PAGE_ID + "-" + (++sidCounter); }
 
-const QUESTION_GROUPS = ["单选题", "填空题", "编程题"];
+const QUESTION_GROUPS = ["判断题", "单选题", "填空题", "简答题", "编程题"];
 function questionGroup(q){
+  if(q.group) return q.group;
   if(q.type==="mcq") return "单选题";
   return CFG.programmingCat && q.cat===CFG.programmingCat ? "编程题" : "填空题";
 }
@@ -943,7 +948,7 @@ async function startQuiz(questionPool, scopeLabel, fromEntry){
   }
   const random = (document.querySelector('input[name="order"]:checked')||{}).value === "random";
   // 各题型各成一段，随机只打乱组内顺序
-  const pool = QUESTION_GROUPS.flatMap(name=>{
+  const pool = CFG.sourceOrder && !random ? questionPool.slice() : QUESTION_GROUPS.flatMap(name=>{
     const group = questionPool.filter(q=>questionGroup(q)===name);
     if(random && group.length) shuffle(group);
     return group;
@@ -1021,7 +1026,7 @@ window.addEventListener("tiku-sync-applied", ()=>{
 function blankHtml(q, idx){
   // 手机别自作主张：不要首字母大写、不要自动改词、不要拼写检查（代码和单词会被改坏）
   const noFix = `autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false"`;
-  if(q.vocab) return `<textarea class="blank-input trans-area" data-idx="${idx}" rows="5" placeholder="请在此输入英语翻译…" ${noFix}></textarea><span class="reset-size-btn">⇕ 恢复</span>`;
+  if(q.vocab || q.type==="essay") return `<textarea class="blank-input trans-area" data-idx="${idx}" rows="5" placeholder="${q.vocab ? "请在此输入英语翻译…" : "请输入简答题答案…"}" ${noFix}></textarea><span class="reset-size-btn">⇕ 恢复</span>`;
   return `<span class="blank-input" role="textbox" aria-label="第${idx+1}空" data-idx="${idx}" contenteditable="${EDITABLE}" inputmode="text" ${noFix}></span>`;
 }
 function blankInputs(){ return [...document.querySelectorAll("#qText .blank-input, #qCode .blank-input")]; }
@@ -1080,7 +1085,7 @@ function renderQuestion(){
   if(!session.drafts) session.drafts = {};
   const q = currentQ(), saved = session.answers[session.idx], draft = session.drafts[session.idx];
   selectedOpt = saved && saved.selectedOpt ? saved.selectedOpt : null;
-  $("qTag").textContent = q.cat;
+  $("qTag").textContent = q.group ? `${q.cat} · ${q.group}` : q.cat;
   $("prevBtn").disabled = session.idx===0;
   const textEl = $("qText"), codeEl = $("qCode"), body = $("qBody"), box = $("answerBox");
   box.className = "answer-box"; box.innerHTML = ""; box._toggle = null;
@@ -1096,6 +1101,7 @@ function renderQuestion(){
     else codeEl.textContent = q.code.replace(/\{\{\}\}/g,"______");
   } else { codeEl.hidden = true; codeEl.textContent = ""; }
   const showOnly = recite && !saved;   // 背题：只看不答
+  if(q.type==="essay" && !showOnly) textEl.insertAdjacentHTML("beforeend", blankHtml(q, 0));
 
   if(q.type==="mcq"){
     body.innerHTML = `<div class="opt-list">` + Object.keys(q.options).map(L=>
@@ -1106,7 +1112,7 @@ function renderQuestion(){
     } else if(showOnly){
       markOptions(q, null);
       box.className = "answer-box show right";
-      box.innerHTML = `<b>答案：</b><span class="correct-ans">${esc(q.correct)}. ${esc(q.options[q.correct])}</span>`;
+      box.innerHTML = `<b>答案：</b><span class="correct-ans">${esc(ansText(q))}</span>` + explanationHtml(q);
     } else {
       body.querySelectorAll(".opt-row").forEach(el=>el.addEventListener("click", ()=>pickOption(el.dataset.letter)));
       if(draft && draft.opt && q.options[draft.opt] !== undefined){
@@ -1123,7 +1129,8 @@ function renderQuestion(){
         inp.classList.add(saved.assignment && saved.assignment[i]!==-1 ? "correct" : "wrong");
         inp.disabled = true;
       });
-      showAnswerBoxBlank(q, saved.allCorrect, saved.self, saved.userInputs, saved.assignment);
+      if(q.type==="essay") showEssayAnswer(q, saved.allCorrect);
+      else showAnswerBoxBlank(q, saved.allCorrect, saved.self, saved.userInputs, saved.assignment);
     } else {
       if(Array.isArray(draft)) inputs.forEach((inp,i)=>{ inp.value = draft[i] || ""; });
       inputs.forEach((inp,i)=>{
@@ -1143,7 +1150,8 @@ function renderQuestion(){
         });
       });
       if(showOnly){
-        if(q.vocab){ box.className = "answer-box show right"; box.innerHTML = `参考译文：<span class="real">${esc(ansText(q))}</span>`; }
+        if(q.type==="essay") showEssayAnswer(q);
+        else if(q.vocab){ box.className = "answer-box show right"; box.innerHTML = `参考译文：<span class="real">${esc(ansText(q))}</span>`; }
         else renderBlankAnswer(q, null);
       }
       // 只在电脑上（有鼠标）自动聚焦第一空，方便直接打字。手机上不聚焦：点「下一题」时 iPhone 会把键盘直接弹出来，
@@ -1153,6 +1161,7 @@ function renderQuestion(){
     }
   }
   document.querySelectorAll("#qText .reset-size-btn").forEach(b=>{ b.onclick = ()=>{ b.previousElementSibling.style.height = ""; }; });
+  $("checkBtn").textContent = q.type==="essay" ? "查看参考答案" : "提交答案";
   $("checkBtn").hidden = !!saved || showOnly;
   updateNextBtn();
   renderStats();
@@ -1186,12 +1195,21 @@ function updateNextBtn(){
   b.textContent = isLast ? "已是最后一题" : "下一题";
   b.disabled = isLast;
 }
+function explanationHtml(q){
+  return q.explanation ? `<div class="source-explanation"><b>答案解析：</b>${esc(q.explanation)}</div>` : "";
+}
+function showEssayAnswer(q, allCorrect){
+  const box = $("answerBox");
+  box.className = "answer-box show " + (allCorrect === false ? "wrong" : "right");
+  box.innerHTML = (allCorrect === undefined ? "" : `<div>${allCorrect ? "✔ 自评答对" : "✘ 自评答错"}</div>`)
+    + `<div class="source-reference"><b>参考答案：</b>${esc(ansText(q))}</div>` + explanationHtml(q);
+}
 function showAnswerBoxMcq(q, allCorrect, userOpt){
   const box = $("answerBox");
   box.className = "answer-box show " + (allCorrect ? "right" : "wrong");
   box.innerHTML = `<b>我的答案：</b><span class="my-ans${allCorrect?"":" wrong-color"}">${userOpt ? esc(userOpt) : "未作答"}</span>`
     + `　　<b>正确答案：</b><span class="correct-ans">${esc(q.correct)}. ${esc(q.options[q.correct])}</span>`
-    + (q.note ? ` <span class="opt-note">${esc(q.note)}</span>` : "");
+    + (q.note ? ` <span class="opt-note">${esc(q.note)}</span>` : "") + explanationHtml(q);
 }
 function showAnswerBoxBlank(q, allCorrect, self, userInputs, assignment){
   const box = $("answerBox");
@@ -1226,6 +1244,22 @@ function submitAnswer(){
     const userInputs = inputs.map(inp=>inp.value);
     if(inputs.includes(document.activeElement)) document.activeElement.blur();   // 横线空锁住时焦点不会自己走（不像 <input disabled>），先收键盘
     inputs.forEach(inp=>{ inp.disabled = true; });
+    if(q.type==="essay"){
+      keepDraft();
+      saveProgress();
+      showEssayAnswer(q);
+      $("checkBtn").hidden = true;
+      const box = $("answerBox");
+      box.insertAdjacentHTML("beforeend", '<div class="essay-assessment"><button type="button" class="btn secondary" data-essay="wrong">我答错了</button><button type="button" class="btn" data-essay="right">我答对了</button></div>');
+      const grade = allCorrect=>{
+        inputs[0].classList.add(allCorrect ? "correct" : "wrong");
+        showEssayAnswer(q, allCorrect);
+        recordAnswer(q, { allCorrect, userInputs, assignment: [allCorrect ? 0 : -1] });
+      };
+      box.querySelector('[data-essay="wrong"]').onclick = ()=>grade(false);
+      box.querySelector('[data-essay="right"]').onclick = ()=>grade(true);
+      return;
+    }
     const g = gradeQuestion(q, userInputs);
     inputs.forEach((inp,i)=>{ inp.classList.add(g.assignment[i]!==-1 ? "correct" : "wrong"); });
     showAnswerBoxBlank(q, g.allCorrect, false, userInputs, g.assignment);
@@ -1247,6 +1281,7 @@ function recordAnswer(q, record){
     } else {
       wb[q.id] = { cat:q.cat, type:q.type, text:q.text||"", code:q.code||"", options:q.options||null, correct:q.correct||null, ans:q.ans||null,
         ordered:!!q.ordered, vocab:q.vocab||null, wrongCount:num((wb[q.id]||{}).wrongCount)+1, correctStreak:0, lastWrongAt:Date.now() };
+      if(q.explanation) wb[q.id].explanation = q.explanation;
     }
   });
   // 标了「会」的题答错了：说明还没真会，自动改回「不会」（2026-10-23 用户定）
@@ -1292,7 +1327,7 @@ function renderOverview(){
   const numbered = sections.length>1;
   const c = $("ovContent");
   c.innerHTML = sections.map(([name, indices], i)=>{
-    const label = numbered ? "一二三"[i]+"、"+name : name;
+    const label = numbered ? "一二三四五"[i]+"、"+name : name;
     return `<div class="ov-section-title">${label}（${indices.length}题）</div>` + renderOverviewGrid(indices, numbered);
   }).join("");
   c.querySelectorAll(".ov-item").forEach(el=>el.addEventListener("click", ()=>{
@@ -1351,17 +1386,17 @@ function renderResultList(wantCorrect){
       const hints = a.allCorrect ? [] : nearHints(q, a.userInputs, a.assignment);
       return `<div class="review-item">
       <div class="qtext">${esc(plainText(q, true))}</div>
-      ${ansListHtml(q, a.userInputs||[], a.assignment, a.allCorrect, hints)}
+      ${ansListHtml(q, a.userInputs||[], a.assignment, a.allCorrect, hints)}${explanationHtml(q)}
     </div>`;
     }
     let yours;
     if(q.type==="mcq") yours = esc(a.selectedOpt ? `${a.selectedOpt}. ${q.options[a.selectedOpt]}` : "未作答");
     else yours = oneLineHtml((a.userInputs||[]).map(v=>v.trim() ? v : "（未填）"));
-    const near = q.type!=="mcq" && !q.vocab && !a.allCorrect ? nearHints(q, a.userInputs, a.assignment).map((h,i)=>h ? `<div class="ans-near">差一点：你填的「${esc(String(a.userInputs[i]).trim())}」${h.text}</div>` : "").join("") : "";
+    const near = q.type==="blank" && !q.vocab && !a.allCorrect ? nearHints(q, a.userInputs, a.assignment).map((h,i)=>h ? `<div class="ans-near">差一点：你填的「${esc(String(a.userInputs[i]).trim())}」${h.text}</div>` : "").join("") : "";
     return `<div class="review-item">
       <div class="qtext">${esc(plainText(q))}</div>
       <div class="your-ans" style="color:${a.allCorrect?"var(--green)":"var(--red)"}">你的答案：${yours}</div>
-      <div class="correct-ans-line">${q.vocab?"参考译文":"正确答案"}：${q.type==="mcq" || q.vocab ? esc(ansText(q)) : ansLineHtml(q)}</div>${near}
+      <div class="correct-ans-line">${q.vocab?"参考译文":q.type==="essay"?"参考答案":"正确答案"}：${q.type!=="blank" || q.vocab ? esc(ansText(q)) : ansLineHtml(q)}</div>${near}${explanationHtml(q)}
     </div>`;
   }).join("");
 }
@@ -1401,12 +1436,12 @@ function renderWrongbook(){
   list.innerHTML = items.map(it=>{
     const streak = num(it.correctStreak);
     // 填空题跟答题页同一套规则：空在代码里或 5 空以上逐空列出，其余一行、分号隔开
-    const blank = it.type!=="mcq" && !it.vocab, asList = blank && prefersList(it);
+    const blank = it.type!=="mcq" && it.type!=="essay" && !it.vocab, asList = blank && prefersList(it);
     const ans = asList ? ansListHtml(it) : `<div class="ans">${it.vocab?"参考译文":"答案"}：${blank ? ansLineHtml(it) : esc(ansText(it))}</div>`;
     return `<div class="wrong-item">
       <div class="top"><span>${esc(it.cat)}</span><span>错${num(it.wrongCount)||1}次 · ${it.lastWrongAt ? fmtDate(num(it.lastWrongAt)) : ""}</span></div>
       <div class="qtext">${esc(plainText(it, asList))}</div>
-      ${ans}
+      ${ans}${explanationHtml(it)}
       <div class="note">已连续答对 ${streak}/${MASTER_STREAK} 次${streak>0 ? `，再连续答对${MASTER_STREAK-streak}次将自动从错题本移除` : ""}<button class="wb-remove" data-id="${esc(it.id)}">移出错题本</button></div>
     </div>`;
   }).join("");

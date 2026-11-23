@@ -9,7 +9,7 @@
 const http = require('http'), fs = require('fs'), path = require('path');
 const { open, sleep } = require('./cdp.cjs');
 const ROOT = path.resolve(__dirname, '..');
-const SITES = ['web-design','software-engineering','mobile-app','os','english-listening','english-reading','english-vocab','english-translation','cet4-vocab','cet4-choose','cet4-spell','lijing-vocab','lijing-choose','lijing-spell','lijing-daily-vocab','lijing-daily-choose','lijing-daily-spell','computer-graphics'];
+const SITES = ['web-design','software-engineering','mobile-app','os','english-listening','english-reading','english-vocab','english-translation','cet4-vocab','cet4-choose','cet4-spell','lijing-vocab','lijing-choose','lijing-spell','lijing-daily-vocab','lijing-daily-choose','lijing-daily-spell','computer-graphics','aigc'];
 const MIME = { '.html':'text/html; charset=utf-8', '.css':'text/css; charset=utf-8', '.js':'text/javascript; charset=utf-8', '.json':'application/json' };
 
 // 首页卡片数＝科目 + 四级 30 个 DAY 入口 + 每日单词每天一张（日期列表由 lijing-daily/build_daily.py 写进首页）
@@ -49,6 +49,28 @@ function serve() {
 
     /* ---------- 2. 逻辑 ---------- */
     let r;
+    await fresh('aigc/');
+    r = await c.ev(`(async()=>{ ${start}
+      const bySource = Q.session.queue.every((q,i)=>q===QUESTIONS[i]);
+      document.getElementById("overviewLink").click();
+      const groups = [...document.querySelectorAll("#ovContent .ov-section-title")];
+      groups.at(-1).nextElementSibling.querySelector(".ov-item").click();
+      const q = Q.session.queue[Q.session.idx], input = document.querySelector("#qText textarea");
+      const box = document.getElementById("answerBox");
+      const hiddenBefore = !box.textContent;
+      input.value = "第一点\\n第二点";
+      document.getElementById("checkBtn").click();
+      const preview = box.textContent.includes(q.ans[0]) && box.textContent.includes(q.explanation) && !Q.session.answers[Q.session.idx];
+      box.querySelector('[data-essay="wrong"]').click();
+      const record = Q.session.answers[Q.session.idx];
+      Q.renderQuestion();
+      const saved = document.querySelector("#qText textarea").value === record.userInputs[0]
+        && document.getElementById("answerBox").textContent.includes("自评答错");
+      return {bySource, groups:groups.map(el=>el.textContent), hiddenBefore, preview, saved, record};
+    })()`);
+    ok(r.bySource && r.groups.join('|') === '一、判断题（100题）|二、单选题（100题）|三、填空题（50题）|四、简答题（50题）' &&
+      r.hiddenBefore && r.preview && r.saved && !r.record.allCorrect && r.record.userInputs[0] === '第一点\n第二点',
+      'AIGC：原卷顺序、四类总览、简答题参考答案与解析、自评及多行作答回读', r);
     await fresh('computer-graphics/');
     r = await c.ev(`(async()=>{ ${start}
       document.getElementById("overviewLink").click();
@@ -475,6 +497,21 @@ function serve() {
             ok(overview.title === '三、编程题（2题）' && overview.width === W &&
               overview.scrollWidth <= overview.contentWidth,
               `${W} 计算机图形学：总览编程题分组无横向溢出`, overview);
+          }
+          if(s === 'aigc'){
+            const essay = await t.ev(`(()=>{
+              const Q = __quiz;
+              Q.session.idx = Q.session.queue.findIndex(q=>q.type==="essay");
+              Q.renderQuestion();
+              document.querySelector("#checkBtn").click();
+              const input = document.querySelector("#qText textarea");
+              const box = document.querySelector("#answerBox");
+              return {width:innerWidth, page:document.documentElement.scrollWidth,
+                font:parseFloat(getComputedStyle(input).fontSize), buttons:box.querySelectorAll("[data-essay]").length,
+                box:box.clientWidth, content:box.scrollWidth};
+            })()`);
+            ok(essay.width === W && essay.page <= W && essay.font >= 16 && essay.buttons === 2 && essay.content <= essay.box,
+              `${W} AIGC：简答输入框、原文答案和自评按钮无横向溢出`, essay);
           }
         }
         // 填空的空是横线（2026-10-18 用户报：方框最宽 22 个字，长中文/英文截在框里看不全）：真打字进去，长内容要折行、全看得见
