@@ -42,7 +42,7 @@ async function browserChecks(){
       send({server_tool_event:{type:"call_started"}});
       send({delta:{content:"依据"}});
       setTimeout(()=>{
-        send({delta:{content:"原文",annotations:[{url_citation:{url:"https://example.org/",end_index:4}}],server_tool_calls:[{index:0,calls:[]}]},finish_reason:"stop"});
+        send({delta:{content:"原文\n"+"LongIdentifier".repeat(80),annotations:[{url_citation:{url:"https://example.org/",end_index:4}}],server_tool_calls:[{index:0,calls:[]}]},finish_reason:"stop"});
         res.end("data: [DONE]\n\n");
       },250);
       return;
@@ -56,7 +56,7 @@ async function browserChecks(){
   });
   await new Promise(resolve=>server.listen(0,"127.0.0.1",resolve));
   try {
-    for(const width of [320,390,430]){
+    for(const width of [320,390,430,1024,1440,1920]){
       const c=await open(width,844,1);
       try {
         await c.goto("http://127.0.0.1:"+server.address().port+"/linux-network/");
@@ -69,6 +69,18 @@ async function browserChecks(){
         }
         await until('document.querySelector("#tutorLog").innerText.includes("依据") && !document.querySelector("#tutorStop").hidden');
         await until('document.querySelector("#tutorLog a")?.href==="https://example.org/"');
+        assert.ok(await c.ev('document.documentElement.scrollWidth<=innerWidth && document.querySelector("#tutorPanel").scrollWidth<=document.querySelector("#tutorPanel").clientWidth+1'));
+        if(width>=1024){
+          const tag=await c.ev('document.querySelector("#qText").textContent');
+          await c.ev('document.querySelector("#tutorAsk").focus()');
+          for(const key of ["a","ArrowRight","Enter"]){
+            await c.send("Input.dispatchKeyEvent",{type:"keyDown",key});
+            await c.send("Input.dispatchKeyEvent",{type:"keyUp",key});
+          }
+          assert.equal(await c.ev('document.querySelector("#qText").textContent'),tag);
+          assert.equal(await c.ev('document.activeElement.id'),"tutorAsk");
+          assert.ok(await c.ev('getComputedStyle(document.querySelector("#tutorAsk")).fontSize!=="0px" && document.querySelector("#tutorLog a").getBoundingClientRect().width>0'));
+        }
         await c.ev('document.querySelector("#tutorHint").click()');
         await until('document.querySelectorAll("#tutorLog a").length===2');
         assert.equal(observed.at(-1).history[1].server_tool_calls.length,1);
