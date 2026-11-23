@@ -16,7 +16,7 @@ const OLD8 = ["web-design","os","software-engineering","mobile-app","english-lis
 // 快捷入口（四级 DAY 1–15）不是独立科目，但在首页是独立卡片，紧跟在父科目后面
 const NEW = ["cet4-vocab"].concat(Array.from({length:15},(_,i)=>"cet4-vocab-day"+(i+1)), ["cet4-choose"], Array.from({length:15},(_,i)=>"cet4-choose-day"+(i+1)), ["cet4-spell", "lijing-vocab", "lijing-choose", "lijing-spell", "lijing-daily-vocab", "lijing-daily-choose", "lijing-daily-spell"],
   // 每日单词每天一张入口卡片（排在三科后面），日期列表每天由 lijing-daily/build_daily.py 改写，这里照首页读
-  JSON.parse(require('fs').readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8').match(/const LIJING_DAILY_DAYS = (.*);/)[1]).map(d => 'lijing-daily-' + d[0]), ['computer-graphics', 'aigc']);
+  JSON.parse(require('fs').readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8').match(/const LIJING_DAILY_DAYS = (.*);/)[1]).map(d => 'lijing-daily-' + d[0]), ['computer-graphics', 'aigc', 'linux-network']);
 const TOTAL = OLD8.length + NEW.length;
 const REAL = `localStorage.setItem("tiku_folders",JSON.stringify([{id:"f1",name:"第二学期"}]));
   localStorage.setItem("tiku_subject_folder",JSON.stringify({"web-design":"f1",os:"f1","software-engineering":"f1","mobile-app":"f1","english-listening":"f1","english-reading":"f1","english-vocab":"f1","english-translation":"f1"}));

@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="theme-color" content="#2f6ff0" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#1f47b0" media="(prefers-color-scheme: dark)">
+<title>Linux网络编程期末练习</title>
+<link rel="stylesheet" href="../assets/quiz.css?v=594fae48e2">
+</head>
+<body>
+<script>
+const QUIZ = {
+  title: "Linux网络编程期末练习",
+  subtitle: "错题本 · 练习记录",
+  prefix: "linuxnetworkquiz",
+  intro: "作业一25题 + 作业二20题 + 作业三20题",
+  catWord: "作业",
+};
+const QUESTIONS = [
+{"type": "mcq", "cat": "作业一", "text": "1. 如果忘记了ls 命令的用法, 可以采用( )命令获得帮助", "options": {"A": "get ls", "B": "help ls", "C": "?ls", "D": "man ls"}, "correct": "D"},
+{"type": "mcq", "cat": "作业一", "text": "2. Linux 文件权限一共 10 位长度, 分成四段, 第三段表示的内容是( )", "options": {"A": "文件所有者所在组的权限", "B": "文件所有者的权限", "C": "其他用户的权限", "D": "文件类型"}, "correct": "A"},
+{"type": "mcq", "cat": "作业一", "text": "3. 终止一个前台进程可能用到的命令和操作( )", "options": {"A": "shut down", "B": "kill", "C": "\u003cCTRL>+C", "D": "halt"}, "correct": "C"},
+{"type": "mcq", "cat": "作业一", "text": "4. 编译 hello.c, 可以在 pc 机上运行的命令是( ):", "options": {"A": "gcc hello.c -r hello", "B": "gcc hello.c -d hello", "C": "arm-linux-gcc hello.c -o hello", "D": "gcc hello.c -o hello"}, "correct": "D"},
+{"type": "mcq", "cat": "作业一", "text": "5. 字符设备文件类型的标志是( )", "options": {"A": "l", "B": "s", "C": "p", "D": "c"}, "correct": "D"},
+{"type": "mcq", "cat": "作业一", "text": "6. 以下输出重定向命令中,覆盖存在文件的是( )", "options": {"A": ">", "B": "\u003c", "C": "\u003c\u003c", "D": ">>"}, "correct": "A"},
+{"type": "mcq", "cat": "作业一", "text": "7. ‎在默认状态下,对应文件不是系统标准I/O设备的文件描述符是( )", "options": {"A": "2", "B": "0", "C": "3", "D": "1"}, "correct": "C"},
+{"type": "mcq", "cat": "作业一", "text": "8. 函数调用语句 lseek(fd,20,SEEK_SET) 的含义是( )", "options": {"A": "将文件的位置指针向后移到距离文件头20个字节处", "B": "将文件的位置指针从当前位置向后移动20个字节", "C": "将文件的位置指针从当前位置向前移动20个字节", "D": "将文件的位置指针向前移到距离文件头20个字节处"}, "correct": "A"},
+{"type": "mcq", "cat": "作业一", "text": "9. 文件权限读、写、执行的三种标志符号依次是( )", "options": {"A": "xrw", "B": "srw", "C": "rdx", "D": "rwx"}, "correct": "D"},
+{"type": "mcq", "cat": "作业一", "text": "10. 使/root/hello.c 的文件属性为只对本用户可以读,写并执行的命令( ):", "options": {"A": "chmod 700 /root/hello.c", "B": "chmod 006 /root/hello.c", "C": "chmod 070 /root/hello.c", "D": "chmod 007 /root/hello.c"}, "correct": "A"},
+{"type": "mcq", "cat": "作业一", "text": "11. Linux下,标准错误输出(stderr)对应的文件描述符是( )。", "options": {"A": "2", "B": "1", "C": "3", "D": "0"}, "correct": "A"},
+{"type": "mcq", "cat": "作业一", "text": "12. 对名为 fido 的文件用 chmod 551 fido 进行了修改,则它的许可权是( )", "options": {"A": "-rwxr-xr-x", "B": "-r--r--r--", "C": "-r-xr-x—x", "D": "-rwxr--r--"}, "correct": "C"},
+{"type": "mcq", "cat": "作业一", "text": "13. 函数open()中,以只写方式打开的参数flags是( )。", "options": {"A": "O_RDONLY", "B": "O_RDWR", "C": "O_APPEND", "D": "O_WRONLY"}, "correct": "D"},
+{"type": "mcq", "cat": "作业一", "text": "14. 改变文件所有者的命令为( )", "options": {"A": "chmod", "B": "cat", "C": "touch", "D": "chown"}, "correct": "D"},
+{"type": "mcq", "cat": "作业一", "text": "15. 函数open()中,每次写操作都追加到文件末尾的参数flags是( )", "options": {"A": "O_SYNC", "B": "O_CREAT", "C": "O_APPEND", "D": "O_TRUNC"}, "correct": "C"},
+{"type": "mcq", "cat": "作业一", "text": "16. write()函数的count参数需要使用( )函数获得。", "options": {"A": "strlen()", "B": "length()", "C": "string()", "D": "sizeof()"}, "correct": "A"},
+{"type": "mcq", "cat": "作业一", "text": "17. 用 ls –al 命令列出下面的文件列表,( )文件是符号连接文件。", "options": {"A": "lrwxr--r-- 1 hel users 2024 Sep 12 08:12 cheng", "B": "-rw-rw-rw- 2 hel-s users 56 Sep 09 11:05 hello", "C": "-rwxrwxrwx 2 hel-s users 56 Sep 09 11:05 goodbey", "D": "drwxr--r-- 1 hel users 1024 Sep 10 08:10 zhang"}, "correct": "A"},
+{"type": "mcq", "cat": "作业一", "text": "18. 文件exer1的访问权限为 rw-r--r--, 现要增加所有用户的执行权限和同组用户的写权限, 下列命令正确的是( )", "options": {"A": "chmod a+x g+w exer1", "B": "chmod g+w exer1", "C": "chmod o+x exer1", "D": "chmod 765 exer1"}, "correct": "A"},
+{"type": "mcq", "cat": "作业一", "text": "19. 当访问一个目录文件时,同普通文件一样,需要将其打开。打开目录文件的\n函数是( )。", "options": {"A": "closedir", "B": "mkdir", "C": "readdir", "D": "opendir"}, "correct": "D"},
+{"type": "mcq", "cat": "作业一", "text": "20. 文件大小通过查询buf这个struct stat结构体变量的( )元素获得?", "options": {"A": "buf.st_size", "B": "buf.st_blksize", "C": "buf.st_ino", "D": "buf.st_blocks"}, "correct": "A"},
+{"type": "mcq", "cat": "作业一", "text": "21. 当前目录为根目录,要在/root 下建立一个 linux 目录的命令是( ):", "options": {"A": "mk /root/wxz", "B": "dir /linux", "C": "mkdir /linux", "D": "mkdir /root/linux"}, "correct": "D"},
+{"type": "mcq", "cat": "作业一", "text": "22. 建立一个新文件可以使用的命令为( )", "options": {"A": "cp", "B": "chmod", "C": "more", "D": "touch"}, "correct": "D"},
+{"type": "mcq", "cat": "作业一", "text": "23. 系统中有用户user1和user2,同属于users组。在user1用户目录下有一文件file1,它拥有644的权限,如果user2 用户想修改user1 用户目录下的file1文件,应拥有( )权限。", "options": {"A": "646", "B": "664", "C": "746", "D": "744"}, "correct": "B"},
+{"type": "mcq", "cat": "作业一", "text": "24. 形成空洞文件所需要的使用的函数是:( )", "options": {"A": "write", "B": "lseek", "C": "seek", "D": "read"}, "correct": "B"},
+{"type": "mcq", "cat": "作业一", "text": "25. 使用重定向,将ls命令的输出结果追加到a.txt文件中的有效命令是( )。", "options": {"A": "ls \u003c\u003c a.txt", "B": "ls \u003c a.txt", "C": "ls > a.txt", "D": "ls >> a.txt"}, "correct": "D"},
+{"type": "mcq", "cat": "作业二", "text": "1. 查看系统当中所有进程的命令是( )", "options": {"A": "ps aux", "B": "ps all", "C": "ps auf", "D": "ps aix"}, "correct": "A"},
+{"type": "mcq", "cat": "作业二", "text": "2. 获取当前进程ID所使用的系统API函数是( )。", "options": {"A": "getppid()", "B": "getpid()", "C": "waitpid()", "D": "wait()"}, "correct": "B"},
+{"type": "mcq", "cat": "作业二", "text": "3. 下面哪个函数既可以指定所等待子进程的ID又可以请求内核返回子进程使用的资源情况汇总?( )", "options": {"A": "wait4", "B": "waitpid", "C": "wait3", "D": "wait"}, "correct": "B"},
+{"type": "mcq", "cat": "作业二", "text": "4. ( )是操作系统中最重要、最基本的概念之一,它是系统分配资源的基本单位,是一个具有独立功能的程序段对某个数据集的一次执行活动。", "options": {"A": "程序", "B": "进程", "C": "作业", "D": "线程"}, "correct": "B"},
+{"type": "mcq", "cat": "作业二", "text": "5. fork 函数在父进程中的返回值是( )。", "options": {"A": "1", "B": "创建的子进程的进程标识号", "C": "-1", "D": "0"}, "correct": "B"},
+{"type": "mcq", "cat": "作业二", "text": "6. 以下关于pid_t wait(int *status)的描述,正确的是( )", "options": {"A": "子进程在运行时父进程会进入阻塞状态", "B": "子进程在父进程wait之前结束则会进入阻塞状态", "C": "函数调用成功时返回0", "D": "若没有子进程当前进程会一直阻塞"}, "correct": "A"},
+{"type": "mcq", "cat": "作业二", "text": "7. 进程有三种状态:( )", "options": {"A": "手工态、自动态和自由态", "B": "精确态、模糊态和随机态", "C": "运行态、就绪态和等待态", "D": "准备态、执行态和退出态"}, "correct": "C"},
+{"type": "mcq", "cat": "作业二", "text": "8. 父进程先于子进程结束,子进程成为一个( )。", "options": {"A": "孤儿进程", "B": "守护进程", "C": "前台进程", "D": "僵尸进程"}, "correct": "A"},
+{"type": "mcq", "cat": "作业二", "text": "9. fork函数成功创建子进程,父子进程执行方式是( )。", "options": {"A": "顺序执行", "B": "先执行完子进程再执行父进程", "C": "父进程执行完后再执行子进程", "D": "交替执行,执行顺序不定"}, "correct": "D"},
+{"type": "mcq", "cat": "作业二", "text": "10. 一般而言,Linux中的初始进程为( )", "options": {"A": "idle", "B": "init", "C": "initcall", "D": "start_kernel"}, "correct": "B"},
+{"type": "mcq", "cat": "作业二", "text": "11. 以下有关进程和程序的说法正确的是( )。", "options": {"A": "一个程序可以对应多个进程", "B": "进程是静态的", "C": "程序是动态的", "D": "程序就是进程"}, "correct": "A"},
+{"type": "mcq", "cat": "作业二", "text": "12. 下列exec函数中调用者可以指定路径和通过数组指定命令行参数的函数是", "options": {"A": "execvp", "B": "execlp", "C": "execle", "D": "execl"}, "correct": "A"},
+{"type": "mcq", "cat": "作业二", "text": "13. 下列不是 Linux 系统进程类型的是", "options": {"A": "守护进程", "B": "就绪进程", "C": "交互进程", "D": "批处理进程"}, "correct": "B"},
+{"type": "mcq", "cat": "作业二", "text": "14. 进程的并发性是指( )。", "options": {"A": "多个进程在同一系统按照规定的顺序执行", "B": "多个进程在同一时间间隔内同时发生", "C": "多个进程在同一时刻同时发生", "D": "各进程依次执行"}, "correct": "C"},
+{"type": "mcq", "cat": "作业二", "text": "15. 当你登录Linux后,一个带有被称作( )的数字进程号的脚本被启动。", "options": {"A": "CID", "B": "NID", "C": "PID", "D": "UID"}, "correct": "C"},
+{"type": "mcq", "cat": "作业二", "text": "16. ( )不是进程和程序的区别。", "options": {"A": "程序没有状态,而进程是有状态的", "B": "程序只能在前台运行,而进程可以在前台或后台运行", "C": "程序是一组有序的静态指令,进程是一次程序的执行过程", "D": "程序可以长期保存,进程是暂时的"}, "correct": "B"},
+{"type": "mcq", "cat": "作业二", "text": "17. 程序非正常终止方式是( )", "options": {"A": "调用abort", "B": "调用exit", "C": "从main函数返回", "D": "调用_exit"}, "correct": "A"},
+{"type": "mcq", "cat": "作业二", "text": "18. 调用fork函数后该函数返回值等于0,说明出现以下何种情况( )", "options": {"A": "当前代码运行在主线程中", "B": "当前代码运行在子进程中", "C": "当前代码运行在父进程中", "D": "创建子进程出错"}, "correct": "B"},
+{"type": "mcq", "cat": "作业二", "text": "19. 调用fork函数后下列哪一种不属于父子进程之间共享的内容( )", "options": {"A": "环境变量", "B": "父进程的代码段", "C": "父进程已打开的文件", "D": "父进程的全局变量"}, "correct": "D"},
+{"type": "mcq", "cat": "作业二", "text": "20. 在 kill(pid,signum)函数中,pid 参数表示 kill 函数发送信号对象的进程号或进程组号。 Pid>0 表示 ( )。", "options": {"A": "向进程号为 pid 值的进程发送信号", "B": "未定义", "C": "向与发送信号的进程有相同进程组号的进程发送信号", "D": "向进程组号为 pid 绝对值的进程发送信号"}, "correct": "A"},
+{"type": "mcq", "cat": "作业三", "text": "1. 下面程序运行结果是( )", "options": {"A": "0", "B": "1", "C": "2", "D": "3"}, "correct": "C", "code": "int main()\n{\nunsigned int ret=0;\nret=alarm(5);\nsleep(3);\nret=alarm(5);\nprintf(\"ret=%d\\n\",ret );\n}"},
+{"type": "mcq", "cat": "作业三", "text": "2. 互斥的实现方法有( )。", "options": {"A": "信号", "B": "线程", "C": "互斥锁", "D": "共享内存"}, "correct": "C"},
+{"type": "mcq", "cat": "作业三", "text": "3. 为了解决父子进程之间的异步通信问题而采用的信号机制是( )。", "options": {"A": "SIGCHILD", "B": "SIGPARENT", "C": "SIGTERM", "D": "SIGINT"}, "correct": "A"},
+{"type": "mcq", "cat": "作业三", "text": "4. 下列终止方式,不属于线程终止方式的是( )", "options": {"A": "被同一进程的其他线程取消", "B": "从启动的例程返回", "C": "被产生的子进程取消", "D": "线程主动调用pthred_exit()函数"}, "correct": "C"},
+{"type": "mcq", "cat": "作业三", "text": "5. 在 POSIX 中,线程是用( )动态地创建。", "options": {"A": "pthread_create", "B": "create_pthread", "C": "pthread_self", "D": "pthread_new"}, "correct": "A"},
+{"type": "mcq", "cat": "作业三", "text": "6. 以下信号不能被忽略的是( )。", "options": {"A": "SIGINT", "B": "SIGKILL", "C": "SIGCHLD", "D": "SIGPIPE"}, "correct": "B"},
+{"type": "mcq", "cat": "作业三", "text": "7. 想要自行设定某信号的处理过程,需要( )。", "options": {"A": "发送信号", "B": "忽略信号", "C": "将信号处理方式恢复为默认", "D": "捕捉信号"}, "correct": "D"},
+{"type": "mcq", "cat": "作业三", "text": "8. ( )用来初始化一个互斥锁。", "options": {"A": "pthread_mutex_init", "B": "pthread_mutex_create", "C": "pthread_mutex_begin", "D": "pthread_mutex_lock"}, "correct": "A"},
+{"type": "mcq", "cat": "作业三", "text": "9. ( )是分配资源的基本单元,( )是调度的基本单元。", "options": {"A": "线程 线程", "B": "进程 进程", "C": "线程 进程", "D": "进程 线程"}, "correct": "D"},
+{"type": "mcq", "cat": "作业三", "text": "10. 可以使用下面的( )函数将一个线程挂起。", "options": {"A": "pthread_join", "B": "pthread_pause", "C": "pthread_self", "D": "pthread_exit"}, "correct": "A"},
+{"type": "mcq", "cat": "作业三", "text": "11. 以下对信号的理解不正确的是( )。", "options": {"A": "信号是可以屏蔽的", "B": "信号是一种异步通信方式", "C": "信号只用在用户空间进程通信,不能和内核空间交互", "D": "信号是通过软中断实现的"}, "correct": "C"},
+{"type": "mcq", "cat": "作业三", "text": "12. 编译有线程的文件要加什么参数( )?", "options": {"A": "–ppthread", "B": "–lpthread", "C": "–dpthread", "D": "–tpthread"}, "correct": "B"},
+{"type": "mcq", "cat": "作业三", "text": "13. 以下哪一项不是线程与进程对比的优点?( )", "options": {"A": "创建线程花费的时间少", "B": "线程间切换的速度快", "C": "线程拥有更灵活的调度策略", "D": "线程间通信更加方便省时"}, "correct": "A"},
+{"type": "mcq", "cat": "作业三", "text": "14. 调用pthread_create函数创建一个线程后,( )会先运行。", "options": {"A": "该进程的主线程", "B": "创建的新线程或调用pthread_create函数的线程", "C": "创建的新线程", "D": "调用pthread_create函数的线程"}, "correct": "A"},
+{"type": "mcq", "cat": "作业三", "text": "15. Linux环境下使用( )函数终止线程。", "options": {"A": "pthread_create()", "B": "pthread_out()", "C": "pthread_exit()", "D": "pthread_self()"}, "correct": "C"},
+{"type": "mcq", "cat": "作业三", "text": "16. 下列Linux 的进程收到信号后的处理方式错误的是:( )", "options": {"A": "调用信号处理函数", "B": "都不对", "C": "忽略", "D": "默认处理"}, "correct": "B"},
+{"type": "mcq", "cat": "作业三", "text": "17. 关于线程系统调用的描述,错误的是( )", "options": {"A": "一个线程可以调用pthread_cancel终止同一进程的其他线程", "B": "一个线程可以调用pthread_exit来终止自己", "C": "编译多线程时需要使用-lpthread指定需要连接libpthread.a库", "D": "pthread_create错误码保存在errno中可以使用perror打印出来"}, "correct": "D"},
+{"type": "mcq", "cat": "作业三", "text": "18. raise函数的功能是( )", "options": {"A": "向指定进程发送SIGINT信号", "B": "向当前进程发送指定信号", "C": "向指定进程发送指定信号", "D": "向当前进程发送SIGINT信号"}, "correct": "B"},
+{"type": "mcq", "cat": "作业三", "text": "19. 向指定进程发送一个信号可使用函数( )。", "options": {"A": "alarm", "B": "pause", "C": "kill", "D": "raise"}, "correct": "C"},
+{"type": "mcq", "cat": "作业三", "text": "20. kill(pid,signum)函数中,当参数pid为0时表示( )。", "options": {"A": "错误,参数pid不能为0", "B": "向与调用kill函数的进程同组的进程发送signum信号", "C": "向所有进程发送signum信号", "D": "向进程号为0的进程发送signum信号"}, "correct": "B"}
+];
+</script>
+<script src="../assets/sync-core.js?v=594fae48e2"></script>
+<script src="../assets/sync-client.js?v=594fae48e2"></script>
+<script src="../assets/tiku-sync.js?v=594fae48e2"></script>
+<script src="../assets/passes.js?v=594fae48e2"></script>
+<script src="../assets/quiz.js?v=594fae48e2"></script>
+</body>
+</html>

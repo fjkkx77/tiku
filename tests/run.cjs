@@ -9,7 +9,7 @@
 const http = require('http'), fs = require('fs'), path = require('path');
 const { open, sleep } = require('./cdp.cjs');
 const ROOT = path.resolve(__dirname, '..');
-const SITES = ['web-design','software-engineering','mobile-app','os','english-listening','english-reading','english-vocab','english-translation','cet4-vocab','cet4-choose','cet4-spell','lijing-vocab','lijing-choose','lijing-spell','lijing-daily-vocab','lijing-daily-choose','lijing-daily-spell','computer-graphics','aigc'];
+const SITES = ['web-design','software-engineering','mobile-app','os','english-listening','english-reading','english-vocab','english-translation','cet4-vocab','cet4-choose','cet4-spell','lijing-vocab','lijing-choose','lijing-spell','lijing-daily-vocab','lijing-daily-choose','lijing-daily-spell','computer-graphics','aigc','linux-network'];
 const MIME = { '.html':'text/html; charset=utf-8', '.css':'text/css; charset=utf-8', '.js':'text/javascript; charset=utf-8', '.json':'application/json' };
 
 // 首页卡片数＝科目 + 四级 30 个 DAY 入口 + 每日单词每天一张（日期列表由 lijing-daily/build_daily.py 写进首页）
@@ -49,6 +49,17 @@ function serve() {
 
     /* ---------- 2. 逻辑 ---------- */
     let r;
+    await fresh('linux-network/?cat=' + encodeURIComponent('作业三'));
+    r = await c.ev(`(async()=>{ ${start}
+      const q = Q.session.queue[0];
+      const code = document.getElementById("qCode").textContent;
+      Q.pickOption("C");
+      if (!Q.session.answers[0]) Q.submitAnswer();
+      return {size:Q.session.queue.length, scoped:Q.session.queue.every(item=>item.cat==="作业三"),
+        rendered:!!q.code && code===q.code && code.includes('printf("ret=%d\\\\n",ret );'),
+        correct:Q.session.answers[0].allCorrect};
+    })()`);
+    ok(r.size === 20 && r.scoped && r.rendered && r.correct, 'Linux 网络编程：只练作业三，首题代码照原文显示，原卷 C 判对', r);
     await fresh('aigc/');
     r = await c.ev(`(async()=>{ ${start}
       const bySource = Q.session.queue.every((q,i)=>q===QUESTIONS[i]);
