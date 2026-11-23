@@ -352,3 +352,13 @@ body.quizzing header p.quiz-scope:has(#quizScopeText:empty){display:none;}
 .mark-empty{font-size:12px;color:var(--muted);margin-top:10px;line-height:1.6;}
 /* 单选的答后说明（q.note，如音标）：跟在正确选项 / 正确答案后面，细一号、灰色，不抢选项本身 */
 .opt-note{font-weight:400;color:var(--muted);font-size:.92em;white-space:nowrap;}
+.tutor-panel { margin-block:1rem; border-top:1px solid #c7cbd2; padding-top:.55rem; }
+.tutor-panel summary { cursor:pointer; font-weight:600; padding:.65rem 0; }
+.tutor-panel label { display:block; margin:.75rem 0; }
+.tutor-panel textarea,.tutor-panel input[type=password] { display:block; width:100%; box-sizing:border-box; padding:.65rem; margin-top:.3rem; font:inherit; font-size:1rem; border:1px solid #abb1bb; border-radius:.5rem; }
+.tutor-panel p { white-space:pre-wrap; overflow-wrap:anywhere; line-height:1.6; }
+.tutor-panel strong { display:block; font-size:.85em; color:var(--muted); }
+.tutor-actions { display:flex; flex-wrap:wrap; gap:.4rem; }
+.tutor-actions button { min-height:44px; }
+.tutor-panel [hidden] { display:none; }
+.tutor-panel p:empty { display:none; }
