@@ -64,8 +64,8 @@ test("午夜按提问者时区，追问沿用本题的日期范围",() => {
 });
 
 test("只有旧闻时不会调用模型凑一篇今日新闻",async () => {
-  const r = await request(url=>url.endsWith("/search")?result([stale,undated]):staleModel());
-  assert.equal(r.calls.length,1);
+  const r = await request(url=>url.endsWith("/search")?result([stale,undated]):new Response("",{status:404}));
+  assert.equal(r.calls.filter(call=>call.url.endsWith("/search")).length,2);
   assert.match(r.output,/未查到/);
   assert.equal(r.output.includes(stale.title),false);
 });
@@ -92,6 +92,41 @@ test("普通联网追问带回问题上下文，从实际读到的网页生成",
 
 test("Search API 失败时发可重试错误，普通回答不冒充联网成功",async () => {
   const r = await request(url=>url.endsWith("/search")?new Response("",{status:502}):staleModel());
-  assert.equal(r.calls.length,1);
+  assert.equal(r.calls.length,2);
   assert.match(r.output,/tutor_web/);
+});
+
+test("第一次无合格结果时用重写的关键词重搜，首轮旧闻不会混入当天",async()=>{
+  let attempt=0;
+  const r=await request(url=>url.endsWith("/search")?result(++attempt===1?[stale,todayWithUnknownDate()]:[today,stale]):staleModel(),{question:"今日AI大事"});
+  assert.equal(r.calls.length,2);
+  assert.match(r.calls[1].body.query,/人工智能|新闻/);
+  assert.doesNotMatch(r.calls[1].body.query,/\b(?:after|before):/);
+  assert.ok(r.output.includes(today.url));
+  assert.ok(!r.output.includes(stale.url));
+});
+
+function todayWithUnknownDate(){
+  return {...today,url:"https://example.org/undated-current",date:null};
+}
+
+test("搜索未标日期而原网页明确标出发布日期时，可核实后纳入",async()=>{
+  const document=todayWithUnknownDate();
+  const r=await request(url=>url.endsWith("/search")?result([document]):Response.json({content:"# 公告\n\n**发布时间**："+day+"\n\n网页正文。"}));
+  assert.equal(r.calls.filter(x=>x.url.endsWith("/fetch")).length,1);
+  assert.ok(r.output.includes(document.url));
+  assert.ok(r.output.includes('"page":'));
+});
+
+test("当天无结果时近日资料单列，只看今天的要求保持严格",async()=>{
+  const old=new Date(+current-86400000);
+  const recent={...today,date:old.toISOString(),url:"https://example.org/recent",title:"昨天的资料"};
+  const provider=url=>url.endsWith("/search")?result([recent,stale]):staleModel();
+  const ordinary=await request(provider);
+  assert.match(ordinary.output,/较早的参考资料/);
+  assert.ok(ordinary.output.includes(recent.url));
+  assert.ok(!ordinary.output.includes(stale.url));
+  const strict=await request(provider,{question:"只看今天的 AI 新闻"});
+  assert.ok(!strict.output.includes(recent.url));
+  assert.match(strict.output,/已用 2 组关键词/);
 });

@@ -2,7 +2,7 @@ const { createHash, timingSafeEqual } = require("node:crypto");
 
 const { grantKey, grantAllowed, saveGrant } = require("../lib/tutor-access");
 
-const {calendar,lookupPeriod,searchDocuments,datedDigest} = require("../lib/tutor-web");
+const {calendar,lookupPeriod,searchDocuments,datedDigest,noDatedResult} = require("../lib/tutor-web");
 
 const origins = new Set(["https://fjkkx77.github.io", "https://tk.wbztl.xyz", "https://tiku-five.vercel.app"]);
 const digest = value => createHash("sha256").update(value).digest();
@@ -11,6 +11,7 @@ const instructions = `你是中文刷题助教。根据本题题干、选项、�
 module.exports = async function tutor(req, res) {
   res.setHeader("Cache-Control", "private, no-store");
   res.setHeader("Vary", "Origin");
+  res.setHeader("X-Tiku-Search-Revision","date-retry-v1");
   const origin = req.headers.origin;
   if (origin && !origins.has(origin)) return res.status(403).end();
   if (origin) res.setHeader("Access-Control-Allow-Origin", origin);
@@ -77,9 +78,9 @@ module.exports = async function tutor(req, res) {
     if (web === true) {
       startStream();
       write({choices:[{server_tool_event:{type:"call_started"}}]});
-      let sources;
+      let report;
       try {
-        sources = await searchDocuments({question,context,history,clock,period,key,signal:abort.signal});
+        report = await searchDocuments({question,context,history,clock,period,key,signal:abort.signal});
       } catch {
         if(!res.destroyed) {
           write({error:{code:"tutor_web"}});
@@ -88,14 +89,16 @@ module.exports = async function tutor(req, res) {
         return;
       }
       if(res.destroyed) return;
-      const calls = sources.map(source=>{
+      const {sources,recent,diagnostics} = report;
+      if(period) console.info("[tiku-tutor-search]",JSON.stringify(diagnostics));
+      const calls = [...sources,...recent].map(source=>{
         const cited = {url:source.url,title:source.title,published_at:source.published};
         return source.content ? {status:"completed",page:cited} : {status:"completed",sources:[cited]};
       });
       write({choices:[{delta:{tutor_search:true,server_tool_calls:[{calls}]}}]});
       if(!sources.length){
         finish(period
-          ? "未查到发布日期在 " + period.label + " 的可核验网页。本轮不引用其他日期的资料。"
+          ? noDatedResult(period,recent,diagnostics)
           : "本轮搜索未取得可用的网页来源。可以换个关键词再查一次。");
         return;
       }
