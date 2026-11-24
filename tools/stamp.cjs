@@ -6,7 +6,7 @@
 // 2026-10-19 起多了多设备同步的几个文件，首页（根目录 index.html）也引用了它们，一起盖。
 const fs = require('fs'), path = require('path'), crypto = require('crypto');
 const ROOT = path.resolve(__dirname, '..');
-const SHARED = ['quiz.css', 'quiz.js', 'sync-core.js', 'sync-client.js', 'sync-panel.js', 'sync-panel.css', 'tiku-sync.js', 'passes.js'];   // passes.js：2026-11-11 刷完几遍
+const SHARED = ['quiz.css', 'quiz.js', 'sync-core.js', 'sync-client.js', 'sync-panel.js', 'sync-panel.css', 'tiku-sync.js', 'passes.js', 'marked.js', 'purify.js', 'katex.js', 'tutor-render.js'];   // passes.js：2026-11-11 刷完几遍
 const eol = s => s.replace(/\r\n/g, '\n');   // 指纹按统一换行算，免得同一份内容在不同电脑上算出两个值
 const h = crypto.createHash('sha1');
 SHARED.forEach(f => h.update(eol(fs.readFileSync(path.join(ROOT, 'assets', f), 'utf8'))));

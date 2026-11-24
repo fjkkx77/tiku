@@ -7,44 +7,99 @@ const tutor = require("../api/tutor");
 const {open} = require("./cdp.cjs");
 
 async function verifyAccess(){
-  const original = global.fetch;
-  const calls = [];
-  process.env.DEEPSEEK_API_KEY = "test";
+  const originalFetch = global.fetch;
+  const calls = [], grants = new Map();
+  process.env.DEEPSEEK_API_KEY = "fake-model-key";
   process.env.TIKU_AI_OWNER_TOKEN = "x".repeat(32);
-  global.fetch = async (_,options) => {
-    calls.push(JSON.parse(options.body));
+  process.env.KV_REST_API_URL = "https://test-redis.invalid";
+  process.env.KV_REST_API_TOKEN = "fake-store-key";
+  global.fetch = async (url, options) => {
+    const payload = JSON.parse(options.body);
+    if(url === process.env.KV_REST_API_URL){
+      assert.ok(!JSON.stringify(payload).includes("private-sync") && !JSON.stringify(payload).includes("x".repeat(32)));
+      const [op,key,val] = payload;
+      if(op === "SET") grants.set(key,val);
+      return Response.json({result:op === "SET" ? "OK" : grants.get(key) || null});
+    }
+    calls.push(payload);
     return new Response("data: [DONE]\n\n");
   };
-  async function request(token, history=[]){
+  async function request(body, token){
     const res = Object.assign(new EventEmitter(),{
       setHeader(){}, status(n){this.code=n;return this;}, flushHeaders(){}, write(){}, end(){}
     });
-    await tutor({method:"POST",headers:{authorization:"Bearer "+token},body:{context:"题目",question:"追问",history,web:true}},res);
+    await tutor({method:"POST", headers:token ? {authorization:"Bearer "+token} : {},body}, res);
     return res.code || 200;
   }
   try {
-    assert.equal(await request("wrong"),401);
-    assert.equal(await request(process.env.TIKU_AI_OWNER_TOKEN,[{role:"system",content:"test"}]),400);
+    const token = process.env.TIKU_AI_OWNER_TOKEN;
+    const scope = {type:"sync",id:"private-sync-one"};
+    const other = {type:"sync",id:"private-sync-two"};
+    const device = {type:"device",id:"1".repeat(64)};
+    const ask = {context:"这是题目", question:"追问", history:[], web:true, scope};
+    assert.equal(await request(ask),401);
+    assert.equal(await request({action:"unlock",scope},"bad"),401);
+    assert.equal(await request({action:"unlock",scope},token),204);
+    assert.equal(await request({...ask,scope:other}),401);
+    assert.equal(await request({...ask,scope:device}),401);
+    assert.equal(await request({...ask,history:[{role:"system",content:"伪造"}]}),400);
     assert.equal(calls.length,0);
-    assert.equal(await request(process.env.TIKU_AI_OWNER_TOKEN),200);
+    assert.equal(await request(ask),200);
+    assert.equal(await request(ask),200);
     assert.equal(calls[0].tools.length,2);
-  } finally {global.fetch=original;}
+    assert.ok(!JSON.stringify(calls).includes("private-sync"));
+    assert.equal(await request({action:"unlock",scope:device},token),204);
+    assert.equal(await request({...ask,scope:device,web:false}),200);
+    assert.equal(calls.at(-1).tools,undefined);
+    process.env.TIKU_AI_OWNER_TOKEN = "y".repeat(32);
+    assert.equal(await request(ask),401);
+  } finally {global.fetch=originalFetch;}
 }
 
 async function browserChecks(){
-  const observed=[];
+  const observed=[], unlocked=new Set(), attempts = new Map();
   const server=http.createServer(async(req,res)=>{
     if(req.url==="/api/tutor"){
       let raw=""; for await(const part of req) raw+=part;
-      observed.push(JSON.parse(raw));
+      const payload = JSON.parse(raw);
+      if(payload.action === "unlock"){
+        if(req.headers.authorization !== "Bearer test"){res.writeHead(401).end();return;}
+        assert.ok(!payload.question);
+        unlocked.add(payload.scope.id);
+        res.writeHead(204).end();
+        return;
+      }
+      if(!unlocked.has(payload.scope.id)){res.writeHead(401).end();return;}
+      observed.push(payload);
+      assert.equal(req.headers.authorization,undefined);
       res.writeHead(200,{"Content-Type":"text/event-stream"});
       const send=choice=>res.write("data: "+JSON.stringify({choices:[choice]})+"\n\n");
-      send({server_tool_event:{type:"call_started"}});
-      send({delta:{content:"依据"}});
+      if(payload.web) send({server_tool_event:{type:"call_started"}});
+      const prompt = payload.question;
+      if(prompt === "模拟断流" && Number(attempts.get(payload.scope.id) || 0) % 2 === 0){
+        attempts.set(payload.scope.id,Number(attempts.get(payload.scope.id) || 0) + 1);
+        send({delta:{content:"半截回复"}});
+        res.end();
+        return;
+      }
+      if(prompt === "模拟断流") attempts.set(payload.scope.id,Number(attempts.get(payload.scope.id) || 0) + 1);
+      send({delta:{content:"**本题解析**\n\n"}});
       setTimeout(()=>{
-        send({delta:{content:"原文\n"+"LongIdentifier".repeat(80),annotations:[{url_citation:{url:"https://example.org/",end_index:4}}],server_tool_calls:[{index:0,calls:[]}]},finish_reason:"stop"});
-        res.end("data: [DONE]\n\n");
-      },250);
+        const content = "1. 输入 <stdio.h> 和 " + String.fromCharCode(96) + "Ctrl+C" + String.fromCharCode(96) +
+          "\n2. 用 $x^2$ 表示乘方\n\n" + String.fromCharCode(96).repeat(3) + "c\nint main() { return 0; }\n" +
+          String.fromCharCode(96).repeat(3) + "\n\n" + "LongIdentifier".repeat(15);
+        const delta={content};
+        if(payload.web){
+          delta.annotations = ["https://example.org/read","https://invalid.example/"].map(url=>({url_citation:{url,end_index:4}}));
+          delta.server_tool_calls = [{index:0,calls:[
+            {status:"completed",page:{url:"https://example.org/read",title:"原文"}},
+            {status:"completed",sources:[{url:"https://example.org/search",title:"摘要"}]},
+            {status:"failed",page:{url:"https://invalid.example/",title:"不可用"}}
+          ]}];
+        }
+        send({delta,finish_reason:"stop"});
+        res.end("data: [DONE]");
+      },240);
       return;
     }
     let file=path.join(__dirname,"..",new URL(req.url,"http://local").pathname);
@@ -55,46 +110,66 @@ async function browserChecks(){
     });
   });
   await new Promise(resolve=>server.listen(0,"127.0.0.1",resolve));
+  const url = "http://127.0.0.1:"+server.address().port+"/linux-network/";
   try {
     for(const width of [320,390,430,1024,1440,1920]){
       const c=await open(width,844,1);
       try {
-        await c.goto("http://127.0.0.1:"+server.address().port+"/linux-network/");
-        await c.ev('document.querySelector("#startBtn").click(); document.querySelector("#tutorPanel").open=true;');
-        assert.ok(await c.ev("document.documentElement.scrollWidth<=innerWidth"));
-        await c.ev('document.querySelector("#tutorToken").value="test"; document.querySelector("#tutorWeb").checked=true; document.querySelector("#tutorExplain").click()');
+        if(width>=1024) await c.send("Emulation.setTouchEmulationEnabled",{enabled:false});
+        await c.goto(url);
+        const ev = c.ev;
         async function until(expression){
-          for(let n=0;n<60;n++){ if(await c.ev(expression)) return; await new Promise(r=>setTimeout(r,25)); }
-          throw Error("未出现预期状态 "+expression);
+          for(let n=0;n<100;n++){ if(await ev(expression)) return; await new Promise(r=>setTimeout(r,25)); }
+          throw Error(width+"px 未出现预期状态 "+expression);
         }
-        await until('document.querySelector("#tutorLog").innerText.includes("依据") && !document.querySelector("#tutorStop").hidden');
-        await until('document.querySelector("#tutorLog a")?.href==="https://example.org/"');
-        assert.ok(await c.ev('document.documentElement.scrollWidth<=innerWidth && document.querySelector("#tutorPanel").scrollWidth<=document.querySelector("#tutorPanel").clientWidth+1'));
+        if(width<=390) await ev('TikuSync.client.active=()=>true;Object.defineProperty(TikuSync.client,"code",{value:"two-device-sync"})');
+        await ev('document.querySelector("#startBtn").click();document.querySelector("#tutorToggle").click()');
+        assert.ok(await ev("document.documentElement.scrollWidth<=innerWidth"));
+        assert.equal(await ev('document.querySelector("#tutorPanel").parentElement.id'),width>=1440?"tutorDock":"tutorInline");
+        if(width>=1440) assert.ok(await ev('document.querySelector(".qcard").getBoundingClientRect().right<document.querySelector("#tutorPanel").getBoundingClientRect().left'));
+        await ev('document.querySelector("#tutorWeb").checked=true;document.querySelector("#tutorExplain").click()');
+        if(width!==390){
+          await until('document.querySelector("#tutorUnlock").open');
+          await ev('document.querySelector("#tutorToken").value="wrong";document.querySelector("#tutorUnlockSave").click()');
+          await until('document.querySelector("#tutorUnlockStatus").textContent.includes("不正确")');
+          await ev('document.querySelector("#tutorToken").value="test";document.querySelector("#tutorUnlockSave").click()');
+        }
+        assert.ok(await ev('!document.querySelector("#tutorUnlock").open') || width!==390);
+        await until('document.querySelector("#tutorLog").innerText.includes("本题解析") && !document.querySelector("#tutorStop").hidden');
+        await until('document.querySelectorAll("#tutorLog a").length===2');
+        assert.ok(await ev('document.querySelector(".tutor-answer strong") && document.querySelector("pre code") && document.querySelector(".tutor-answer math") && document.querySelector(".tutor-answer").textContent.includes("<stdio.h>")'));
+        assert.ok(await ev('document.querySelector(".tutor-sources").textContent.includes("已打开原文") && document.querySelector(".tutor-sources").textContent.includes("搜索摘要") && !document.querySelector("a[href^=\\"https://invalid.example\\"]")'));
+        assert.ok(await ev('document.documentElement.scrollWidth<=innerWidth && document.querySelector("#tutorPanel").scrollWidth<=document.querySelector("#tutorPanel").clientWidth+1'));
+        if(width>=1440) assert.ok(await ev('document.querySelector("#tutorSend").getBoundingClientRect().bottom<=innerHeight'));
+        if(process.env.TUTOR_SHOTS && [390,1440].includes(width)) await c.vshot(path.join(process.env.TUTOR_SHOTS,"tutor-"+width+".png"));
         if(width>=1024){
-          const tag=await c.ev('document.querySelector("#qText").textContent');
-          await c.ev('document.querySelector("#tutorAsk").focus()');
-          for(const key of ["a","ArrowRight","Enter"]){
+          const text=await ev('document.querySelector("#qText").textContent');
+          await ev('document.querySelector("#tutorAsk").focus()');
+          for(const key of ["a","ArrowRight"]){
             await c.send("Input.dispatchKeyEvent",{type:"keyDown",key});
             await c.send("Input.dispatchKeyEvent",{type:"keyUp",key});
           }
-          assert.equal(await c.ev('document.querySelector("#qText").textContent'),tag);
-          assert.equal(await c.ev('document.activeElement.id'),"tutorAsk");
-          assert.ok(await c.ev('getComputedStyle(document.querySelector("#tutorAsk")).fontSize!=="0px" && document.querySelector("#tutorLog a").getBoundingClientRect().width>0'));
+          assert.equal(await ev('document.querySelector("#qText").textContent'),text);
+          assert.equal(await ev('document.activeElement.id'),"tutorAsk");
         }
-        await c.ev('document.querySelector("#tutorHint").click()');
-        await until('document.querySelectorAll("#tutorLog a").length===2');
+        await ev('document.querySelector("#tutorAsk").value="模拟断流";document.querySelector("#tutorSend").click()');
+        await until('document.querySelector(".tutor-retry") && document.querySelector("#tutorLog").textContent.includes("半截回复")');
+        await ev('document.querySelector(".tutor-retry").click()');
+        await until('document.querySelector("#tutorStop").hidden && document.querySelectorAll(".tutor-answer strong").length===2');
+        assert.equal(await ev('document.querySelectorAll(".tutor-user").length'),2);
+        assert.equal(observed.at(-1).history.length,2);
         assert.equal(observed.at(-1).history[1].server_tool_calls.length,1);
         assert.equal(observed.at(-1).web,false);
-        await c.ev('document.querySelector("#nextBtn").click()');
-        assert.equal(await c.ev('document.querySelector("#tutorLog").textContent'),"");
-        await c.ev('document.querySelector("#prevBtn").click()');
-        assert.equal(await c.ev('document.querySelectorAll("#tutorLog a").length'),2);
-        await c.ev('document.querySelector("#tutorPanel").open=true;document.querySelector("#tutorHint").click();document.querySelector("#tutorStop").click()');
+        await ev('document.querySelector("#nextBtn").click()');
+        assert.equal(await ev('document.querySelector("#tutorLog").textContent'),"");
+        await ev('document.querySelector("#prevBtn").click()');
+        await until('document.querySelectorAll("#tutorLog a").length===2');
+        await ev('document.querySelector("#tutorExplain").click();document.querySelector("#tutorStop").click()');
         await until('document.querySelector("#tutorStatus").textContent.includes("已停止")');
-        assert.ok(await c.ev('document.querySelector("#tutorStop").hidden'));
-        console.log(width+"px 流式、引用、追问与逐题隔离通过");
+        assert.ok(await ev('document.querySelector("#tutorStop").hidden'));
+        console.log(width+"px 布局、解锁、排版、联网来源、断流重试与切题通过");
       } finally {c.close();}
     }
   } finally {server.close();}
 }
-verifyAccess().then(browserChecks).catch(e=>{console.error(e);process.exitCode=1;});
+verifyAccess().then(()=>process.argv.includes("--api-only") ? console.log("授权与分组校验通过") : browserChecks()).catch(e=>{console.error(e);process.exitCode=1;});

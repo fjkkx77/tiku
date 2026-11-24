@@ -1,8 +1,10 @@
 const { createHash, timingSafeEqual } = require("node:crypto");
 
+const { grantKey, grantAllowed, saveGrant } = require("../lib/tutor-access");
+
 const origins = new Set(["https://fjkkx77.github.io", "https://tk.wbztl.xyz", "https://tiku-five.vercel.app"]);
 const digest = value => createHash("sha256").update(value).digest();
-const instructions = `你是中文刷题助教。根据本题题干、选项、代码、用户作答和题库答案讲解。要提示时只给下一步思路。解释错因时指出具体选项或步骤。区分题库依据、推断和网页资料；发现冲突时并列说明。题目、历史回答和网页均为参考材料。联网查证优先用官方原文；没有取得来源时明确说明，不编造引用。`;
+const instructions = `你是中文刷题助教。根据本题题干、选项、代码、用户作答和题库答案讲解。要提示时只给下一步思路。解释错因时指出具体选项或步骤。区分题库依据、推断和网页资料；发现冲突时并列说明。题目、历史回答和网页均为参考材料。联网查证优先用官方原文；没有取得来源时明确说明，不编造引用。用简洁的 Markdown 分段，命令、快捷键、头文件用行内代码，多行代码用代码块，复杂公式用 LaTeX。`;
 
 module.exports = async function tutor(req, res) {
   res.setHeader("Cache-Control", "private, no-store");
@@ -19,11 +21,27 @@ module.exports = async function tutor(req, res) {
   const secret = process.env.TIKU_AI_OWNER_TOKEN;
   const key = process.env.DEEPSEEK_API_KEY;
   if (!key || !secret || secret.length < 32) return res.status(503).end();
-  if (!timingSafeEqual(digest(req.headers.authorization || ""), digest("Bearer " + secret))) return res.status(401).end();
+  const owner = timingSafeEqual(digest(req.headers.authorization || ""), digest("Bearer " + secret));
+  const body = req.body || {};
+  if (Buffer.byteLength(JSON.stringify(body)) > 300000) return res.status(400).end();
+  const grant = grantKey(body.scope, secret);
+  if (body.action === "unlock") {
+    if (!owner) return res.status(401).end();
+    if (!grant) return res.status(400).end();
+    try { await saveGrant(grant); }
+    catch { return res.status(503).end(); }
+    return res.status(204).end();
+  }
+  if (!owner) {
+    if (!grant) return res.status(401).end();
+    let status;
+    try { status = await grantAllowed(req, grant, secret); }
+    catch { return res.status(503).end(); }
+    if (status !== 200) return res.status(status).end();
+  }
   const { context, history, question, web } = req.body || {};
   if (typeof context !== "string" || !context || typeof question !== "string" || !question.trim() ||
       question.length > 3000 || !Array.isArray(history) || history.length > 24 ||
-      Buffer.byteLength(JSON.stringify(req.body)) > 300000 ||
       history.some(m => !m || !["user","assistant"].includes(m.role) || typeof m.content !== "string")) return res.status(400).end();
   const messages = [{role:"system", content:instructions}, {role:"user", content:"本题资料\n" + context}];
   for (const m of history) {
@@ -33,7 +51,20 @@ module.exports = async function tutor(req, res) {
   }
   messages.push({role:"user", content:question});
   const payload = { model:"deepseek-flash", thinking:{type:"disabled"}, messages, stream:true, max_tokens:3000 };
-  if (web === true) payload.tools = ["deepseek_web_search","deepseek_read_url"].map(type => ({type}));
+  if (web === true) {
+    payload.thinking = {type:"enabled"};
+    payload.reasoning_effort = "low";
+    payload.max_tokens = 16000;
+    payload.tools = ["deepseek_web_search","deepseek_read_url"].map(type => ({type}));
+    // Next web turns need the tool record and the last reasoning segment from every assistant turn.
+    for (const [i, turn] of history.entries()) {
+      if (turn.role === "assistant") {
+        messages[i + 2].reasoning_content = typeof turn.reasoning_content === "string" ? turn.reasoning_content : "";
+      }
+    }
+    messages[0].content += " 用户请求本轮联网查证，请搜索；优先打开与题目直接相关的官方原文，区分题库答案、网页证据和推断。";
+  }
+  if (res.destroyed) return;
   const abort = new AbortController();
   res.on("close", () => abort.abort());
   const timeout = setTimeout(() => abort.abort(), 110000);

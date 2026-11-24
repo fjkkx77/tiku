@@ -57,6 +57,19 @@ document.body.insertAdjacentHTML("afterbegin", `
   <svg class="ptr-spinner" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M21 12a9 9 0 1 1-6.219-8.56"></path></svg>
 </div>
 <div id="ptrTip"></div>
+<dialog id="tutorUnlock" class="tutor-unlock" aria-labelledby="tutorUnlockTitle">
+  <form id="tutorUnlockForm">
+    <h2 id="tutorUnlockTitle">解锁 AI 助教</h2>
+    <p id="tutorUnlockNote"></p>
+    <label for="tutorToken">私人解锁码</label>
+    <input id="tutorToken" type="password" required maxlength="256" autocomplete="off" spellcheck="false">
+    <p id="tutorUnlockStatus" role="status"></p>
+    <div class="tutor-unlock-actions">
+      <button type="button" class="btn secondary" id="tutorUnlockCancel">取消</button>
+      <button type="submit" class="btn" id="tutorUnlockSave">解锁</button>
+    </div>
+  </form>
+</dialog>
 <div class="app">
   <div class="topbar">
   <header>
@@ -120,6 +133,7 @@ document.body.insertAdjacentHTML("afterbegin", `
           </div>
         </div>
       </div>
+      <div class="quiz-columns">
       <div class="card qcard">
         ${CFG.marks ? `<div class="q-head"><div class="q-tag" id="qTag"></div>
           <div class="mark-bar" role="group" aria-label="标记这道题">
@@ -130,24 +144,46 @@ document.body.insertAdjacentHTML("afterbegin", `
         <div id="qCode" class="q-code" hidden></div>
         <div id="qBody"></div>
         <div class="answer-box" id="answerBox"></div>
-        <details id="tutorPanel" class="tutor-panel"><summary>问 AI</summary>
-          <label>私人解锁码<input id="tutorToken" type="password" autocomplete="off" placeholder="仅在当前页面使用"></label>
-          <div id="tutorLog"></div>
-          <label>问这道题<textarea id="tutorAsk" maxlength="3000" rows="2" placeholder="例如：为什么不能选 C？"></textarea></label>
-          <label><input type="checkbox" id="tutorWeb"> 本轮联网查证</label>
-          <div class="tutor-actions"><button type="button" id="tutorHint">给我提示</button><button type="button" id="tutorExplain">讲解本题</button><button type="button" id="tutorSend">发送</button><button type="button" id="tutorStop" hidden>停止</button></div>
-          <p id="tutorStatus" role="status"></p>
-        </details>
+        <button type="button" id="tutorToggle" class="tutor-toggle" aria-controls="tutorPanel" aria-expanded="false">问 AI</button>
+        <div id="tutorInline">
+          <aside id="tutorPanel" class="tutor-panel" aria-labelledby="tutorTitle" hidden>
+            <div class="tutor-head">
+              <div><h2 id="tutorTitle">AI 助教</h2><span id="tutorQuestion"></span></div>
+              <div class="tutor-head-actions">
+                <button type="button" id="tutorUnlockOpen">解锁</button>
+                <button type="button" id="tutorClose" aria-label="收起 AI 助教">×</button>
+              </div>
+            </div>
+            <div id="tutorLog" class="tutor-log" role="region" aria-label="本题对话" tabindex="0"></div>
+            <div class="tutor-composer">
+              <p id="tutorStatus" role="status"></p>
+              <div class="tutor-actions">
+                <button type="button" id="tutorHint">给我提示</button>
+                <button type="button" id="tutorExplain">讲解本题</button>
+              </div>
+              <form id="tutorAskForm">
+                <textarea id="tutorAsk" aria-label="问这道题" maxlength="3000" rows="2" placeholder="问这道题，例如：为什么不能选 C？"></textarea>
+                <div class="tutor-controls">
+                  <label><input type="checkbox" id="tutorWeb"> 本轮联网查证</label>
+                  <button type="submit" class="btn" id="tutorSend">发送</button>
+                  <button type="button" class="btn secondary" id="tutorStop" hidden>停止</button>
+                </div>
+              </form>
+            </div>
+          </aside>
+        </div>
         <footer class="qfoot">
           <button class="btn secondary" id="prevBtn">上一题</button>
           <button class="btn secondary" id="checkBtn">提交答案</button>
           <button class="btn" id="nextBtn">下一题</button>
         </footer>
       </div>
+      <div id="tutorDock"></div>
       <div class="btn-row">
         <button class="btn gray" id="quitQuizBtn">结束并查看结果</button>
       </div>
       <div class="key-hint">键盘：A–D 或 1–4 选选项 · 回车 提交 / 下一题 · ← → 切题</div>
+      </div>
     </section>
 
     <!-- 题目总览（右侧抽屉） -->
@@ -991,7 +1027,7 @@ function applyModeToggleUI(){
 function clearAutoAdvance(){ if(autoAdvanceTimer){ clearTimeout(autoAdvanceTimer); autoAdvanceTimer = null; } }
 function scheduleAutoAdvance(idxAtSubmit){
   clearAutoAdvance();
-  if($("tutorPanel").open) return;
+  if(!$("tutorPanel").hidden) return;
   autoAdvanceTimer = setTimeout(()=>{
     autoAdvanceTimer = null;
     if(session && isActive("screen-quiz") && session.idx===idxAtSubmit && session.idx < session.queue.length-1){ session.idx++; renderQuestion(); }
@@ -1090,122 +1126,376 @@ function keepDraft(){
   clearTimeout(draftTimer); draftTimer = setTimeout(saveProgress, 400);
 }
 function keepDraftNow(){ if(session && isActive("screen-quiz")){ keepDraft(); clearTimeout(draftTimer); saveProgress(); } }
-var tutorState;
-function closeTutor(){
-  if(tutorState?.request) tutorState.request.abort();
-  tutorState = null;
-  if($("tutorPanel")) $("tutorPanel").open = false;
+const tutorAssets = new URL(".", document.currentScript.src);
+const tutorStamp = new URL(document.currentScript.src).search;
+const tutorWide = matchMedia("(min-width: 68rem) and (hover: hover) and (pointer: fine)");
+var tutorState, tutorRenderer, tutorRendererReady, tutorUnlockRequest, tutorAfterUnlock, tutorUnlockFocus, tutorDeviceId;
+
+function loadTutorRenderer(){
+  return tutorRenderer ??= Promise.all(["marked", "purify", "katex", "tutor-render"].map(name => new Promise(resolve => {
+    const script = document.createElement("script");
+    script.src = new URL(name + ".js" + tutorStamp, tutorAssets);
+    script.onload = script.onerror = resolve;
+    document.head.append(script);
+  }))).then(() => { tutorRendererReady = true; });
 }
+
+function tutorEndpoint(){
+  return location.hostname.endsWith(".github.io") || location.hostname === "tiku-five.vercel.app"
+    ? "https://tk.wbztl.xyz/api/tutor" : "/api/tutor";
+}
+
+function tutorScope(){
+  const sync = window.TikuSync?.client;
+  if(sync?.active() && sync.code) return {type:"sync", id:sync.code};
+  const key = "tiku_tutor_device";
+  try { tutorDeviceId = localStorage.getItem(key) || tutorDeviceId; } catch {}
+  if(!/^[a-f0-9]{64}$/.test(tutorDeviceId || "")){
+    tutorDeviceId = Array.from(crypto.getRandomValues(new Uint8Array(32)), x=>x.toString(16).padStart(2,"0")).join("");
+    try { localStorage.setItem(key, tutorDeviceId); } catch {}
+  }
+  return {type:"device", id:tutorDeviceId};
+}
+
+function setTutorPanel(open, restoreFocus = false){
+  const panel = $("tutorPanel"), toggle = $("tutorToggle");
+  panel.hidden = !open;
+  toggle.setAttribute("aria-expanded", String(open));
+  toggle.textContent = open ? "收起 AI" : "问 AI";
+  if(!open){
+    tutorState?.request?.abort();
+    if($("tutorUnlock").open) $("tutorUnlock").close();
+    if(restoreFocus) toggle.focus({preventScroll:true});
+    return;
+  }
+  clearAutoAdvance();
+  loadTutorRenderer();
+}
+
+function placeTutor(){
+  const panel = $("tutorPanel");
+  const target = $(tutorWide.matches ? "tutorDock" : "tutorInline");
+  if(panel.parentElement === target) return;
+  const focused = panel.contains(document.activeElement) ? document.activeElement : null;
+  target.append(panel);
+  focused?.focus({preventScroll:true});
+}
+
+function fitTutorUnlock(){
+  const dialog = $("tutorUnlock");
+  if(!dialog.open) return;
+  const viewport = window.visualViewport;
+  const keyboard = document.activeElement === $("tutorToken");
+  dialog.style.setProperty("--tutor-visible-height", keyboard && viewport ? viewport.height + "px" : "100dvh");
+  dialog.style.setProperty("--tutor-visible-top", keyboard && viewport ? viewport.offsetTop + "px" : "0px");
+}
+
+function openTutorUnlock(after, focus = false){
+  const dialog = $("tutorUnlock");
+  tutorAfterUnlock = after;
+  if(dialog.open) return;
+  tutorUnlockFocus = document.activeElement;
+  $("tutorUnlockNote").textContent = tutorScope().type === "sync"
+    ? "解锁后，使用这个同步码的设备都可以问 AI。"
+    : "解锁后，此浏览器会记住授权。";
+  $("tutorUnlockStatus").textContent = "";
+  $("tutorToken").value = "";
+  dialog.showModal();
+  if(focus) $("tutorToken").focus({preventScroll:true});
+  else $("tutorUnlockCancel").focus({preventScroll:true});
+  fitTutorUnlock();
+}
+
+function setupTutor(){
+  const dialog = $("tutorUnlock"), topbar = document.querySelector(".topbar");
+  placeTutor();
+  tutorWide.addEventListener("change", placeTutor);
+  const progress = document.querySelector("#screen-quiz .progress-wrap");
+  const resize = new ResizeObserver(() => {
+    const appStyle = topbar.parentElement.style;
+    const top = topbar.offsetHeight;
+    const extra = progress.offsetHeight + parseFloat(getComputedStyle(progress).marginBottom)
+      + parseFloat(getComputedStyle(progress.closest("main")).paddingTop);
+    appStyle.setProperty("--tutor-top", top + "px");
+    appStyle.setProperty("--tutor-headroom", (top + extra) + "px");
+  });
+  resize.observe(topbar);
+  resize.observe(progress);
+  $("tutorToggle").onclick = () => setTutorPanel($("tutorPanel").hidden);
+  $("tutorClose").onclick = () => setTutorPanel(false, true);
+  $("tutorUnlockOpen").onclick = () => openTutorUnlock(null, true);
+  $("tutorUnlockCancel").onclick = () => dialog.close();
+  window.visualViewport?.addEventListener("resize", fitTutorUnlock);
+  window.visualViewport?.addEventListener("scroll", fitTutorUnlock);
+  dialog.addEventListener("focusin", fitTutorUnlock);
+  dialog.addEventListener("touchmove", event => {
+    if(dialog.scrollHeight <= dialog.clientHeight || !dialog.contains(event.target) || event.target === dialog) event.preventDefault();
+  }, {passive:false});
+  dialog.addEventListener("close", () => {
+    if(dialog.open) return;
+    tutorUnlockRequest?.abort();
+    tutorAfterUnlock = null;
+    $("tutorToken").value = "";
+    tutorUnlockFocus?.focus({preventScroll:true});
+  });
+  $("tutorUnlockForm").onsubmit = async event => {
+    event.preventDefault();
+    const token = $("tutorToken").value.trim();
+    if(!token || tutorUnlockRequest) return;
+    const controller = tutorUnlockRequest = new AbortController();
+    const scope = tutorScope();
+    $("tutorUnlockSave").disabled = true;
+    $("tutorUnlockStatus").textContent = "正在验证…";
+    try {
+      const response = await fetch(tutorEndpoint(), {
+        method:"POST", signal:controller.signal,
+        headers:{"Content-Type":"application/json", Authorization:"Bearer " + token},
+        body:JSON.stringify({action:"unlock", scope})
+      });
+      if(!response.ok) throw Error(response.status === 401 ? "解锁码不正确，请重试。" : "暂时无法保存授权，请稍后重试。");
+      if(controller.signal.aborted || !dialog.open) return;
+      if(JSON.stringify(scope) !== JSON.stringify(tutorScope())) throw Error("同步设置已变更，请重新解锁。");
+      const proceed = tutorAfterUnlock;
+      dialog.close();
+      $("tutorUnlockOpen").hidden = true;
+      if(proceed) proceed();
+      else { $("tutorStatus").textContent = "已解锁"; $("tutorToggle").focus({preventScroll:true}); }
+    } catch(error){
+      if(!controller.signal.aborted) $("tutorUnlockStatus").textContent = error.message;
+    } finally {
+      tutorUnlockRequest = null;
+      $("tutorUnlockSave").disabled = false;
+    }
+  };
+  const input = $("tutorAsk");
+  let composedAt = -Infinity;
+  input.addEventListener("compositionend", () => { composedAt = performance.now(); });
+  input.addEventListener("keydown", event => {
+    if(event.key !== "Enter" || event.shiftKey || event.isComposing || event.keyCode === 229) return;
+    event.preventDefault();
+    if(performance.now() - composedAt > 500) $("tutorAskForm").requestSubmit();
+  });
+}
+setupTutor();
+
+function closeTutor(){
+  setTutorPanel(false);
+  tutorState = null;
+}
+
+async function readTutorStream(response, signal, onChoice){
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "", completed = false, finish = "";
+  function process(line){
+    if(!line.startsWith("data:")) return;
+    const data = line.slice(5).trim();
+    if(!data) return;
+    if(data === "[DONE]"){ completed = true; return; }
+    const packet = JSON.parse(data);
+    if(packet.error) throw Error("服务暂时无法完成回答。");
+    const choice = packet.choices?.[0];
+    if(!choice) return;
+    if(choice.finish_reason) finish = choice.finish_reason;
+    onChoice(choice);
+  }
+  try {
+    while(!completed){
+      const {value, done} = await reader.read();
+      signal.throwIfAborted();
+      if(done){
+        buffer += decoder.decode();
+        if(buffer) process(buffer);
+        break;
+      }
+      buffer += decoder.decode(value,{stream:true});
+      const lines = buffer.split("\n");
+      buffer = lines.pop();
+      for(const line of lines){
+        process(line);
+        if(completed) break;
+      }
+    }
+    if(!completed || !["stop","length"].includes(finish)) throw Error("未收到完整回答，请重试。");
+    return finish;
+  } finally {
+    reader.cancel().catch(()=>{});
+    reader.releaseLock();
+  }
+}
+
 function mountTutor(q){
   const key = "tutor-v1/" + location.pathname + "/" + FP.get(q.id);
   if(tutorState?.key === key) return;
-  closeTutor();
+  tutorState?.request?.abort();
+  if($("tutorUnlock").open) $("tutorUnlock").close();
   let history = [];
   try { history = JSON.parse(sessionStorage.getItem(key) || "[]"); } catch {}
-  const state = tutorState = {key, history, request:null};
-  const panel = $("tutorPanel"), log = $("tutorLog"), status = $("tutorStatus");
+  const state = tutorState = {key, history, request:null, retry:null};
+  const log = $("tutorLog"), status = $("tutorStatus");
+  const askInput = $("tutorAsk"), webInput = $("tutorWeb");
   log.replaceChildren();
-  status.textContent = $("tutorAsk").value = "";
-  $("tutorWeb").checked = false;
+  $("tutorQuestion").textContent = "第 " + (session.idx + 1) + " 题";
+  status.textContent = askInput.value = "";
+  webInput.checked = false;
+  let follow = true;
+  function stick(){ if(follow) log.scrollTop = log.scrollHeight; }
+  log.onscroll = () => { follow = log.scrollHeight - log.clientHeight - log.scrollTop < 36; };
   function busy(active){
-    for(const id of ["tutorSend","tutorExplain","tutorHint"]) $(id).disabled = active;
+    for(const id of ["tutorSend","tutorExplain","tutorHint","tutorUnlockOpen"]) $(id).disabled = active;
+    $("tutorSend").hidden = active;
     $("tutorStop").hidden = !active;
+    for(const btn of log.querySelectorAll(".tutor-retry")) btn.disabled = active;
   }
-  function line(message){
-    const row = document.createElement("p");
-    const heading = document.createElement("strong");
-    heading.textContent = message.role === "user" ? "你" : "AI";
-    const body = document.createElement("span");
-    body.textContent = message.content;
-    row.append(heading, body);
-    log.append(row);
-    return body;
+  function row(role, content){
+    const el = document.createElement("div");
+    el.className = "tutor-row tutor-" + role;
+    const body = document.createElement("div");
+    body.className = role === "assistant" ? "tutor-answer" : "tutor-prompt";
+    body.textContent = content;
+    el.append(body);
+    log.append(el);
+    return {el, body};
   }
-  function citations(body, reply){
-    const chars = Array.from(reply.content);
-    let pos = 0, count = 0;
-    body.replaceChildren();
-    for(const note of [...(reply.annotations || [])].sort((a,b)=>(a.url_citation?.end_index || 0)-(b.url_citation?.end_index || 0))){
-      const c = note.url_citation;
-      if(!c || !/^https?:\/\//i.test(c.url) || !Number.isInteger(c.end_index) ||
-          c.end_index < pos || c.end_index > chars.length) continue;
-      body.append(chars.slice(pos,c.end_index).join(""));
-      pos = c.end_index;
-      const link = document.createElement("a");
-      link.href = c.url; link.target = "_blank"; link.rel = "noopener noreferrer";
-      link.textContent = "[" + (++count) + "]"; link.title = c.title || c.url;
-      body.append(link);
-    }
-    body.append(chars.slice(pos).join(""));
-    if(reply.web && !count) body.append("\n本轮未取得网页依据");
+  function paint(body, text, final){
+    if(tutorRendererReady && window.TikuTutorRender) window.TikuTutorRender.answer(body,text,final);
+    else { body.textContent = text; body.classList.add("tutor-plain"); }
   }
+  function showReply(turn, {el, body}){
+    paint(body, turn.content, true);
+    if(turn.web && window.TikuTutorRender) el.append(window.TikuTutorRender.sources(turn));
+  }
+  const restored = [];
   for(const message of history){
-    const body = line(message);
-    if(message.role === "assistant") citations(body,message);
+    const item = row(message.role, message.content);
+    if(message.role === "assistant") restored.push([message,item]);
   }
+  if(restored.length) loadTutorRenderer().then(() => {
+    if(tutorState !== state) return;
+    for(const [message,item] of restored) showReply(message,item);
+    stick();
+  });
+  stick();
   busy(false);
   $("tutorStop").onclick = () => state.request?.abort();
-  panel.ontoggle = () => { if(!panel.open) state.request?.abort(); else clearAutoAdvance(); };
-  async function ask(prompt){
-    if(state.request || !prompt.trim()) return;
-    const token = $("tutorToken").value.trim();
-    if(!token){ status.textContent = "请输入私人解锁码。"; $("tutorToken").focus(); return; }
-    const controller = state.request = new AbortController();
-    const web = $("tutorWeb").checked;
-    const message = {role:"user", content:prompt.trim()};
-    const reply = {role:"assistant", content:"", web};
+  function contextForTurn(){
     const answer = session.answers[session.idx];
-    const userInput = selectedOpt || [...document.querySelectorAll("#screen-quiz .blank-input")].map(el=>el.value ?? el.textContent);
-    busy(true); clearAutoAdvance();
-    line(message);
-    const body = line(reply);
+    const draft = selectedOpt || [...document.querySelectorAll("#screen-quiz .blank-input")].map(el=>el.value ?? el.textContent);
+    return JSON.stringify({题目:q, 作答:answer || draft});
+  }
+  function recentHistory(){
+    let bytes = 0, start = history.length;
+    const encoder = new TextEncoder();
+    while(start > 0 && start > history.length - 24){
+      bytes += encoder.encode(JSON.stringify(history.slice(start - 2,start))).length;
+      if(bytes > 245000) break;
+      start -= 2;
+    }
+    return history.slice(start).map(({role,content,server_tool_calls,reasoning_content})=>({role,content,server_tool_calls,reasoning_content}));
+  }
+  function send(prompt){
+    const question = prompt.trim();
+    if(!question) return;
+    const web = webInput.checked;
+    if(state.retry?.prompt === question && state.retry.web === web) return ask(state.retry);
+    return ask({prompt:question, web, context:contextForTurn()});
+  }
+  async function ask(turn){
+    if(state.request || state !== tutorState || $("tutorPanel").hidden) return;
+    const controller = state.request = new AbortController();
+    turn.answer?.el.remove();
+    turn.question?.el.remove();
+    turn.question = turn.answer = null;
+    state.retry = null;
+    busy(true);
+    clearAutoAdvance();
     status.textContent = "正在连接…";
+    const reply = {role:"assistant",content:"",web:turn.web};
+    const message = {role:"user",content:turn.prompt};
+    let renderTimer, finalReasoning = "", finish;
+    function showTurn(){
+      if(turn.answer) return;
+      follow = true;
+      turn.question = row("user",turn.prompt);
+      turn.answer = row("assistant","");
+      stick();
+    }
     try {
-      const endpoint = location.hostname === "fjkkx77.github.io" ? "https://tk.wbztl.xyz/api/tutor" : "/api/tutor";
-      const previous = history.slice(-24).map(({role,content,server_tool_calls})=>({role,content,server_tool_calls}));
-      const result = await fetch(endpoint,{method:"POST",signal:controller.signal,
-        headers:{"Content-Type":"application/json",Authorization:"Bearer " + token},
-        body:JSON.stringify({context:JSON.stringify({题目:q,作答:answer || userInput}),question:message.content,history:previous,web})});
-      if(!result.ok) throw Error(({401:"解锁码不正确。",503:"私人 AI 尚未配置。",429:"请求较多，请稍后再试。",400:"对话过长或请求无效。"})[result.status] || "连接失败，请稍后重试。");
-      const reader = result.body.getReader(), decoder = new TextDecoder();
-      let pending = "", finish = "";
-      while(true){
-        const chunk = await reader.read();
-        if(controller.signal.aborted || state !== tutorState) throw Error("已停止");
-        if(chunk.done) break;
-        pending += decoder.decode(chunk.value,{stream:true});
-        const lines = pending.split("\n"); pending = lines.pop();
-        for(const raw of lines){
-          if(!raw.startsWith("data:")) continue;
-          const data = raw.slice(5).trim();
-          if(!data || data === "[DONE]") continue;
-          const packet = JSON.parse(data);
-          if(packet.error) throw Error("服务暂时无法完成回答。");
-          const choice = packet.choices?.[0];
-          if(!choice) continue;
-          if(choice.server_tool_event?.type === "call_started") status.textContent = "正在联网查证…";
-          const delta = choice.delta || {};
-          if(delta.content){ reply.content += delta.content; body.append(delta.content); status.textContent = "正在回答…"; }
-          if(delta.annotations) reply.annotations = delta.annotations;
-          if(delta.server_tool_calls) reply.server_tool_calls = delta.server_tool_calls;
-          if(choice.finish_reason) finish = choice.finish_reason;
-        }
+      const result = await fetch(tutorEndpoint(), {
+        method:"POST", signal:controller.signal,
+        headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({scope:tutorScope(),context:turn.context,question:turn.prompt,history:recentHistory(),web:turn.web})
+      });
+      if(state !== tutorState || controller.signal.aborted) return;
+      if(result.status === 401){
+        $("tutorUnlockOpen").hidden = false;
+        status.textContent = "";
+        openTutorUnlock(() => ask(turn));
+        return;
       }
-      if(!finish || !reply.content) throw Error("未收到完整回答，可重新发送。");
-      citations(body,reply);
+      if(!result.ok) throw Error(({503:"AI 暂时不可用，请稍后重试。",429:"请求较多，请稍后再试。",400:"对话过长或请求无效。"})[result.status] || "连接失败，请稍后重试。");
+      $("tutorUnlockOpen").hidden = true;
+      showTurn();
+      status.textContent = "正在准备讲解…";
+      finish = await readTutorStream(result,controller.signal,choice => {
+        const tool = choice.server_tool_event;
+        if(tool?.type === "call_started") status.textContent = "正在联网查证…";
+        if(tool?.type === "step_reasoning_done") finalReasoning = "";
+        const delta = choice.delta || {};
+        if(typeof delta.reasoning_content === "string"){
+          if(turn.web) finalReasoning += delta.reasoning_content;
+          if(!reply.content && !tool) status.textContent = "正在分析本题…";
+        }
+        if(Array.isArray(delta.annotations)) reply.annotations = delta.annotations;
+        if(Array.isArray(delta.server_tool_calls)) reply.server_tool_calls = delta.server_tool_calls;
+        if(typeof delta.content === "string" && delta.content){
+          reply.content += delta.content;
+          status.textContent = "正在回答…";
+          if(!renderTimer) renderTimer = setTimeout(() => {
+            renderTimer = null;
+            if(tutorState === state){
+              paint(turn.answer.body, reply.content, false);
+              stick();
+            }
+          },80);
+        }
+      });
+      if(!reply.content.trim()) throw Error("AI 没有给出回答，请重试。");
+      if(turn.web) reply.reasoning_content = finalReasoning;
+      await loadTutorRenderer();
+      controller.signal.throwIfAborted();
+      if(state !== tutorState) return;
+      showReply(reply,turn.answer);
       history.push(message,reply);
       history.splice(0,Math.max(0,history.length-24));
-      status.textContent = finish === "length" ? "已达到单次回答长度，可以继续追问。" : "";
-      try { sessionStorage.setItem(key,JSON.stringify(history)); } catch { status.textContent = "当前页面可继续追问，浏览器未保存记录。"; }
-      if($("tutorAsk").value.trim() === prompt.trim()) $("tutorAsk").value = "";
-      $("tutorWeb").checked = false;
-    } catch(err){
-      if(state === tutorState) status.textContent = controller.signal.aborted ? "已停止，本轮未加入对话。" : err.message;
-    } finally { if(state === tutorState){ state.request = null; busy(false); } }
+      status.textContent = finish === "length" ? "回答已达长度上限，可以继续追问。" : "";
+      try { sessionStorage.setItem(key,JSON.stringify(history)); }
+      catch { status.textContent = "当前页面可继续追问，浏览器未保存记录。"; }
+      if(askInput.value.trim() === turn.prompt) askInput.value = "";
+      if(webInput.checked === turn.web) webInput.checked = false;
+    } catch(error) {
+      if(state !== tutorState) return;
+      showTurn();
+      const detail = document.createElement("div");
+      detail.className = "tutor-result";
+      detail.textContent = controller.signal.aborted ? "已停止，本轮未加入对话。" : error.message;
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "tutor-retry";
+      button.textContent = "重试";
+      button.onclick = () => ask(turn);
+      turn.answer.el.append(detail,button);
+      paint(turn.answer.body, reply.content, true);
+      state.retry = turn;
+      status.textContent = detail.textContent;
+    } finally {
+      clearTimeout(renderTimer);
+      if(state === tutorState){ state.request = null; busy(false); stick(); }
+    }
   }
-  $("tutorSend").onclick = () => ask($("tutorAsk").value);
-  $("tutorHint").onclick = () => ask("给我一个思路提示，先不要透露答案。");
-  $("tutorExplain").onclick = () => ask("请结合我的作答讲解本题。");
+  $("tutorAskForm").onsubmit = event => { event.preventDefault(); send(askInput.value); };
+  $("tutorHint").onclick = () => send("给我一个思路提示，先不要透露答案。");
+  $("tutorExplain").onclick = () => send("请结合我的作答讲解本题。");
 }
 function renderQuestion(){
   mountTutor(currentQ());
@@ -1598,7 +1888,7 @@ $("clearHistoryBtn").onclick = async ()=>{
 
 /* ===================== 键盘快捷键（电脑上用）：A-D/1-4 选项，回车提交/下一题，←→ 切题，Esc 关总览 ===================== */
 document.addEventListener("keydown", e=>{
-  if(e.target.closest?.("#tutorPanel")) return;
+  if(e.target.closest?.("#tutorPanel, #tutorUnlock, #tutorToggle")) return;
   // 弹窗开着：Esc = 取消，回车 = 确定；别的键一律不往下传（以前回车会再点一次弹窗背后的那个按钮）
   if(hasShow("confirmBackdrop")){
     if((e.key==="Enter" || e.key===" ") && e.target.closest && e.target.closest(".confirm-box button")) return;   // 焦点在「取消」上按回车就是取消
@@ -1731,7 +2021,7 @@ function setupPullToRefresh(){
     unlockTimer = setTimeout(()=>{ if(refreshing){ attempt++; refreshing = false; reloading = false; reset(true); } }, 10000);
   }
   document.addEventListener("touchstart", e=>{
-    if(refreshing || blocked() || e.target.closest?.("#tutorPanel") || e.touches.length!==1 || window.scrollY>0){ pulling = false; return; }
+    if(refreshing || blocked() || e.target.closest?.("#tutorPanel, #tutorUnlock, #tutorToggle") || e.touches.length!==1 || window.scrollY>0){ pulling = false; return; }
     startX = e.touches[0].clientX; startY = e.touches[0].clientY; pulling = true; locked = false;
   }, {passive:true});
   document.addEventListener("touchmove", e=>{
@@ -1931,7 +2221,7 @@ function setupSwipeNav(){
   document.addEventListener("input", e=>{ if(e.target === document.activeElement) editingField = e.target; }, true);
   document.addEventListener("focusout", e=>{ if(e.target === editingField) editingField = null; }, true);
   screen.addEventListener("touchstart", e=>{
-    if(e.target.closest?.("#tutorPanel")) return;
+    if(e.target.closest?.("#tutorPanel, #tutorUnlock, #tutorToggle")) return;
     tracking = false; locked = false; hsFrom = null;
     if(pending || blocked() || e.touches.length!==1) return;
     const t = e.touches[0];
