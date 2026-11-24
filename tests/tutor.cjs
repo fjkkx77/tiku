@@ -85,6 +85,15 @@ async function browserChecks(){
         return;
       }
       if(prompt === "模拟断流") attempts.set(payload.scope.id,Number(attempts.get(payload.scope.id) || 0) + 1);
+      if(prompt === "今日AI大事"){
+        send({delta:{tutor_search:true,tutor_brief:{searched:3,read:1},server_tool_calls:[{calls:[
+          {status:"completed",page:{url:"https://example.org/brief-read",title:"原文报道",published_at:"2026-11-24"}},
+          {status:"completed",sources:[{url:"https://example.org/brief-search",title:"繁體新聞標題與較長的原始來源資訊"}]}
+        ]}]}});
+        send({delta:{content:"### 联网简报\n\n按网页发布日期筛选。\n\n### 研究进展\n\n研究团队公布实验方案。 〔1〕〔2〕"},finish_reason:"stop"});
+        res.end("data: [DONE]\n\n");
+        return;
+      }
       send({delta:{content:"**本题解析**\n\n"}});
       setTimeout(()=>{
         const content = "1. 输入 <stdio.h> 和 " + String.fromCharCode(96) + "Ctrl+C" + String.fromCharCode(96) +
@@ -167,6 +176,19 @@ async function browserChecks(){
         assert.equal(await ev('document.querySelector("#tutorLog").textContent'),"");
         await ev('document.querySelector("#prevBtn").click()');
         await until('document.querySelectorAll("#tutorLog a").length===2');
+        await ev('document.querySelector("#tutorWeb").checked=true; document.querySelector("#tutorAsk").value="今日AI大事"; document.querySelector("#tutorSend").click()');
+        await until('document.querySelectorAll(".tutor-citation").length===2');
+        assert.ok(await ev('document.querySelector(".tutor-citation").href.endsWith("/brief-read") && document.querySelectorAll(".tutor-citation")[1].href.endsWith("/brief-search") && !document.querySelector("details.tutor-sources").open'));
+        assert.ok(await ev('!document.querySelector("#tutorLog").innerText.includes("繁體新聞標題")'));
+        if(process.env.TUTOR_SHOTS && [390,1440].includes(width)){
+          await ev('document.querySelector(".tutor-brief").scrollIntoView({block:"center"})');
+          await c.vshot(path.join(process.env.TUTOR_SHOTS,"tutor-brief-"+width+".png"));
+        }
+        await ev('document.querySelector("details.tutor-sources summary").click()');
+        assert.ok(await ev('document.querySelector("details.tutor-sources").open && document.querySelector("#tutorLog").innerText.includes("繁體新聞標題")'));
+        assert.ok(await ev('document.documentElement.scrollWidth<=innerWidth && document.querySelector("#tutorPanel").scrollWidth<=document.querySelector("#tutorPanel").clientWidth+1'));
+        await ev('document.querySelector("#nextBtn").click(); document.querySelector("#prevBtn").click()');
+        await until('document.querySelectorAll(".tutor-citation").length===2 && !document.querySelector("details.tutor-sources").open');
         await ev('document.querySelector("#tutorExplain").click();document.querySelector("#tutorStop").click()');
         await until('document.querySelector("#tutorStatus").textContent.includes("已停止")');
         assert.ok(await ev('document.querySelector("#tutorStop").hidden'));

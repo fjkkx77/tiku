@@ -396,6 +396,14 @@ body.quizzing header p.quiz-scope:has(#quizScopeText:empty){display:none;}
 .tutor-sources li+li{margin-top:.35rem}
 .tutor-sources a{color:var(--primary-dark)}
 .tutor-sources li span{display:block;font-size:.75rem}
+.tutor-brief{font-family:"PingFang SC","Microsoft YaHei",system-ui,sans-serif;line-height:1.7;overflow-wrap:anywhere}
+.tutor-brief h3{font-size:1.08em;margin-top:1.1em}
+.tutor-brief h3:first-child+p{font-size:.88em;color:#40536d}
+.tutor-citation{display:inline-flex;justify-content:center;align-items:center;min-width:1.45em;padding-inline:.26em;margin-inline:.1em;line-height:1.5;border-radius:.3em;background:#e9f0fe;color:var(--primary-dark);font-size:.78em;font-weight:600;text-decoration:none;vertical-align:.12em}
+.tutor-citation:hover,.tutor-citation:focus-visible{text-decoration:underline}
+details.tutor-sources{font-family:"PingFang SC","Microsoft YaHei",system-ui,sans-serif;overflow-wrap:anywhere}
+.tutor-sources summary{cursor:pointer;min-height:2.25rem;line-height:2.25rem;font-weight:600}
+.tutor-sources ol{margin:.22rem 0 .4rem;padding-inline-start:1.4rem}
 .tutor-panel .tutor-retry{margin-top:.3rem}
 .tutor-composer{padding:.7rem .8rem .8rem;border-top:1px solid var(--border)}
 .tutor-composer>p,.tutor-unlock #tutorUnlockStatus{margin:0 0 .45rem;font-size:.85rem;color:#40536d}

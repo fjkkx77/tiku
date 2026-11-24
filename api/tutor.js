@@ -11,7 +11,7 @@ const instructions = `你是中文刷题助教。根据本题题干、选项、�
 module.exports = async function tutor(req, res) {
   res.setHeader("Cache-Control", "private, no-store");
   res.setHeader("Vary", "Origin");
-  res.setHeader("X-Tiku-Search-Revision","beijing-evidence-v1");
+  res.setHeader("X-Tiku-Search-Revision","grouped-brief-v1");
   const origin = req.headers.origin;
   if (origin && !origins.has(origin)) return res.status(403).end();
   if (origin) res.setHeader("Access-Control-Allow-Origin", origin);
@@ -96,9 +96,10 @@ module.exports = async function tutor(req, res) {
         const cited = {url:source.url,title:source.title,published_at:source.published};
         return source.content ? {status:"completed",page:cited} : {status:"completed",sources:[cited]};
       });
-      write({choices:[{delta:{tutor_search:true,server_tool_calls:[{calls}]}}]});
+      write({choices:[{delta:{tutor_search:true,server_tool_calls:[{calls}],
+        ...(period ? {tutor_brief:{searched:diagnostics.candidates,read:diagnostics.read}} : {})}}]});
       const summaries = period && displayed.length
-        ? await summarizeDatedSources(displayed,question,key,abort.signal) : new Map();
+        ? await summarizeDatedSources(displayed,question,period,key,abort.signal) : [];
       if(res.destroyed) return;
       if(!sources.length){
         finish(period

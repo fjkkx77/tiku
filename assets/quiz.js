@@ -1363,7 +1363,7 @@ function mountTutor(q){
   }
   function showReply(turn, {el, body}){
     paint(body, turn.content, true);
-    if(turn.web && window.TikuTutorRender) el.append(window.TikuTutorRender.sources(turn));
+    if(turn.web && window.TikuTutorRender) el.append(window.TikuTutorRender.sources(turn,body));
   }
   const restored = [];
   for(const message of history){
@@ -1448,6 +1448,10 @@ function mountTutor(q){
         }
         if(Array.isArray(delta.annotations)) reply.annotations = delta.annotations;
         if(delta.tutor_search === true) reply.directSearch = true;
+        if(delta.tutor_brief && Number.isInteger(delta.tutor_brief.searched) && Number.isInteger(delta.tutor_brief.read)){
+          reply.brief = delta.tutor_brief;
+          status.textContent = "找到 "+reply.brief.searched+" 条资料，已读取 "+reply.brief.read+" 篇原文，正在整理…";
+        }
         if(Array.isArray(delta.server_tool_calls)) reply.server_tool_calls = delta.server_tool_calls;
         if(typeof delta.content === "string" && delta.content){
           reply.content += delta.content;
