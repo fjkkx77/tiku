@@ -49,6 +49,7 @@ async function verifyAccess(){
     assert.equal(await request(ask),200);
     assert.equal(await request(ask),200);
     assert.deepEqual(calls.slice(0,3).map(call=>call.url.split("/").at(-1)),["search","fetch","completions"]);
+    assert.equal(calls[2].payload.reasoning_effort,"max");
     assert.ok(!JSON.stringify(calls).includes("private-sync"));
     assert.equal(await request({action:"unlock",scope:device},token),204);
     assert.equal(await request({...ask,scope:device,web:false}),200);
@@ -66,6 +67,9 @@ async function verifyAccess(){
       assert.match(payload.messages[0].content,/缺材料就明确说明/);
       assert.deepEqual(payload.messages.at(-1),{role:"user",content:question});
       assert.equal(payload.model,"deepseek-flash");
+      assert.equal(payload.thinking?.type,"enabled");
+      assert.equal(payload.reasoning_effort,"max");
+      assert.equal(payload.max_tokens,32768);
     }
     assert.equal(await request({...askOffline,mode:"unknown"}),400);
     process.env.TIKU_AI_OWNER_TOKEN = "y".repeat(32);
@@ -109,6 +113,8 @@ async function browserChecks(){
         res.end("data: [DONE]\n\n");
         return;
       }
+      if(payload.web) send({delta:{tutor_search:true}});
+      send({delta:{reasoning_content:"仅供模拟的内部分析"}});
       send({delta:{content:"**本题解析**\n\n"}});
       setTimeout(()=>{
         const content = "1. 输入 <stdio.h> 和 " + String.fromCharCode(96) + "Ctrl+C" + String.fromCharCode(96) +
@@ -248,6 +254,7 @@ async function browserChecks(){
         await ev('document.querySelector("#tutorHint").click()');
         await until('document.querySelector("#tutorStop").hidden');
         assert.equal(observed.at(-1).mode,"hint");
+        assert.ok(observed.at(-1).history.every(message=>message.reasoning_content === undefined));
         console.log(width+"px 布局、解锁、排版、联网来源、断流重试与切题通过");
       } finally {c.close();}
     }

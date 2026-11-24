@@ -166,6 +166,10 @@ test("今日 AI 大事合并中英文检索，读取原文并按事件出简报"
     ]};
     return Response.json({choices:[{message:{content:JSON.stringify(reply)}}]});
   });
+  const completion = r.calls.find(call=>call.url.endsWith("/completions")).body;
+  assert.equal(completion.thinking?.type,"enabled");
+  assert.equal(completion.reasoning_effort,"max");
+  assert.equal(completion.max_tokens,32768);
   assert.ok(r.calls.some(call=>call.body.query?.includes("announcements")));
   assert.ok(r.calls.some(call=>call.url.endsWith("/fetch") && call.body.url===english.url));
   assert.match(r.output,/跨学科研究公布/);

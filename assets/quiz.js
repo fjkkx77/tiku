@@ -1445,7 +1445,7 @@ function mountTutor(q){
         if(tool?.type === "step_reasoning_done") finalReasoning = "";
         const delta = choice.delta || {};
         if(typeof delta.reasoning_content === "string"){
-          if(turn.web) finalReasoning += delta.reasoning_content;
+          if(turn.web && !reply.directSearch) finalReasoning += delta.reasoning_content;
           if(!reply.content && !tool) status.textContent = "正在分析本题…";
         }
         if(Array.isArray(delta.annotations)) reply.annotations = delta.annotations;
@@ -1468,7 +1468,7 @@ function mountTutor(q){
         }
       });
       if(!reply.content.trim()) throw Error("AI 没有给出回答，请重试。");
-      if(turn.web) reply.reasoning_content = finalReasoning;
+      if(finalReasoning) reply.reasoning_content = finalReasoning;
       await loadTutorRenderer();
       controller.signal.throwIfAborted();
       if(state !== tutorState) return;

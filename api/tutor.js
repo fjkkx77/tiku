@@ -1,6 +1,7 @@
 const { createHash, timingSafeEqual } = require("node:crypto");
 
 const { grantKey, grantAllowed, saveGrant } = require("../lib/tutor-access");
+const { completionSettings } = require("../lib/tutor-model");
 
 const {tutorCalendar,lookupPeriod,searchDocuments,datedDigest,noDatedResult,summarizeDatedSources} = require("../lib/tutor-web");
 
@@ -29,7 +30,7 @@ const modes = new Map([
 module.exports = async function tutor(req, res) {
   res.setHeader("Cache-Control", "private, no-store");
   res.setHeader("Vary", "Origin");
-  res.setHeader("X-Tiku-Search-Revision","grouped-brief-v1");
+  res.setHeader("X-Tiku-Search-Revision","grouped-brief-thinking-v2");
   const origin = req.headers.origin;
   if (origin && !origins.has(origin)) return res.status(403).end();
   if (origin) res.setHeader("Access-Control-Allow-Origin", origin);
@@ -75,7 +76,7 @@ module.exports = async function tutor(req, res) {
   if (res.destroyed) return;
   const abort = new AbortController();
   res.on("close", () => abort.abort());
-  const timeout = setTimeout(() => abort.abort(), 110000);
+  const timeout = setTimeout(() => abort.abort(), 270000);
   function startStream(){
     res.setHeader("Content-Type","text/event-stream; charset=utf-8");
     res.flushHeaders();
@@ -133,7 +134,7 @@ module.exports = async function tutor(req, res) {
       messages.push({role:"user",content:"本轮实际检索到的网页资料\n"+JSON.stringify(sources)});
     }
     messages.push({role:"user",content:question});
-    const payload = {model:"deepseek-flash",thinking:{type:"disabled"},messages,stream:true,max_tokens:3000};
+    const payload = {...completionSettings,messages,stream:true};
     const upstream = await fetch("https://api.deepseek.com/chat/completions",{
       method:"POST",headers:{Authorization:"Bearer "+key,"Content-Type":"application/json"},
       body:JSON.stringify(payload),signal:abort.signal
