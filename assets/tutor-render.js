@@ -69,7 +69,8 @@
     function add(source, read){
       const url = sourceUrl(source?.url);
       if(!url || (results.has(url) && !read)) return;
-      results.set(url,{title:source.title || new URL(url).hostname,read});
+      const date = /^\d{4}-\d\d-\d\d/.exec(source.published_at || "")?.[0];
+      results.set(url,{title:source.title || new URL(url).hostname,read,date});
     }
     for(const step of reply.server_tool_calls || []){
       for(const call of step?.calls || []){
@@ -87,7 +88,7 @@
     }
     // List actual returned sources, with the links used in the answer first.
     const relevant = [...results].sort(([a],[b]) => Number(cited.has(b)) - Number(cited.has(a))).slice(0,8);
-    status.textContent = cited.size ? "本轮网页来源" : "本轮取得网页资料，回答未标注引用";
+    status.textContent = reply.directSearch || cited.size ? "本轮网页来源" : "本轮取得网页资料，回答未标注引用";
     root.append(status);
     const list = document.createElement("ul");
     for(const [url,source] of relevant){
@@ -98,7 +99,7 @@
       link.rel = "noopener noreferrer";
       link.textContent = source.title;
       const caption = document.createElement("span");
-      caption.textContent = (source.read ? "已打开原文" : "搜索摘要") + " · " + new URL(url).hostname;
+      caption.textContent = [source.read ? "已打开原文" : "搜索摘要",source.date,new URL(url).hostname].filter(Boolean).join(" · ");
       item.append(link,caption);
       list.append(item);
     }

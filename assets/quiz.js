@@ -1293,7 +1293,7 @@ async function readTutorStream(response, signal, onChoice){
     if(!data) return;
     if(data === "[DONE]"){ completed = true; return; }
     const packet = JSON.parse(data);
-    if(packet.error) throw Error("服务暂时无法完成回答。");
+    if(packet.error) throw Error(packet.error.code === "tutor_web" ? "联网检索暂时失败，请重试。" : "服务暂时无法完成回答。");
     const choice = packet.choices?.[0];
     if(!choice) return;
     if(choice.finish_reason) finish = choice.finish_reason;
@@ -1424,7 +1424,7 @@ function mountTutor(q){
       const result = await fetch(tutorEndpoint(), {
         method:"POST", signal:controller.signal,
         headers:{"Content-Type":"application/json"},
-        body:JSON.stringify({scope:tutorScope(),context:turn.context,question:turn.prompt,history:recentHistory(),web:turn.web})
+        body:JSON.stringify({scope:tutorScope(),context:turn.context,question:turn.prompt,history:recentHistory(),web:turn.web,timeZone:Intl.DateTimeFormat().resolvedOptions().timeZone})
       });
       if(state !== tutorState || controller.signal.aborted) return;
       if(result.status === 401){
@@ -1447,6 +1447,7 @@ function mountTutor(q){
           if(!reply.content && !tool) status.textContent = "正在分析本题…";
         }
         if(Array.isArray(delta.annotations)) reply.annotations = delta.annotations;
+        if(delta.tutor_search === true) reply.directSearch = true;
         if(Array.isArray(delta.server_tool_calls)) reply.server_tool_calls = delta.server_tool_calls;
         if(typeof delta.content === "string" && delta.content){
           reply.content += delta.content;

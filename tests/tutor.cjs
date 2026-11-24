@@ -21,7 +21,9 @@ async function verifyAccess(){
       if(op === "SET") grants.set(key,val);
       return Response.json({result:op === "SET" ? "OK" : grants.get(key) || null});
     }
-    calls.push(payload);
+    calls.push({url,payload});
+    if(url.endsWith("/tools/search")) return Response.json({results:[{title:"资料",url:"https://example.org/search",snippet:"资料摘要"}]});
+    if(url.endsWith("/tools/fetch")) return Response.json({content:"网页正文"});
     return new Response("data: [DONE]\n\n");
   };
   async function request(body, token){
@@ -46,11 +48,11 @@ async function verifyAccess(){
     assert.equal(calls.length,0);
     assert.equal(await request(ask),200);
     assert.equal(await request(ask),200);
-    assert.equal(calls[0].tools.length,2);
+    assert.deepEqual(calls.slice(0,3).map(call=>call.url.split("/").at(-1)),["search","fetch","completions"]);
     assert.ok(!JSON.stringify(calls).includes("private-sync"));
     assert.equal(await request({action:"unlock",scope:device},token),204);
     assert.equal(await request({...ask,scope:device,web:false}),200);
-    assert.equal(calls.at(-1).tools,undefined);
+    assert.equal(calls.at(-1).payload.tools,undefined);
     process.env.TIKU_AI_OWNER_TOKEN = "y".repeat(32);
     assert.equal(await request(ask),401);
   } finally {global.fetch=originalFetch;}
@@ -90,9 +92,10 @@ async function browserChecks(){
           String.fromCharCode(96).repeat(3) + "\n\n" + "LongIdentifier".repeat(15);
         const delta={content};
         if(payload.web){
+          delta.tutor_search = true;
           delta.annotations = ["https://example.org/read","https://invalid.example/"].map(url=>({url_citation:{url,end_index:4}}));
           delta.server_tool_calls = [{index:0,calls:[
-            {status:"completed",page:{url:"https://example.org/read",title:"原文"}},
+            {status:"completed",page:{url:"https://example.org/read",title:"原文",published_at:"2026-11-24"}},
             {status:"completed",sources:[{url:"https://example.org/search",title:"摘要"}]},
             {status:"failed",page:{url:"https://invalid.example/",title:"不可用"}}
           ]}];
@@ -138,7 +141,7 @@ async function browserChecks(){
         await until('document.querySelector("#tutorLog").innerText.includes("本题解析") && !document.querySelector("#tutorStop").hidden');
         await until('document.querySelectorAll("#tutorLog a").length===2');
         assert.ok(await ev('document.querySelector(".tutor-answer strong") && document.querySelector("pre code") && document.querySelector(".tutor-answer math") && document.querySelector(".tutor-answer").textContent.includes("<stdio.h>")'));
-        assert.ok(await ev('document.querySelector(".tutor-sources").textContent.includes("已打开原文") && document.querySelector(".tutor-sources").textContent.includes("搜索摘要") && !document.querySelector("a[href^=\\"https://invalid.example\\"]")'));
+        assert.ok(await ev('document.querySelector(".tutor-sources").textContent.includes("已打开原文") && document.querySelector(".tutor-sources").textContent.includes("2026-11-24") && document.querySelector(".tutor-sources").textContent.includes("搜索摘要") && !document.querySelector("a[href^=\\"https://invalid.example\\"]")'));
         assert.ok(await ev('document.documentElement.scrollWidth<=innerWidth && document.querySelector("#tutorPanel").scrollWidth<=document.querySelector("#tutorPanel").clientWidth+1'));
         if(width>=1440) assert.ok(await ev('document.querySelector("#tutorSend").getBoundingClientRect().bottom<=innerHeight'));
         if(process.env.TUTOR_SHOTS && [390,1440].includes(width)) await c.vshot(path.join(process.env.TUTOR_SHOTS,"tutor-"+width+".png"));
