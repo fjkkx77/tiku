@@ -94,10 +94,16 @@ async function browserChecks(){
       if(!unlocked.has(payload.scope.id)){res.writeHead(401).end();return;}
       observed.push(payload);
       assert.equal(req.headers.authorization,undefined);
+      if(payload.question === "模拟未连通"){ req.socket.destroy(); return; }
       res.writeHead(200,{"Content-Type":"text/event-stream"});
       const send=choice=>res.write("data: "+JSON.stringify({choices:[choice]})+"\n\n");
       if(payload.web) send({server_tool_event:{type:"call_started"}});
       const prompt = payload.question;
+      if(prompt === "模拟接收中断"){
+        send({delta:{content:"已收到的回答片段"}});
+        setTimeout(()=>res.destroy(),350);
+        return;
+      }
       if(prompt === "模拟断流" && Number(attempts.get(payload.scope.id) || 0) % 2 === 0){
         attempts.set(payload.scope.id,Number(attempts.get(payload.scope.id) || 0) + 1);
         send({delta:{content:"半截回复"}});
@@ -353,6 +359,13 @@ async function browserChecks(){
           await until('document.querySelector("#tutorStop").hidden && !document.querySelector("#tutorUnlock").open');
           assert.equal(observed.length,callsBefore+1);
           assert.deepEqual(observed.at(-1).scope,scopeBefore);
+          for(const [prompt, message] of [["模拟未连通","未能连接 AI 服务"],["模拟接收中断","接收 AI 回答时连接中断"]]){
+            await ev(`document.querySelector("#tutorAsk").value=${JSON.stringify(prompt)};document.querySelector("#tutorSend").click()`);
+            await until(`document.querySelector("#tutorLog .tutor-row:last-child [role=alert]")?.textContent.includes(${JSON.stringify(message)})`);
+            assert.equal(await ev('document.querySelector("#tutorStatus").textContent'),"");
+            assert.ok(await ev('!document.querySelector("#tutorLog").textContent.includes("Load failed")'));
+          }
+          assert.ok(await ev('document.querySelector("#tutorLog .tutor-row:last-child").textContent.includes("已收到的回答片段")'));
         }
         console.log(width+"px 助教布局、编辑、轮数、清空、易错总结和既有流程通过");
       } finally {c.close();}

@@ -1,4 +1,5 @@
 const { createHash, timingSafeEqual } = require("node:crypto");
+const { once } = require("node:events");
 
 const { grantKey, grantAllowed, saveGrant } = require("../lib/tutor-access");
 const { completionSettings } = require("../lib/tutor-model");
@@ -33,7 +34,7 @@ module.exports = async function tutor(req, res) {
   res.setHeader("Cache-Control", "private, no-store");
   res.setHeader("Vary", "Origin");
   res.setHeader("X-Tiku-Search-Revision","grouped-brief-thinking-v2");
-  res.setHeader("X-Tiku-Tutor-Revision","conversation-controls-v1");
+  res.setHeader("X-Tiku-Tutor-Revision","mobile-stream-v2");
   const origin = req.headers.origin;
   if (origin && !origins.has(origin)) return res.status(403).end();
   if (origin) res.setHeader("Access-Control-Allow-Origin", origin);
@@ -78,8 +79,12 @@ module.exports = async function tutor(req, res) {
 
   if (res.destroyed) return;
   const abort = new AbortController();
-  res.on("close", () => abort.abort());
-  const timeout = setTimeout(() => abort.abort(), 270000);
+  let timedOut = false;
+  let modelTail;
+  const timeout = setTimeout(() => {
+    timedOut = true;
+    abort.abort();
+  }, 270000);
   function startStream(){
     res.setHeader("Content-Type","text/event-stream; charset=utf-8");
     res.flushHeaders();
@@ -91,6 +96,18 @@ module.exports = async function tutor(req, res) {
     write({choices:[{delta:{content:text},finish_reason:"stop"}]});
     res.end("data: [DONE]\n\n");
   }
+  function atEventBoundary(){
+    return modelTail === undefined || /\n\r?\n$/.test(modelTail);
+  }
+  const heartbeat = setInterval(() => {
+    if(res.destroyed || res.writableEnded || res.writableNeedDrain || !atEventBoundary()) return;
+    if(!res.headersSent) startStream();
+    res.write(": keep-alive\n\n");
+  }, 10000);
+  res.on("close", () => {
+    clearInterval(heartbeat);
+    abort.abort();
+  });
   try {
     if (web !== true && period?.relative) {
       startStream();
@@ -105,7 +122,7 @@ module.exports = async function tutor(req, res) {
         report = await searchDocuments({question,context,history,clock,period,key,signal:abort.signal});
       } catch {
         if(!res.destroyed) {
-          write({error:{code:"tutor_web"}});
+          write({error:{code:timedOut ? "tutor_timeout" : "tutor_web"}});
           res.end();
         }
         return;
@@ -143,16 +160,26 @@ module.exports = async function tutor(req, res) {
       body:JSON.stringify(payload),signal:abort.signal
     });
     if(!upstream.ok || !upstream.body){
-      if(!res.headersSent) return res.status(upstream.status === 429 ? 429 : 502).end();
-      write({error:{code:"tutor_model"}});
+      const throttled = upstream.status === 429;
+      if(!res.headersSent) return res.status(throttled ? 429 : 502).end();
+      write({error:{code:throttled ? "tutor_throttled" : "tutor_model"}});
       res.end();
       return;
     }
     if(!res.headersSent) startStream();
-    for await (const chunk of upstream.body) res.write(chunk);
+    for await (const chunk of upstream.body){
+      // A chunk can end in the middle of an event. Keep its byte tail for safe heartbeat placement.
+      if(chunk.byteLength) modelTail = ((modelTail || "") + Buffer.from(chunk.subarray(-4)).toString("latin1")).slice(-4);
+      if(res.write(chunk) === false) await once(res,"drain",{signal:abort.signal});
+    }
     res.end();
   } catch {
-    if(!res.headersSent && !res.destroyed) res.status(502).end();
-    else if(!res.destroyed) res.end();
-  } finally { clearTimeout(timeout); }
+    if(res.destroyed || res.writableEnded) return;
+    if(!res.headersSent) return res.status(timedOut ? 504 : 502).end();
+    if(atEventBoundary()) write({error:{code:timedOut ? "tutor_timeout" : "tutor_model"}});
+    res.end();
+  } finally {
+    clearTimeout(timeout);
+    clearInterval(heartbeat);
+  }
 };

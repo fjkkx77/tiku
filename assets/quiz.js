@@ -1153,6 +1153,18 @@ function tutorEndpoint(){
     ? "https://tk.wbztl.xyz/api/tutor" : "/api/tutor";
 }
 
+async function tutorRequest(payload, signal, token){
+  const headers = {"Content-Type":"application/json"};
+  if(token) headers.Authorization = "Bearer " + token;
+  const body = JSON.stringify(payload);
+  try {
+    return await fetch(tutorEndpoint(), {method:"POST",signal,headers,body});
+  } catch(error) {
+    signal.throwIfAborted();
+    throw Error("未能连接 AI 服务，请稍后重试。",{cause:error});
+  }
+}
+
 function tutorScope(){
   const sync = window.TikuSync?.client;
   if(sync?.active() && sync.code) return {type:"sync", id:sync.code};
@@ -1253,11 +1265,7 @@ function setupTutor(){
     $("tutorUnlockSave").disabled = true;
     $("tutorUnlockStatus").textContent = "正在验证…";
     try {
-      const response = await fetch(tutorEndpoint(), {
-        method:"POST", signal:controller.signal,
-        headers:{"Content-Type":"application/json", Authorization:"Bearer " + token},
-        body:JSON.stringify({action:"unlock", scope})
-      });
+      const response = await tutorRequest({action:"unlock",scope},controller.signal,token);
       if(!response.ok) throw Error(response.status === 401 ? "解锁码不正确，请重试。" : "暂时无法保存授权，请稍后重试。");
       if(controller.signal.aborted || !dialog.open) return;
       if(JSON.stringify(scope) !== JSON.stringify(tutorScope())) throw Error("同步设置已变更，请重新解锁。");
@@ -1288,6 +1296,7 @@ function closeTutor(){
 }
 
 async function readTutorStream(response, signal, onChoice){
+  if(!response.body) throw Error("没有收到 AI 的回答，请重试。");
   const reader = response.body.getReader();
   const decoder = new TextDecoder();
   let buffer = "", completed = false, finish = "";
@@ -1297,7 +1306,11 @@ async function readTutorStream(response, signal, onChoice){
     if(!data) return;
     if(data === "[DONE]"){ completed = true; return; }
     const packet = JSON.parse(data);
-    if(packet.error) throw Error(packet.error.code === "tutor_web" ? "联网检索暂时失败，请重试。" : "服务暂时无法完成回答。");
+    if(packet.error) throw Error(({
+      tutor_web:"联网检索暂时失败，请重试。",
+      tutor_throttled:"请求较多，请稍后再试。",
+      tutor_timeout:"AI 等待超时，请重试。"
+    })[packet.error.code] || "服务暂时无法完成回答。");
     const choice = packet.choices?.[0];
     if(!choice) return;
     if(choice.finish_reason) finish = choice.finish_reason;
@@ -1305,7 +1318,10 @@ async function readTutorStream(response, signal, onChoice){
   }
   try {
     while(!completed){
-      const {value, done} = await reader.read();
+      const {value, done} = await reader.read().catch(error => {
+        signal.throwIfAborted();
+        throw Error("接收 AI 回答时连接中断，请重试。",{cause:error});
+      });
       signal.throwIfAborted();
       if(done){
         buffer += decoder.decode();
@@ -1457,18 +1473,17 @@ function mountTutor(q){
     updateThread();
     stick();
     try {
-      const result = await fetch(tutorEndpoint(), {
-        method:"POST", signal:controller.signal,
-        headers:{"Content-Type":"application/json"},
-        body:JSON.stringify({scope:tutorScope(),context:turn.context,question:turn.prompt,mode:turn.mode,history:recentHistory(),web:turn.web,timeZone:Intl.DateTimeFormat().resolvedOptions().timeZone})
-      });
+      const result = await tutorRequest({
+        scope:tutorScope(),context:turn.context,question:turn.prompt,mode:turn.mode,
+        history:recentHistory(),web:turn.web,timeZone:Intl.DateTimeFormat().resolvedOptions().timeZone
+      },controller.signal);
       if(!isCurrent()) return;
       controller.signal.throwIfAborted();
       if(result.status === 401){
         openTutorUnlock(() => { if(state.retry === turn) ask(turn); });
         throw Error("请解锁 AI 助教后重试。");
       }
-      if(!result.ok) throw Error(({503:"AI 暂时不可用，请稍后重试。",429:"请求较多，请稍后再试。",400:"对话过长或请求无效。"})[result.status] || "连接失败，请稍后重试。");
+      if(!result.ok) throw Error(({503:"AI 暂时不可用，请稍后重试。",429:"请求较多，请稍后再试。",504:"AI 等待超时，请重试。",400:"对话过长或请求无效。"})[result.status] || "连接失败，请稍后重试。");
       status.textContent = "正在准备讲解…";
       finish = await readTutorStream(result,controller.signal,choice => {
         if(!isCurrent()) return;
@@ -1517,6 +1532,7 @@ function mountTutor(q){
       if(!isCurrent()) return;
       const detail = document.createElement("div");
       detail.className = "tutor-result";
+      if(!controller.signal.aborted) detail.setAttribute("role","alert");
       detail.textContent = controller.signal.aborted ? "已停止，本轮未加入对话。" : error.message;
       const button = document.createElement("button");
       button.type = "button";
@@ -1526,7 +1542,7 @@ function mountTutor(q){
       turn.answer.el.append(detail,button);
       paint(turn.answer.body, reply.content, true);
       state.retry = turn;
-      status.textContent = detail.textContent;
+      status.textContent = controller.signal.aborted ? detail.textContent : "";
     } finally {
       clearTimeout(renderTimer);
       if(isCurrent()){ state.request = null; busy(false); stick(); }

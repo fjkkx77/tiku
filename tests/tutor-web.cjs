@@ -12,7 +12,7 @@ const undated = {title:"未知日期",url:"https://example.org/unknown",date:nul
 const result = (items) => Response.json({results:items});
 const staleModel = () => new Response('data: {"choices":[{"delta":{"content":"今日 AI 大事（2026-06-25）"},"finish_reason":"stop"}]}\n\ndata: [DONE]\n\n');
 
-async function request(fetcher, input = {}){
+async function request(fetcher, input = {}, onWrite){
   const original = global.fetch;
   const calls = [];
   process.env.TIKU_AI_OWNER_TOKEN = "x".repeat(32);
@@ -25,7 +25,11 @@ async function request(fetcher, input = {}){
   const res = Object.assign(new EventEmitter(),{
     buffer:[], setHeader(){}, status(code){this.code=code;return this;},
     flushHeaders(){this.headersSent=true;},
-    write(data){this.buffer.push(typeof data === "string" ? data : Buffer.from(data).toString("utf8"));},
+    write(data){
+      const text = typeof data === "string" ? data : Buffer.from(data).toString("utf8");
+      this.buffer.push(text);
+      return onWrite?.(text,this);
+    },
     end(data){if(data) this.write(data);}
   });
   try {
@@ -36,6 +40,69 @@ async function request(fetcher, input = {}){
     return {code:res.code || 200,output:res.buffer.join(""),calls};
   } finally { global.fetch = original; }
 }
+
+test("等待模型时保活，开始转发后逐字保留事件边界",async t => {
+  t.mock.timers.enable({apis:["setInterval"]});
+  const started = Promise.withResolvers(), firstChunk = Promise.withResolvers(), eventEnded = Promise.withResolvers();
+  const upstream = Promise.withResolvers();
+  const writes = [];
+  let stream;
+  const response = new Response(new ReadableStream({start(controller){stream=controller;}}));
+  const pending = request(()=>{started.resolve(); return upstream.promise;},
+    {question:"讲解文件权限",web:false}, text=>{
+      writes.push(text);
+      if(text==='data: {') firstChunk.resolve();
+      if(text.endsWith("\r\n\r\n")) eventEnded.resolve();
+    });
+  const encoder = new TextEncoder();
+  await started.promise;
+  try {
+    t.mock.timers.tick(10000);
+    assert.deepEqual(writes,[": keep-alive\n\n"]);
+    upstream.resolve(response);
+    stream.enqueue(encoder.encode('data: {'));
+    await firstChunk.promise;
+    t.mock.timers.tick(20000);
+    assert.equal(writes.filter(part=>part.startsWith(":")).length,1);
+    stream.enqueue(encoder.encode('"choices":[{"delta":{"content":"解释正文"},"finish_reason":"stop"}]}\r\n\r\n'));
+    await eventEnded.promise;
+    t.mock.timers.tick(10000);
+    assert.equal(writes.filter(part=>part.startsWith(":")).length,2);
+  } finally {
+    upstream.resolve(response);
+    stream.enqueue(encoder.encode("data: [DONE]\n\n"));
+    stream.close();
+    await pending;
+  }
+  const result = await pending;
+  assert.match(result.output,/data: \{"choices":.*解释正文.*\r\n\r\n: keep-alive\n\ndata: \[DONE\]/);
+});
+
+test("客户端写入积压时，等待排空再继续转发",async () => {
+  const blocked = Promise.withResolvers();
+  const chunks = ["data: 第一段\n\n","data: 第二段\n\n"];
+  const encoder = new TextEncoder();
+  const stream = new ReadableStream({start(controller){
+    for(const chunk of chunks) controller.enqueue(encoder.encode(chunk));
+    controller.close();
+  }});
+  const writes = [];
+  const pending = request(()=>new Response(stream),{question:"解释文件权限",web:false},(text,res)=>{
+    writes.push(text);
+    if(writes.length!==1) return;
+    blocked.resolve(res);
+    return false;
+  });
+  const response = await blocked.promise;
+  try {
+    await new Promise(resolve=>setImmediate(resolve));
+    assert.deepEqual(writes,chunks.slice(0,1));
+  } finally {
+    response.emit("drain");
+    await pending;
+  }
+  assert.deepEqual(writes,chunks);
+});
 
 test("当天新闻先实际搜索，剔除旧闻、无日期和重复链接，日期不由模型生成",async () => {
   const duplicate = {...today,url:today.url+"#duplicate"};
