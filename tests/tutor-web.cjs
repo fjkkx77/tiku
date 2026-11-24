@@ -40,7 +40,7 @@ async function request(fetcher, input = {}){
 test("当天新闻先实际搜索，剔除旧闻、无日期和重复链接，日期不由模型生成",async () => {
   const duplicate = {...today,url:today.url+"#duplicate"};
   const r = await request(url=>url.endsWith("/search")?result([stale,undated,today,duplicate]):staleModel());
-  assert.equal(r.calls.length,1);
+  assert.equal(r.calls.filter(call=>call.url.endsWith("/search")).length,1);
   assert.ok(r.calls[0].url.endsWith("/v1/tools/search"));
   assert.match(r.calls[0].body.query,/after:\d{4}-\d\d-\d\d before:\d{4}-\d\d-\d\d/);
   assert.ok(r.output.includes(day));
@@ -99,7 +99,7 @@ test("Search API 失败时发可重试错误，普通回答不冒充联网成功
 test("第一次无合格结果时用重写的关键词重搜，首轮旧闻不会混入当天",async()=>{
   let attempt=0;
   const r=await request(url=>url.endsWith("/search")?result(++attempt===1?[stale,todayWithUnknownDate()]:[today,stale]):staleModel(),{question:"今日AI大事"});
-  assert.equal(r.calls.length,2);
+  assert.equal(r.calls.filter(call=>call.url.endsWith("/search")).length,2);
   assert.match(r.calls[1].body.query,/人工智能|新闻/);
   assert.doesNotMatch(r.calls[1].body.query,/\b(?:after|before):/);
   assert.ok(r.output.includes(today.url));
@@ -129,4 +129,33 @@ test("当天无结果时近日资料单列，只看今天的要求保持严格",
   const strict=await request(provider,{question:"只看今天的 AI 新闻"});
   assert.ok(!strict.output.includes(recent.url));
   assert.match(strict.output,/已用 2 组关键词/);
+});
+
+test("默认沿用知识库的北京时间，电脑设美西仍能找到亚洲当天报道",async()=>{
+  const early = new Date(day+"T00:00:00+08:00");
+  const instant = new Date(Math.min(+early+8*3600000,+current));
+  const article={...today,url:"https://example.org/beijing-morning",date:instant.toISOString()};
+  const r=await request(url=>url.endsWith("/search")?result([article]):staleModel(),{timeZone:"America/Los_Angeles",question:"今日AI大事"});
+  assert.ok(r.output.includes("北京时间"));
+  assert.ok(r.output.includes(article.url));
+  assert.doesNotMatch(r.output,/较早的参考资料/);
+});
+
+test("简体摘要要附真实原句并保留可核数字，坏摘要降级为原标题",async()=>{
+  const references = [
+    {...today,url:"https://example.org/summary",snippet:"團隊公佈新研究，涉及三個學科。"},
+    {...today,url:"https://example.org/numbers",title:"數字來源",snippet:"報道提到市場上漲20%，並介紹背景。"}
+  ];
+  const reply = {items:[
+    {id:1,quote:"團隊公佈新研究，涉及三個學科。",summary:"团队发布了一项跨学科研究。"},
+    {id:2,quote:"報道提到市場上漲20%，並介紹背景。",summary:"市场暴涨999%。"}
+  ]};
+  const r=await request((url,body)=>{
+    if(url.endsWith("/search")) return result(references);
+    assert.equal(body.response_format?.type,"json_object");
+    return Response.json({choices:[{message:{content:JSON.stringify(reply)}}]});
+  });
+  assert.match(r.output,/团队发布了一项跨学科研究/);
+  assert.match(r.output,/數字來源/);
+  assert.doesNotMatch(r.output,/999%|並介紹背景/);
 });
