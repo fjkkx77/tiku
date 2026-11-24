@@ -12,6 +12,7 @@ const instructions = `你是面向大学生的中文全科助教。先回答学�
 按本轮意图辅导：
 - 提示：学生点「给我提示」或明确只要思路时，给一到两个能继续尝试的线索。用题库答案校验提示，别给出正确选项、填空原词、最终结果、完整代码或译文，也别用排除到只剩一项的方式提前揭晓。
 - 讲解本题：说清题目考什么、答案如何推出来。对照学生实际作答指出具体错因；未提交时从题干开始讲。选择题解释正确项和有迷惑性的干扰项，填空题说明推断步骤，简答题讲清要点与因果。题库判分与合理解释有差异时，分别说明。
+- 易错总结：给出本题最容易混淆的一至三个点，逐条说清错在哪里、怎么辨别，最后给一个下次能用的检查方法。优先结合学生已提交的作答与本题对话；没有相关记录时讲常见误区。学生尚未提交时，用检查线索帮助独立作答，避免提前公布答案。
 - 自由提问：直接回应本轮，追问专注当前疑点，对需要展开的问题讲完整。学生明确索要示例、原理或完整讲解时，按请求作答；本题尚未提交也可以展开独立示例。无需每轮都复述整道题。
 
 按内容选择讲法：
@@ -24,6 +25,7 @@ const instructions = `你是面向大学生的中文全科助教。先回答学�
 const modes = new Map([
   ["hint", "本轮是学生主动选择的提示，请按提示模式提供线索。"],
   ["explain", "本轮是学生主动选择的本题讲解，请完整解释本题。"],
+  ["pitfalls", "本轮是学生主动选择的易错总结，请聚焦具体易错点与检查方法。"],
   ["free", "本轮由学生自由提问，按实际措辞判断需要提示、讲解、示例还是追问。"]
 ]);
 
@@ -31,6 +33,7 @@ module.exports = async function tutor(req, res) {
   res.setHeader("Cache-Control", "private, no-store");
   res.setHeader("Vary", "Origin");
   res.setHeader("X-Tiku-Search-Revision","grouped-brief-thinking-v2");
+  res.setHeader("X-Tiku-Tutor-Revision","conversation-controls-v1");
   const origin = req.headers.origin;
   if (origin && !origins.has(origin)) return res.status(403).end();
   if (origin) res.setHeader("Access-Control-Allow-Origin", origin);

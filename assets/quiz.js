@@ -148,9 +148,13 @@ document.body.insertAdjacentHTML("afterbegin", `
         <div id="tutorInline">
           <aside id="tutorPanel" class="tutor-panel" aria-labelledby="tutorTitle" hidden>
             <div class="tutor-head">
-              <div><h2 id="tutorTitle">AI 助教</h2><span id="tutorQuestion"></span></div>
+              <div>
+                <div class="tutor-heading"><h2 id="tutorTitle">AI 助教</h2><span id="tutorRounds" aria-live="polite"></span></div>
+                <span id="tutorQuestion"></span>
+              </div>
               <div class="tutor-head-actions">
                 <button type="button" id="tutorUnlockOpen">解锁</button>
+                <button type="button" id="tutorClear" disabled>清空对话</button>
                 <button type="button" id="tutorClose" aria-label="收起 AI 助教">×</button>
               </div>
             </div>
@@ -160,6 +164,7 @@ document.body.insertAdjacentHTML("afterbegin", `
               <div class="tutor-actions">
                 <button type="button" id="tutorHint">给我提示</button>
                 <button type="button" id="tutorExplain">讲解本题</button>
+                <button type="button" id="tutorPitfalls">易错总结</button>
               </div>
               <form id="tutorAskForm">
                 <textarea id="tutorAsk" aria-label="问这道题" maxlength="3000" rows="2" placeholder="问这道题，例如：为什么不能选 C？"></textarea>
@@ -677,8 +682,9 @@ function showConfirm(msg, opt){
     cancel.hidden = !!opt.alertOnly;
     const before = document.activeElement;
     bd.classList.add("show");
-    try{ ok.focus({preventScroll:true}); }catch(e){}
-    function done(r){ bd.classList.remove("show"); try{ if(before && before.focus && document.contains(before)) before.focus({preventScroll:true}); }catch(e){} ok.removeEventListener("click", onOk); cancel.removeEventListener("click", onCancel); resolve(r); }
+    if(opt.focusCancel) bd.classList.add("confirm-tutor");
+    try{ (opt.focusCancel ? cancel : ok).focus({preventScroll:true}); }catch(e){}
+    function done(r){ bd.classList.remove("show","confirm-tutor"); try{ if(before && before.focus && document.contains(before)) before.focus({preventScroll:true}); }catch(e){} ok.removeEventListener("click", onOk); cancel.removeEventListener("click", onCancel); resolve(r); }
     function onOk(){ done(true); } function onCancel(){ done(false); }
     ok.addEventListener("click", onOk); cancel.addEventListener("click", onCancel);
   });
@@ -1331,9 +1337,12 @@ function mountTutor(q){
   if($("tutorUnlock").open) $("tutorUnlock").close();
   let history = [];
   try { history = JSON.parse(sessionStorage.getItem(key) || "[]"); } catch {}
+  if(!Array.isArray(history)) history = [];
+  const savedRounds = history.at(-1)?.roundNumber;
+  let rounds = Math.max(Math.floor(history.length / 2), Number.isSafeInteger(savedRounds) ? savedRounds : 0);
   const state = tutorState = {key, history, request:null, retry:null};
   const log = $("tutorLog"), status = $("tutorStatus");
-  const askInput = $("tutorAsk"), webInput = $("tutorWeb");
+  const askInput = $("tutorAsk"), webInput = $("tutorWeb"), clearButton = $("tutorClear");
   log.replaceChildren();
   $("tutorQuestion").textContent = "第 " + (session.idx + 1) + " 题";
   status.textContent = askInput.value = "";
@@ -1341,8 +1350,12 @@ function mountTutor(q){
   let follow = true;
   function stick(){ if(follow) log.scrollTop = log.scrollHeight; }
   log.onscroll = () => { follow = log.scrollHeight - log.clientHeight - log.scrollTop < 36; };
+  function updateThread(){
+    $("tutorRounds").textContent = rounds + " 轮";
+    clearButton.disabled = !log.firstElementChild;
+  }
   function busy(active){
-    for(const id of ["tutorSend","tutorExplain","tutorHint","tutorUnlockOpen"]) $(id).disabled = active;
+    for(const id of ["tutorSend","tutorExplain","tutorHint","tutorPitfalls","tutorUnlockOpen"]) $(id).disabled = active;
     $("tutorSend").hidden = active;
     $("tutorStop").hidden = !active;
     for(const btn of log.querySelectorAll(".tutor-retry")) btn.disabled = active;
@@ -1372,11 +1385,32 @@ function mountTutor(q){
   }
   if(restored.length) loadTutorRenderer().then(() => {
     if(tutorState !== state) return;
-    for(const [message,item] of restored) showReply(message,item);
+    for(const [message,item] of restored){
+      if(item.el.parentNode === log) showReply(message,item);
+    }
     stick();
   });
   stick();
+  updateThread();
   busy(false);
+  clearButton.onclick = async () => {
+    if(!log.firstElementChild || hasShow("confirmBackdrop")) return;
+    if(!await showConfirm("清空这道题在当前标签页里的所有 AI 对话？", {ok:"清空",focusCancel:true})) return;
+    if(state !== tutorState || $("tutorPanel").hidden) return;
+    try { sessionStorage.removeItem(key); }
+    catch { status.textContent = "浏览器未能清空本题对话，请重试。"; return; }
+    const request = state.request;
+    state.request = null;
+    state.retry = null;
+    request?.abort();
+    history.length = 0;
+    rounds = 0;
+    log.replaceChildren();
+    updateThread();
+    busy(false);
+    status.textContent = "已清空本题对话。";
+    $("tutorHint").focus({preventScroll:true});
+  };
   $("tutorStop").onclick = () => state.request?.abort();
   function contextForTurn(){
     const answer = session.answers[session.idx];
@@ -1399,12 +1433,16 @@ function mountTutor(q){
     const question = prompt.trim();
     if(!question) return;
     const web = webInput.checked;
-    if(state.retry?.prompt === question && state.retry.web === web && state.retry.mode === mode) return ask(state.retry);
-    return ask({prompt:question, mode, web, context:contextForTurn()});
+    const retry = state.retry;
+    const turn = retry?.prompt === question && retry.web === web && retry.mode === mode
+      ? retry : {prompt:question, mode, web, context:contextForTurn()};
+    return ask(turn, mode === "free");
   }
-  async function ask(turn){
-    if(state.request || state !== tutorState || $("tutorPanel").hidden) return;
+  async function ask(turn, fromComposer = false){
+    if(state.request || state !== tutorState || $("tutorPanel").hidden || $("tutorUnlock").open) return;
     const controller = state.request = new AbortController();
+    const isCurrent = () => state === tutorState && state.request === controller;
+    if(fromComposer) askInput.value = "";
     turn.answer?.el.remove();
     turn.question?.el.remove();
     turn.question = turn.answer = null;
@@ -1415,31 +1453,29 @@ function mountTutor(q){
     const reply = {role:"assistant",content:"",web:turn.web};
     const message = {role:"user",content:turn.prompt};
     let renderTimer, finalReasoning = "", finish;
-    function showTurn(){
-      if(turn.answer) return;
-      follow = true;
-      turn.question = row("user",turn.prompt);
-      turn.answer = row("assistant","");
-      stick();
-    }
+    follow = true;
+    turn.question = row("user",turn.prompt);
+    turn.answer = row("assistant","");
+    updateThread();
+    stick();
     try {
       const result = await fetch(tutorEndpoint(), {
         method:"POST", signal:controller.signal,
         headers:{"Content-Type":"application/json"},
         body:JSON.stringify({scope:tutorScope(),context:turn.context,question:turn.prompt,mode:turn.mode,history:recentHistory(),web:turn.web,timeZone:Intl.DateTimeFormat().resolvedOptions().timeZone})
       });
-      if(state !== tutorState || controller.signal.aborted) return;
+      if(!isCurrent()) return;
+      controller.signal.throwIfAborted();
       if(result.status === 401){
         $("tutorUnlockOpen").hidden = false;
-        status.textContent = "";
-        openTutorUnlock(() => ask(turn));
-        return;
+        openTutorUnlock(() => { if(state.retry === turn) ask(turn); });
+        throw Error("请解锁 AI 助教后重试。");
       }
       if(!result.ok) throw Error(({503:"AI 暂时不可用，请稍后重试。",429:"请求较多，请稍后再试。",400:"对话过长或请求无效。"})[result.status] || "连接失败，请稍后重试。");
       $("tutorUnlockOpen").hidden = true;
-      showTurn();
       status.textContent = "正在准备讲解…";
       finish = await readTutorStream(result,controller.signal,choice => {
+        if(!isCurrent()) return;
         const tool = choice.server_tool_event;
         if(tool?.type === "call_started") status.textContent = "正在联网查证…";
         if(tool?.type === "step_reasoning_done") finalReasoning = "";
@@ -1460,7 +1496,7 @@ function mountTutor(q){
           status.textContent = "正在回答…";
           if(!renderTimer) renderTimer = setTimeout(() => {
             renderTimer = null;
-            if(tutorState === state){
+            if(isCurrent()){
               paint(turn.answer.body, reply.content, false);
               stick();
             }
@@ -1471,18 +1507,18 @@ function mountTutor(q){
       if(finalReasoning) reply.reasoning_content = finalReasoning;
       await loadTutorRenderer();
       controller.signal.throwIfAborted();
-      if(state !== tutorState) return;
+      if(!isCurrent()) return;
       showReply(reply,turn.answer);
+      reply.roundNumber = ++rounds;
       history.push(message,reply);
       history.splice(0,Math.max(0,history.length-24));
+      updateThread();
       status.textContent = finish === "length" ? "回答已达长度上限，可以继续追问。" : "";
       try { sessionStorage.setItem(key,JSON.stringify(history)); }
       catch { status.textContent = "当前页面可继续追问，浏览器未保存记录。"; }
-      if(askInput.value.trim() === turn.prompt) askInput.value = "";
       if(webInput.checked === turn.web) webInput.checked = false;
     } catch(error) {
-      if(state !== tutorState) return;
-      showTurn();
+      if(!isCurrent()) return;
       const detail = document.createElement("div");
       detail.className = "tutor-result";
       detail.textContent = controller.signal.aborted ? "已停止，本轮未加入对话。" : error.message;
@@ -1497,12 +1533,13 @@ function mountTutor(q){
       status.textContent = detail.textContent;
     } finally {
       clearTimeout(renderTimer);
-      if(state === tutorState){ state.request = null; busy(false); stick(); }
+      if(isCurrent()){ state.request = null; busy(false); stick(); }
     }
   }
   $("tutorAskForm").onsubmit = event => { event.preventDefault(); send(askInput.value); };
   $("tutorHint").onclick = () => send("给我一个思路提示，先不要透露答案。", "hint");
   $("tutorExplain").onclick = () => send("请结合我的作答讲解本题。", "explain");
+  $("tutorPitfalls").onclick = () => send("请帮我总结这道题的易错点和下次做题的检查方法。", "pitfalls");
 }
 function renderQuestion(){
   mountTutor(currentQ());

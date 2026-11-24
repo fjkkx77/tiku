@@ -58,6 +58,7 @@ async function verifyAccess(){
     for(const [mode, question, expected] of [
       ["hint", "给我一个思路提示，先不要透露答案。", /主动选择的提示/],
       ["explain", "请结合我的作答讲解本题。", /主动选择的本题讲解/],
+      ["pitfalls", "请总结这道题的易错点。", /主动选择的易错总结/],
       ["free", "给我看一个 Linux C 语言捕获 SIGINT 信号的代码示例", /学生自由提问/]
     ]){
       assert.equal(await request({...askOffline,mode,question}),200);
@@ -132,7 +133,7 @@ async function browserChecks(){
         }
         send({delta,finish_reason:"stop"});
         res.end("data: [DONE]");
-      },240);
+      },prompt === "模拟生成时清空" ? 1800 : 240);
       return;
     }
     let file=path.join(__dirname,"..",new URL(req.url,"http://local").pathname);
@@ -163,6 +164,13 @@ async function browserChecks(){
         await ev('document.querySelector("#tutorWeb").checked=true;document.querySelector("#tutorExplain").click()');
         if(width!==390){
           await until('document.querySelector("#tutorUnlock").open');
+          if(width===320){
+            await ev('document.querySelector("#tutorUnlockCancel").click()');
+            await until('!document.querySelector("#tutorUnlock").open && !!document.querySelector(".tutor-retry")');
+            assert.ok(await ev('document.querySelector(".tutor-user").textContent.includes("讲解本题")'));
+            await ev('document.querySelector(".tutor-retry").click()');
+            await until('document.querySelector("#tutorUnlock").open');
+          }
           await ev('document.querySelector("#tutorToken").value="wrong";document.querySelector("#tutorUnlockSave").click()');
           await until('document.querySelector("#tutorUnlockStatus").textContent.includes("不正确")');
           await ev('document.querySelector("#tutorToken").value="test";document.querySelector("#tutorUnlockSave").click()');
@@ -223,9 +231,13 @@ async function browserChecks(){
           assert.equal(await ev('document.activeElement.id'),"tutorAsk");
         }
         await ev('document.querySelector("#tutorAsk").value="模拟断流";document.querySelector("#tutorSend").click()');
+        assert.equal(await ev('document.querySelector("#tutorAsk").value'),"");
         await until('document.querySelector(".tutor-retry") && document.querySelector("#tutorLog").textContent.includes("半截回复")');
-        await ev('document.querySelector(".tutor-retry").click()');
+        assert.equal(await ev('document.querySelector("#tutorRounds").textContent'),"1 轮");
+        await ev('document.querySelector("#tutorAsk").value="模拟断流";document.querySelector(".tutor-retry").click()');
         await until('document.querySelector("#tutorStop").hidden && document.querySelectorAll(".tutor-answer strong").length===2');
+        assert.equal(await ev('document.querySelector("#tutorAsk").value'),"模拟断流");
+        assert.equal(await ev('document.querySelector("#tutorRounds").textContent'),"2 轮");
         assert.equal(await ev('document.querySelectorAll(".tutor-user").length'),2);
         assert.equal(observed.at(-1).history.length,2);
         assert.equal(observed.at(-1).history[1].server_tool_calls.length,1);
@@ -255,7 +267,44 @@ async function browserChecks(){
         await until('document.querySelector("#tutorStop").hidden');
         assert.equal(observed.at(-1).mode,"hint");
         assert.ok(observed.at(-1).history.every(message=>message.reasoning_content === undefined));
-        console.log(width+"px 布局、解锁、排版、联网来源、断流重试与切题通过");
+        assert.equal(await ev('document.querySelector("#tutorRounds").textContent'),"4 轮");
+        await ev('document.querySelector("#tutorPitfalls").click()');
+        await until('document.querySelector("#tutorStop").hidden');
+        assert.equal(observed.at(-1).mode,"pitfalls");
+        assert.equal(observed.at(-1).history.length,8);
+        assert.equal(await ev('document.querySelector("#tutorRounds").textContent'),"5 轮");
+        assert.ok(await ev(`["tutorClear","tutorClose","tutorPitfalls"].every(id=>{
+          const r=document.getElementById(id).getBoundingClientRect();
+          const panel=document.getElementById("tutorPanel").getBoundingClientRect();
+          return r.height>=44 && r.left>=panel.left && r.right<=panel.right;
+        })`));
+        if(process.env.TUTOR_CONTROL_SHOTS && [320,1440].includes(width)){
+          await ev('document.querySelector(".tutor-head").scrollIntoView({block:"nearest"})');
+          await c.vshot(path.join(process.env.TUTOR_CONTROL_SHOTS,"tutor-controls-"+width+".png"));
+        }
+        await ev('document.querySelector("#tutorClear").click()');
+        assert.equal(await ev('document.activeElement.id'),"confirmCancelBtn");
+        await ev('document.querySelector("#confirmCancelBtn").click()');
+        assert.equal(await ev('document.querySelector("#tutorRounds").textContent'),"5 轮");
+        if(width===320 || width===1440){
+          await ev('document.querySelector("#nextBtn").click();document.querySelector("#tutorHint").click()');
+          await until('document.querySelector("#tutorRounds").textContent==="1 轮"');
+          await ev('document.querySelector("#prevBtn").click()');
+          assert.equal(await ev('document.querySelector("#tutorRounds").textContent'),"5 轮");
+          await ev('document.querySelector("#tutorAsk").value="模拟生成时清空";document.querySelector("#tutorSend").click()');
+          await until('!document.querySelector("#tutorStop").hidden && document.querySelector("#tutorLog .tutor-assistant:last-child").textContent.includes("本题解析")');
+          await ev('document.querySelector("#tutorAsk").value="新草稿";document.querySelector("#tutorClear").click();document.querySelector("#confirmOkBtn").click()');
+          await until('document.querySelector("#tutorRounds").textContent==="0 轮" && document.querySelector("#tutorStop").hidden');
+          assert.equal(await ev('document.querySelector("#tutorAsk").value'),"新草稿");
+          assert.equal(await ev('document.querySelector("#tutorLog").childElementCount'),0);
+          assert.ok(await ev('document.querySelector("#tutorClear").disabled'));
+          await ev('document.querySelector("#nextBtn").click()');
+          assert.equal(await ev('document.querySelector("#tutorRounds").textContent'),"1 轮");
+          await ev('document.querySelector("#prevBtn").click()');
+          assert.equal(await ev('document.querySelector("#tutorRounds").textContent'),"0 轮");
+          assert.equal(await ev('document.querySelector("#tutorLog").childElementCount'),0);
+        }
+        console.log(width+"px 助教布局、编辑、轮数、清空、易错总结和既有流程通过");
       } finally {c.close();}
     }
   } finally {server.close();}
