@@ -46,23 +46,56 @@
     return markdown;
   }
 
+  function attachCopy(code){
+    const pre = code.parentElement;
+    const frame = document.createElement("div");
+    frame.className = "tutor-code-frame";
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "tutor-copy";
+    button.title = "复制代码";
+    button.setAttribute("aria-label", "复制代码");
+    const icon = document.createElement("span");
+    icon.className = "tutor-copy-icon";
+    icon.setAttribute("aria-hidden", "true");
+    const status = document.createElement("span");
+    status.className = "tutor-copy-status";
+    status.setAttribute("role", "status");
+    button.append(icon);
+    pre.replaceWith(frame);
+    frame.append(pre, button, status);
+
+    let reset, copying = false;
+    button.onclick = async () => {
+      if(copying) return;
+      copying = true;
+      clearTimeout(reset);
+      try {
+        await navigator.clipboard.writeText(code.textContent);
+        button.dataset.copyState = "done";
+        status.textContent = "已复制代码";
+      } catch {
+        button.dataset.copyState = "error";
+        status.textContent = "复制失败，请重试";
+      } finally {
+        copying = false;
+      }
+      button.title = status.textContent;
+      reset = setTimeout(() => {
+        delete button.dataset.copyState;
+        status.textContent = "";
+        button.title = "复制代码";
+      }, 1700);
+    };
+  }
+
   function answer(el, text, final){
     el.classList.remove("tutor-plain");
     try {
       el.innerHTML = DOMPurify.sanitize(parser().parse(text),{USE_PROFILES:{html:true,mathMl:true}});
     } catch { el.textContent = text; el.classList.add("tutor-plain"); }
     if(!final) return;
-    for(const code of el.querySelectorAll("pre > code")){
-      const button = document.createElement("button");
-      button.type = "button";
-      button.className = "tutor-copy";
-      button.textContent = "复制代码";
-      button.onclick = async () => {
-        try { await navigator.clipboard.writeText(code.textContent); button.textContent = "已复制"; }
-        catch { button.textContent = "复制失败"; }
-      };
-      code.parentElement.after(button);
-    }
+    for(const code of el.querySelectorAll("pre > code")) attachCopy(code);
   }
 
   function sourceUrl(input){

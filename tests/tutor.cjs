@@ -161,7 +161,26 @@ async function browserChecks(){
         assert.ok(await ev("document.documentElement.scrollWidth<=innerWidth"));
         assert.equal(await ev('document.querySelector("#tutorPanel").parentElement.id'),width>=1440?"tutorDock":"tutorInline");
         if(width>=1440) assert.ok(await ev('document.querySelector(".qcard").getBoundingClientRect().right<document.querySelector("#tutorPanel").getBoundingClientRect().left'));
-        await ev('document.querySelector("#tutorWeb").checked=true;document.querySelector("#tutorExplain").click()');
+        assert.deepEqual(await ev(`(() => {
+          const input = document.querySelector("#tutorWeb");
+          const pill = document.querySelector(".tutor-web-pill");
+          const dot = () => getComputedStyle(pill, "::before").backgroundColor;
+          const idle = dot();
+          pill.click();
+          return [input.checked, dot() !== idle, pill.closest("label").offsetHeight >= 44];
+        })()`),[true,true,true]);
+        if(width===390){
+          await ev('document.querySelector("#tutorWeb").focus()');
+          await c.send("Input.dispatchKeyEvent",{type:"keyDown",key:" ",code:"Space",windowsVirtualKeyCode:32});
+          await c.send("Input.dispatchKeyEvent",{type:"keyUp",key:" ",code:"Space",windowsVirtualKeyCode:32});
+          assert.equal(await ev('document.querySelector("#tutorWeb").checked'),false);
+          await ev('document.querySelector(".tutor-web-pill").click()');
+        }
+        if(process.env.TUTOR_SHOTS && [320,390,430].includes(width)){
+          await ev('document.querySelector("#tutorAskForm").scrollIntoView({block:"center"}); document.querySelector("#tutorAsk").focus({preventScroll:true})');
+          await c.vshot(path.join(process.env.TUTOR_SHOTS,"tutor-composer-"+width+".png"));
+        }
+        await ev('document.querySelector("#tutorExplain").click()');
         if(width!==390){
           await until('document.querySelector("#tutorUnlock").open');
           if(width===320){
@@ -193,6 +212,16 @@ async function browserChecks(){
         assert.ok(await ev('document.querySelector(".tutor-sources").textContent.includes("已打开原文") && document.querySelector(".tutor-sources").textContent.includes("2026-11-24") && document.querySelector(".tutor-sources").textContent.includes("搜索摘要") && !document.querySelector("a[href^=\\"https://invalid.example\\"]")'));
         assert.ok(await ev('document.documentElement.scrollWidth<=innerWidth && document.querySelector("#tutorPanel").scrollWidth<=document.querySelector("#tutorPanel").clientWidth+1'));
         if(width>=1440) assert.ok(await ev('document.querySelector("#tutorSend").getBoundingClientRect().bottom<=innerHeight'));
+        if(width>=390) assert.ok(await ev('new Set([...document.querySelectorAll(".tutor-actions button")].map(button=>button.getBoundingClientRect().top)).size===1'), width+"px 快捷操作应排成一行");
+        assert.ok(await ev(`(() => {
+          const pre = document.querySelector(".tutor-answer pre");
+          const button = pre.parentElement.querySelector(".tutor-copy");
+          if(!button || !pre.parentElement.matches(".tutor-code-frame")) return false;
+          const code = pre.getBoundingClientRect(), copy = button.getBoundingClientRect(), frame = pre.parentElement.getBoundingClientRect();
+          pre.scrollLeft = pre.scrollWidth;
+          return copy.width >= 44 && copy.height >= 44 && code.right <= copy.left && copy.right <= frame.right && copy.top <= frame.top + 2 &&
+            button.getBoundingClientRect().left === copy.left && button.getAttribute("aria-label") === "复制代码";
+        })()`), width+"px 复制按钮须在代码块内的独立右侧，且不盖住代码");
         if(process.env.TUTOR_SHOTS && [390,1440].includes(width)){
           await ev('document.querySelector(".tutor-answer pre").scrollIntoView({block:"center"})');
           await c.vshot(path.join(process.env.TUTOR_SHOTS,"tutor-"+width+".png"));
@@ -214,10 +243,19 @@ async function browserChecks(){
           assert.ok(await ev(`(async () => {
             const code = document.querySelector(".tutor-answer pre code");
             const button = document.querySelector(".tutor-copy");
-            let copied;
-            Object.defineProperty(navigator, "clipboard", {configurable:true,value:{writeText:async text=>{copied=text;}}});
-            try { await button.onclick(); return copied === code.textContent; }
-            finally { delete navigator.clipboard; }
+            const status = button.parentElement.querySelector('[role="status"]');
+            let copied, reject = false;
+            Object.defineProperty(navigator, "clipboard", {configurable:true,value:{writeText:async text=>{
+              if(reject) throw Error("权限拒绝");
+              copied=text;
+            }}});
+            try {
+              await button.onclick();
+              const success = copied === code.textContent && button.dataset.copyState === "done" && status.textContent === "已复制代码";
+              reject = true;
+              await button.onclick();
+              return success && button.dataset.copyState === "error" && status.textContent.includes("复制失败");
+            } finally { delete navigator.clipboard; }
           })()`));
         }
         if(width>=1024){

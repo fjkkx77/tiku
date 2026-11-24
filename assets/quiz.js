@@ -154,22 +154,25 @@ document.body.insertAdjacentHTML("afterbegin", `
               </div>
               <div class="tutor-head-actions">
                 <button type="button" id="tutorUnlockOpen">解锁</button>
-                <button type="button" id="tutorClear" disabled>清空对话</button>
-                <button type="button" id="tutorClose" aria-label="收起 AI 助教">×</button>
+                <button type="button" id="tutorClear" aria-label="清空对话" disabled><span class="tutor-head-face">清空</span></button>
+                <button type="button" id="tutorClose" aria-label="收起 AI 助教"><span class="tutor-head-face" aria-hidden="true">×</span></button>
               </div>
             </div>
             <div id="tutorLog" class="tutor-log" role="region" aria-label="本题对话" tabindex="0"></div>
             <div class="tutor-composer">
               <p id="tutorStatus" role="status"></p>
               <div class="tutor-actions">
-                <button type="button" id="tutorHint">给我提示</button>
-                <button type="button" id="tutorExplain">讲解本题</button>
-                <button type="button" id="tutorPitfalls">易错总结</button>
+                <button type="button" id="tutorHint" aria-label="给我提示"><span aria-hidden="true">💡</span>给我提示</button>
+                <button type="button" id="tutorExplain" aria-label="讲解本题"><span aria-hidden="true">📖</span>讲解本题</button>
+                <button type="button" id="tutorPitfalls" aria-label="易错总结"><span aria-hidden="true">⚡</span>易错总结</button>
               </div>
               <form id="tutorAskForm">
                 <textarea id="tutorAsk" aria-label="问这道题" maxlength="3000" rows="2" placeholder="问这道题，例如：为什么不能选 C？"></textarea>
                 <div class="tutor-controls">
-                  <label><input type="checkbox" id="tutorWeb"> 本轮联网查证</label>
+                  <label class="tutor-web-toggle">
+                    <input type="checkbox" id="tutorWeb">
+                    <span class="tutor-web-pill">本轮联网查证</span>
+                  </label>
                   <button type="submit" class="btn" id="tutorSend">发送</button>
                   <button type="button" class="btn secondary" id="tutorStop" hidden>停止</button>
                 </div>
