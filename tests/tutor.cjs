@@ -160,6 +160,7 @@ async function browserChecks(){
         await ev('document.querySelector("#startBtn").click();document.querySelector("#tutorToggle").click()');
         assert.ok(await ev("document.documentElement.scrollWidth<=innerWidth"));
         assert.equal(await ev('document.querySelector("#tutorPanel").parentElement.id'),width>=1440?"tutorDock":"tutorInline");
+        assert.ok(await ev('!document.querySelector("#tutorUnlockOpen") && !document.querySelector("#tutorUnlock").open'));
         if(width>=1440) assert.ok(await ev('document.querySelector(".qcard").getBoundingClientRect().right<document.querySelector("#tutorPanel").getBoundingClientRect().left'));
         assert.deepEqual(await ev(`(() => {
           const input = document.querySelector("#tutorWeb");
@@ -341,6 +342,17 @@ async function browserChecks(){
           await ev('document.querySelector("#prevBtn").click()');
           assert.equal(await ev('document.querySelector("#tutorRounds").textContent'),"0 轮");
           assert.equal(await ev('document.querySelector("#tutorLog").childElementCount'),0);
+        }
+        if(width===430){
+          const callsBefore = observed.length, scopeBefore = observed.at(-1).scope;
+          assert.equal(scopeBefore.type,"device");
+          await c.goto(url);
+          await ev('document.querySelector("#startBtn").click();document.querySelector("#tutorToggle").click()');
+          assert.ok(await ev('!document.querySelector("#tutorPanel").hidden && !document.querySelector("#tutorUnlockOpen")'));
+          await ev('document.querySelector("#tutorHint").click()');
+          await until('document.querySelector("#tutorStop").hidden && !document.querySelector("#tutorUnlock").open');
+          assert.equal(observed.length,callsBefore+1);
+          assert.deepEqual(observed.at(-1).scope,scopeBefore);
         }
         console.log(width+"px 助教布局、编辑、轮数、清空、易错总结和既有流程通过");
       } finally {c.close();}

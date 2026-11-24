@@ -376,7 +376,6 @@ body.quizzing header p.quiz-scope:has(#quizScopeText:empty){display:none;}
 }
 .tutor-head-actions{display:flex;align-items:center;gap:.15rem;margin-inline-start:auto}
 .tutor-panel .tutor-head-actions button{min-width:44px;padding:0;border:0;background:transparent;white-space:nowrap}
-.tutor-panel .tutor-head-actions #tutorUnlockOpen{padding-inline:.5rem}
 .tutor-head-face{
   display:inline-flex;align-items:center;justify-content:center;min-height:1.85rem;padding:0 .64rem;
   border:1px solid #d8e3f4;border-radius:999px;background:#f7faff;color:#36527a;font-size:.85rem;

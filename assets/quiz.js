@@ -153,7 +153,6 @@ document.body.insertAdjacentHTML("afterbegin", `
                 <span id="tutorQuestion"></span>
               </div>
               <div class="tutor-head-actions">
-                <button type="button" id="tutorUnlockOpen">解锁</button>
                 <button type="button" id="tutorClear" aria-label="清空对话" disabled><span class="tutor-head-face">清空</span></button>
                 <button type="button" id="tutorClose" aria-label="收起 AI 助教"><span class="tutor-head-face" aria-hidden="true">×</span></button>
               </div>
@@ -1199,7 +1198,7 @@ function fitTutorUnlock(){
   dialog.style.setProperty("--tutor-visible-top", keyboard && viewport ? viewport.offsetTop + "px" : "0px");
 }
 
-function openTutorUnlock(after, focus = false){
+function openTutorUnlock(after){
   const dialog = $("tutorUnlock");
   tutorAfterUnlock = after;
   if(dialog.open) return;
@@ -1210,8 +1209,7 @@ function openTutorUnlock(after, focus = false){
   $("tutorUnlockStatus").textContent = "";
   $("tutorToken").value = "";
   dialog.showModal();
-  if(focus) $("tutorToken").focus({preventScroll:true});
-  else $("tutorUnlockCancel").focus({preventScroll:true});
+  $("tutorUnlockCancel").focus({preventScroll:true});
   fitTutorUnlock();
 }
 
@@ -1232,7 +1230,6 @@ function setupTutor(){
   resize.observe(progress);
   $("tutorToggle").onclick = () => setTutorPanel($("tutorPanel").hidden);
   $("tutorClose").onclick = () => setTutorPanel(false, true);
-  $("tutorUnlockOpen").onclick = () => openTutorUnlock(null, true);
   $("tutorUnlockCancel").onclick = () => dialog.close();
   window.visualViewport?.addEventListener("resize", fitTutorUnlock);
   window.visualViewport?.addEventListener("scroll", fitTutorUnlock);
@@ -1266,9 +1263,7 @@ function setupTutor(){
       if(JSON.stringify(scope) !== JSON.stringify(tutorScope())) throw Error("同步设置已变更，请重新解锁。");
       const proceed = tutorAfterUnlock;
       dialog.close();
-      $("tutorUnlockOpen").hidden = true;
-      if(proceed) proceed();
-      else { $("tutorStatus").textContent = "已解锁"; $("tutorToggle").focus({preventScroll:true}); }
+      proceed?.();
     } catch(error){
       if(!controller.signal.aborted) $("tutorUnlockStatus").textContent = error.message;
     } finally {
@@ -1358,7 +1353,7 @@ function mountTutor(q){
     clearButton.disabled = !log.firstElementChild;
   }
   function busy(active){
-    for(const id of ["tutorSend","tutorExplain","tutorHint","tutorPitfalls","tutorUnlockOpen"]) $(id).disabled = active;
+    for(const id of ["tutorSend","tutorExplain","tutorHint","tutorPitfalls"]) $(id).disabled = active;
     $("tutorSend").hidden = active;
     $("tutorStop").hidden = !active;
     for(const btn of log.querySelectorAll(".tutor-retry")) btn.disabled = active;
@@ -1470,12 +1465,10 @@ function mountTutor(q){
       if(!isCurrent()) return;
       controller.signal.throwIfAborted();
       if(result.status === 401){
-        $("tutorUnlockOpen").hidden = false;
         openTutorUnlock(() => { if(state.retry === turn) ask(turn); });
         throw Error("请解锁 AI 助教后重试。");
       }
       if(!result.ok) throw Error(({503:"AI 暂时不可用，请稍后重试。",429:"请求较多，请稍后再试。",400:"对话过长或请求无效。"})[result.status] || "连接失败，请稍后重试。");
-      $("tutorUnlockOpen").hidden = true;
       status.textContent = "正在准备讲解…";
       finish = await readTutorStream(result,controller.signal,choice => {
         if(!isCurrent()) return;
