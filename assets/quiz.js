@@ -1132,7 +1132,7 @@ const tutorWide = matchMedia("(min-width: 68rem) and (hover: hover) and (pointer
 var tutorState, tutorRenderer, tutorRendererReady, tutorUnlockRequest, tutorAfterUnlock, tutorUnlockFocus, tutorDeviceId;
 
 function loadTutorRenderer(){
-  return tutorRenderer ??= Promise.all(["marked", "purify", "katex", "tutor-render"].map(name => new Promise(resolve => {
+  return tutorRenderer ??= Promise.all(["marked", "purify", "katex", "highlight", "tutor-render"].map(name => new Promise(resolve => {
     const script = document.createElement("script");
     script.src = new URL(name + ".js" + tutorStamp, tutorAssets);
     script.onload = script.onerror = resolve;
@@ -1381,7 +1381,9 @@ function mountTutor(q){
   function contextForTurn(){
     const answer = session.answers[session.idx];
     const draft = selectedOpt || [...document.querySelectorAll("#screen-quiz .blank-input")].map(el=>el.value ?? el.textContent);
-    return JSON.stringify({题目:q, 作答:answer || draft});
+    const type = q.vocab ? "翻译题" : CFG.wordlist ? "选词填空" : questionGroup(q);
+    return JSON.stringify({科目:CFG.title, 题型:type, 题目:q,
+      作答状态:answer ? "已提交" : recite ? "背题" : "未提交", 作答:answer || draft});
   }
   function recentHistory(){
     let bytes = 0, start = history.length;
@@ -1393,12 +1395,12 @@ function mountTutor(q){
     }
     return history.slice(start).map(({role,content,server_tool_calls,reasoning_content})=>({role,content,server_tool_calls,reasoning_content}));
   }
-  function send(prompt){
+  function send(prompt, mode = "free"){
     const question = prompt.trim();
     if(!question) return;
     const web = webInput.checked;
-    if(state.retry?.prompt === question && state.retry.web === web) return ask(state.retry);
-    return ask({prompt:question, web, context:contextForTurn()});
+    if(state.retry?.prompt === question && state.retry.web === web && state.retry.mode === mode) return ask(state.retry);
+    return ask({prompt:question, mode, web, context:contextForTurn()});
   }
   async function ask(turn){
     if(state.request || state !== tutorState || $("tutorPanel").hidden) return;
@@ -1424,7 +1426,7 @@ function mountTutor(q){
       const result = await fetch(tutorEndpoint(), {
         method:"POST", signal:controller.signal,
         headers:{"Content-Type":"application/json"},
-        body:JSON.stringify({scope:tutorScope(),context:turn.context,question:turn.prompt,history:recentHistory(),web:turn.web,timeZone:Intl.DateTimeFormat().resolvedOptions().timeZone})
+        body:JSON.stringify({scope:tutorScope(),context:turn.context,question:turn.prompt,mode:turn.mode,history:recentHistory(),web:turn.web,timeZone:Intl.DateTimeFormat().resolvedOptions().timeZone})
       });
       if(state !== tutorState || controller.signal.aborted) return;
       if(result.status === 401){
@@ -1499,8 +1501,8 @@ function mountTutor(q){
     }
   }
   $("tutorAskForm").onsubmit = event => { event.preventDefault(); send(askInput.value); };
-  $("tutorHint").onclick = () => send("给我一个思路提示，先不要透露答案。");
-  $("tutorExplain").onclick = () => send("请结合我的作答讲解本题。");
+  $("tutorHint").onclick = () => send("给我一个思路提示，先不要透露答案。", "hint");
+  $("tutorExplain").onclick = () => send("请结合我的作答讲解本题。", "explain");
 }
 function renderQuestion(){
   mountTutor(currentQ());

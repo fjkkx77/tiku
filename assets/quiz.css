@@ -387,6 +387,11 @@ body.quizzing header p.quiz-scope:has(#quizScopeText:empty){display:none;}
 .tutor-answer pre,.tutor-answer .katex-display{display:block;max-width:100%;overflow-x:auto}
 .tutor-answer pre{background:#eff3f9;border-radius:.55rem;padding:.7rem;margin:.6em 0}
 .tutor-answer pre code{background:none;padding:0;white-space:pre}
+.tutor-answer pre :is(.hljs-keyword,.hljs-type,.hljs-selector-tag){color:#6b21a8}
+.tutor-answer pre :is(.hljs-string,.hljs-regexp,.hljs-attr){color:#12643d}
+.tutor-answer pre :is(.hljs-comment,.hljs-quote){color:#526176}
+.tutor-answer pre :is(.hljs-number,.hljs-literal,.hljs-symbol){color:#97410e}
+.tutor-answer pre :is(.hljs-title,.hljs-built_in,.hljs-meta,.hljs-attribute){color:#1552a4}
 .tutor-answer table{display:block;max-width:100%;overflow-x:auto;border-collapse:collapse}
 .tutor-answer th,.tutor-answer td{border:1px solid var(--border);padding:.3rem .45rem}
 .tutor-panel .tutor-copy{font-size:.8rem}

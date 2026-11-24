@@ -13,6 +13,18 @@
           link({tokens}) { return this.parser.parseInline(tokens); }
         }
       });
+      markdown.use({renderer:{
+        code({text, lang}) {
+          const language = lang?.trim().split(/\s+/, 1)[0].toLowerCase();
+          if(!language || !window.hljs) return false;
+          try {
+            if(!hljs.getLanguage(language)) return false;
+            const {value} = hljs.highlight(text, {language, ignoreIllegals:true});
+            const newline = text.endsWith("\n") ? "" : "\n";
+            return `<pre><code class="language-${escapeHtml(language)}">${value}${newline}</code></pre>\n`;
+          } catch { return false; }
+        }
+      }});
       if(window.katex){
         markdown.use({extensions:[{
           name:"tutorMath",

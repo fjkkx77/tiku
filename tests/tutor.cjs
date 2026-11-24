@@ -53,6 +53,21 @@ async function verifyAccess(){
     assert.equal(await request({action:"unlock",scope:device},token),204);
     assert.equal(await request({...ask,scope:device,web:false}),200);
     assert.equal(calls.at(-1).payload.tools,undefined);
+    const askOffline = {...ask,scope:device,web:false};
+    for(const [mode, question, expected] of [
+      ["hint", "给我一个思路提示，先不要透露答案。", /主动选择的提示/],
+      ["explain", "请结合我的作答讲解本题。", /主动选择的本题讲解/],
+      ["free", "给我看一个 Linux C 语言捕获 SIGINT 信号的代码示例", /学生自由提问/]
+    ]){
+      assert.equal(await request({...askOffline,mode,question}),200);
+      const payload = calls.at(-1).payload;
+      assert.match(payload.messages[0].content,expected);
+      assert.match(payload.messages[0].content,/最小完整例子、运行方法、可观察的预期现象/);
+      assert.match(payload.messages[0].content,/缺材料就明确说明/);
+      assert.deepEqual(payload.messages.at(-1),{role:"user",content:question});
+      assert.equal(payload.model,"deepseek-flash");
+    }
+    assert.equal(await request({...askOffline,mode:"unknown"}),400);
     process.env.TIKU_AI_OWNER_TOKEN = "y".repeat(32);
     assert.equal(await request(ask),401);
   } finally {global.fetch=originalFetch;}
@@ -97,7 +112,7 @@ async function browserChecks(){
       send({delta:{content:"**本题解析**\n\n"}});
       setTimeout(()=>{
         const content = "1. 输入 <stdio.h> 和 " + String.fromCharCode(96) + "Ctrl+C" + String.fromCharCode(96) +
-          "\n2. 用 $x^2$ 表示乘方\n\n" + String.fromCharCode(96).repeat(3) + "c\nint main() { return 0; }\n" +
+          "\n2. 用 $x^2$ 表示乘方\n\n" + String.fromCharCode(96).repeat(3) + 'c\n#include <stdio.h>\n// 处理信号\nint main() { puts("<signal>"); return 0; }\n' +
           String.fromCharCode(96).repeat(3) + "\n\n" + "LongIdentifier".repeat(15);
         const delta={content};
         if(payload.web){
@@ -149,11 +164,48 @@ async function browserChecks(){
         assert.ok(await ev('!document.querySelector("#tutorUnlock").open') || width!==390);
         await until('document.querySelector("#tutorLog").innerText.includes("本题解析") && !document.querySelector("#tutorStop").hidden');
         await until('document.querySelectorAll("#tutorLog a").length===2');
+        assert.equal(observed.at(-1).mode,"explain");
+        const context = JSON.parse(observed.at(-1).context);
+        assert.match(context.科目,/Linux网络编程/);
+        assert.equal(context.题型,"单选题");
+        assert.equal(context.作答状态,"未提交");
         assert.ok(await ev('document.querySelector(".tutor-answer strong") && document.querySelector("pre code") && document.querySelector(".tutor-answer math") && document.querySelector(".tutor-answer").textContent.includes("<stdio.h>")'));
+        assert.deepEqual(await ev(`(() => {
+          const code = document.querySelector(".tutor-answer pre code");
+          const tokens = ["keyword", "string", "comment"].map(type => code.querySelector(".hljs-" + type));
+          return [tokens.every(Boolean), new Set(tokens.filter(Boolean).map(token => getComputedStyle(token).color)).size,
+            code.textContent.includes("#include <stdio.h>"), code.textContent.includes('puts("<signal>")'), code.children.length > 0];
+        })()`),[true,3,true,true,true], `${width}px C 代码须有区分语法的颜色并保留原文`);
         assert.ok(await ev('document.querySelector(".tutor-sources").textContent.includes("已打开原文") && document.querySelector(".tutor-sources").textContent.includes("2026-11-24") && document.querySelector(".tutor-sources").textContent.includes("搜索摘要") && !document.querySelector("a[href^=\\"https://invalid.example\\"]")'));
         assert.ok(await ev('document.documentElement.scrollWidth<=innerWidth && document.querySelector("#tutorPanel").scrollWidth<=document.querySelector("#tutorPanel").clientWidth+1'));
         if(width>=1440) assert.ok(await ev('document.querySelector("#tutorSend").getBoundingClientRect().bottom<=innerHeight'));
-        if(process.env.TUTOR_SHOTS && [390,1440].includes(width)) await c.vshot(path.join(process.env.TUTOR_SHOTS,"tutor-"+width+".png"));
+        if(process.env.TUTOR_SHOTS && [390,1440].includes(width)){
+          await ev('document.querySelector(".tutor-answer pre").scrollIntoView({block:"center"})');
+          await c.vshot(path.join(process.env.TUTOR_SHOTS,"tutor-"+width+".png"));
+        }
+        if(width===390){
+          const fence = String.fromCharCode(96).repeat(3);
+          for(const [markdown, highlighted, text] of [
+            [fence + 'c\nint count = 0;',true,"int count = 0;\n"],
+            [fence + '\nPID = 12345\n' + fence,false,"PID = 12345\n"],
+            [fence + 'unknown\n<tag>\n' + fence,false,"<tag>\n"]
+          ]){
+            assert.deepEqual(await ev(`(() => {
+              const body = document.createElement("div");
+              TikuTutorRender.answer(body, ${JSON.stringify(markdown)}, false);
+              const code = body.querySelector("pre code");
+              return [!!code.querySelector("span"), code.textContent, !body.querySelector("button")];
+            })()`),[highlighted,text,true]);
+          }
+          assert.ok(await ev(`(async () => {
+            const code = document.querySelector(".tutor-answer pre code");
+            const button = document.querySelector(".tutor-copy");
+            let copied;
+            Object.defineProperty(navigator, "clipboard", {configurable:true,value:{writeText:async text=>{copied=text;}}});
+            try { await button.onclick(); return copied === code.textContent; }
+            finally { delete navigator.clipboard; }
+          })()`));
+        }
         if(width>=1024){
           const text=await ev('document.querySelector("#qText").textContent');
           await ev('document.querySelector("#tutorAsk").focus()');
@@ -172,6 +224,7 @@ async function browserChecks(){
         assert.equal(observed.at(-1).history.length,2);
         assert.equal(observed.at(-1).history[1].server_tool_calls.length,1);
         assert.equal(observed.at(-1).web,false);
+        assert.equal(observed.at(-1).mode,"free");
         await ev('document.querySelector("#nextBtn").click()');
         assert.equal(await ev('document.querySelector("#tutorLog").textContent'),"");
         await ev('document.querySelector("#prevBtn").click()');
@@ -192,6 +245,9 @@ async function browserChecks(){
         await ev('document.querySelector("#tutorExplain").click();document.querySelector("#tutorStop").click()');
         await until('document.querySelector("#tutorStatus").textContent.includes("已停止")');
         assert.ok(await ev('document.querySelector("#tutorStop").hidden'));
+        await ev('document.querySelector("#tutorHint").click()');
+        await until('document.querySelector("#tutorStop").hidden');
+        assert.equal(observed.at(-1).mode,"hint");
         console.log(width+"px 布局、解锁、排版、联网来源、断流重试与切题通过");
       } finally {c.close();}
     }
