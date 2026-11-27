@@ -60,6 +60,12 @@ function serve() {
         correct:Q.session.answers[0].allCorrect};
     })()`);
     ok(r.size === 20 && r.scoped && r.rendered && r.correct, 'Linux 网络编程：只练作业三，首题代码照原文显示，原卷 C 判对', r);
+    try {
+      await require('./practice-scope.cjs').checkPracticeScope(c, BASE);
+      ok(true, 'Linux 网络编程：全选按当前题单开始，保留同名旧进度');
+    } catch (error) {
+      ok(false, 'Linux 网络编程：全选按当前题单开始，保留同名旧进度', error.message);
+    }
     await fresh('aigc/');
     r = await c.ev(`(async()=>{ ${start}
       const bySource = Q.session.queue.every((q,i)=>q===QUESTIONS[i]);

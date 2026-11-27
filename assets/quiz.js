@@ -826,8 +826,10 @@ $("startBtn").onclick = ()=>{
   if($("onlyNew").checked){
     pool = pool.filter(q=>!isDone(q)); label += "（没做过的）";
     if(!pool.length){ showAlert("选中的" + CFG.catWord + "里，每道题你都做过了。\n去掉「只练没做过的题」就能再练一遍。"); return; }
+    startQuiz(pool, label, true);
+    return;
   }
-  startQuiz(pool, label, true);
+  startQuiz(pool, label, true, practiceSlot(pool, label));
 };
 
 /* ===================== 练习会话 ===================== */
@@ -926,6 +928,23 @@ function clearProgress(slot){
   if(!(slot in all)) return;
   delete all[slot]; saveJSON(LS_PROGS, all);
 }
+function practiceSlot(questionPool, scopeLabel){
+  const all = loadProgs();
+  let match;
+  for(const [slot, saved] of Object.entries(all)){
+    if((saved.scopeLabel || slot)!==scopeLabel || !Array.isArray(saved.ids) || saved.ids.length!==questionPool.length) continue;
+    const ids = new Set(saved.ids);
+    if(questionPool.every(q=>ids.has(q.id)) && (!match || num(saved.savedAt)>num(all[match].savedAt))) match = slot;
+  }
+  if(match) return match;
+  const occupied = slot=>Object.prototype.hasOwnProperty.call(all, slot);
+  if(!occupied(scopeLabel)) return scopeLabel;
+  // 同名旧题单保留自己的存档。题数只用于命名，续练之前仍核对全部题目。
+  const base = `${scopeLabel}（${questionPool.length}题）`;
+  let slot = base;
+  for(let n=2; occupied(slot); n++) slot = `${base} #${n}`;
+  return slot;
+}
 function loadSaved(slot){
   const s = loadProgs()[slot];
   if(!s || !Array.isArray(s.ids) || !Array.isArray(s.answers)) return null;
@@ -970,7 +989,7 @@ function renderResumeCard(){
     // 「重新开始」「删除」会丢掉已经答过的进度：答过题就先问一句
     row.querySelector(".resume-restart").onclick = async ()=>{
       if(n && !await showConfirm(`「${name}」已经答了 ${n}/${r.queue.length} 题。\n重新开始会从第 1 题开始，这份进度会清掉，确定吗？\n（错题本、做过的题、标记都不受影响）`)) return;
-      startQuiz(r.queue, name, false);
+      startQuiz(r.queue, name, false, slot);
     };
     row.querySelector(".resume-del").onclick = async ()=>{
       if(n && !await showConfirm(`删除「${name}」这份进度（已答 ${n}/${r.queue.length} 题）？\n错题本、做过的题、标记都不受影响。`)) return;
@@ -990,11 +1009,11 @@ function questionGroup(q){
 
 /* fromEntry＝从入口（开始练习 / 不会的 / 错题本…）进来：这个范围有没做完的进度就接着做，不覆盖。
    false＝明确要从头来（重新开始、结果页的重练）：覆盖这个范围的那一份 */
-async function startQuiz(questionPool, scopeLabel, fromEntry){
+async function startQuiz(questionPool, scopeLabel, fromEntry, slot=scopeLabel){
   if(fromEntry){
-    const r = loadSaved(scopeLabel);
+    const r = loadSaved(slot);
     if(r && r.saved.answers.some(Boolean)){
-      resumeSlot(scopeLabel);
+      resumeSlot(slot);
       toast(`「${scopeLabel}」上次做到第 ${r.saved.idx+1} 题，接着做。想从头来：在「进行中的练习」里点「重新开始」`, 3600);
       return;
     }
@@ -1008,7 +1027,7 @@ async function startQuiz(questionPool, scopeLabel, fromEntry){
   });
   activeSince = null;
   for(const k in ansView) delete ansView[k];   // 「逐空对照」切换只记这一次练习
-  session = { queue: pool, idx: 0, answers: new Array(pool.length).fill(null), drafts: {}, elapsed: 0, scopeLabel, slot: scopeLabel, sid: newSid(), savedAt: Date.now() };
+  session = { queue: pool, idx: 0, answers: new Array(pool.length).fill(null), drafts: {}, elapsed: 0, scopeLabel, slot, sid: newSid(), savedAt: Date.now() };
   showScreen("quiz"); renderQuestion();
 }
 function currentQ(){ return session.queue[session.idx]; }
@@ -1840,7 +1859,7 @@ function finishQuiz(){
   showScreen("result");
 }
 $("backToQuizBtn").onclick = ()=>{ session.finished = false; session.savedAt = Date.now(); showScreen("quiz"); renderQuestion(); };
-$("retryAllBtn").onclick = ()=>startQuiz(session.queue, session.scopeLabel, false);
+$("retryAllBtn").onclick = ()=>startQuiz(session.queue, session.scopeLabel, false, session.slot);
 $("retryWrongBtn").onclick = ()=>{
   const list = session.queue.filter((q,i)=>session.answers[i] && !session.answers[i].allCorrect);
   if(!list.length){ showAlert("本次没有错题，太棒了！"); return; }
